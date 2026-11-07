@@ -1,12 +1,15 @@
-"""Branchement dynamique de la page d'accueil et du panneau superadmin.
+"""Branchement dynamique de la page d'accueil, des statistiques (étape 2b) et du panneau superadmin.
 
 1. SA-Panneau.dc.html :
+   - Bandeau synthétique des statistiques réelles (Campagne, Visites, Événements, Sécurité)
    - Pré-remplit les champs et réglages depuis GET /api/admin/settings/home
+   - Récupère les métriques en direct depuis GET /api/admin/stats
    - Détecte toute modification (texte, sélecteurs, interrupteurs, ordre)
    - Sauvegarde vers PUT /api/admin/settings/home lors du clic sur « Enregistrer »
    - Rétablit les valeurs en cas de clic sur « Annuler »
 
 2. Main.dc.html, index.html, M-Accueil.dc.html, T-Accueil.dc.html :
+   - Enregistre anonymement la visite via POST /api/views (sans cookies, sans IP)
    - Charge les réglages depuis le cache immédiat (localStorage) et l'API GET /api/settings/home
    - Applique en direct :
      • Coordonnées (adresse, courriel, facebook, lien itinéraire)
@@ -20,6 +23,42 @@
 import json, re, pathlib
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+
+STATS_BANNER_HTML = r'''   <!-- Bandeau des statistiques réelles (étape 2b) -->
+   <div id="sa-stats-banner" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin:2px 0 6px">
+    <div style="background:#fff;border:1px solid #E4D9C0;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:3px">
+     <div style="display:flex;align-items:center;justify-content:space-between;color:#7A5A1E;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">
+      <span>Campagne</span>
+      <span style="font-size:15px">💰</span>
+     </div>
+     <div id="stat-campagne-val" style="font-size:20px;font-weight:800;color:#0E4D3C" class="tnum">—</div>
+     <div id="stat-campagne-sub" style="font-size:12px;color:#4F5E57" class="tnum">—</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E4D9C0;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:3px">
+     <div style="display:flex;align-items:center;justify-content:space-between;color:#7A5A1E;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">
+      <span>Visites du site</span>
+      <span style="font-size:15px">👁️</span>
+     </div>
+     <div id="stat-visits-val" style="font-size:20px;font-weight:800;color:#0E4D3C" class="tnum">—</div>
+     <div id="stat-visits-sub" style="font-size:12px;color:#4F5E57" class="tnum">—</div>
+    </div>
+    <div style="background:#fff;border:1px solid #E4D9C0;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:3px">
+     <div style="display:flex;align-items:center;justify-content:space-between;color:#7A5A1E;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">
+      <span>Événements</span>
+      <span style="font-size:15px">📅</span>
+     </div>
+     <div id="stat-events-val" style="font-size:20px;font-weight:800;color:#0E4D3C" class="tnum">—</div>
+     <div id="stat-events-sub" style="font-size:12px;color:#4F5E57" class="tnum">—</div>
+    </div>
+    <div id="stat-card-sec" style="background:#fff;border:1px solid #E4D9C0;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:3px">
+     <div style="display:flex;align-items:center;justify-content:space-between;color:#7A5A1E;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">
+      <span>Sécurité & Accès</span>
+      <span style="font-size:15px">🛡️</span>
+     </div>
+     <div id="stat-sec-val" style="font-size:20px;font-weight:800;color:#0E4D3C" class="tnum">—</div>
+     <div id="stat-sec-sub" style="font-size:12px;color:#4F5E57" class="tnum">—</div>
+    </div>
+   </div>'''
 
 PANNEAU_SYNC_SCRIPT = r'''<script id="sa-panneau-sync">
 (function() {
@@ -93,6 +132,51 @@ PANNEAU_SYNC_SCRIPT = r'''<script id="sa-panneau-sync">
     var sw = document.querySelector('button.sw[aria-label="' + label + '"]');
     if (sw) return sw.getAttribute('aria-checked') === 'true';
     return fallback != null ? fallback : true;
+  }
+
+  function loadStats() {
+    fetch('/api/admin/stats', { credentials: 'same-origin' })
+      .then(function(r) { return r.ok ? r.json() : null; })
+      .then(function(d) {
+        if (!d || !d.ok) return;
+
+        // 1. Campagne
+        if (d.campagne) {
+          var cVal = document.getElementById('stat-campagne-val');
+          var cSub = document.getElementById('stat-campagne-sub');
+          if (cVal) cVal.textContent = (d.campagne.recolte || 0).toLocaleString('fr-CA') + ' $';
+          if (cSub) cSub.textContent = (d.campagne.pct || 0) + ' % de ' + (d.campagne.objectif || 0).toLocaleString('fr-CA') + ' $';
+        }
+
+        // 2. Visites
+        if (d.visits) {
+          var vVal = document.getElementById('stat-visits-val');
+          var vSub = document.getElementById('stat-visits-sub');
+          if (vVal) vVal.textContent = (d.visits.total || 0).toLocaleString('fr-CA') + ' visites';
+          if (vSub) vSub.textContent = (d.visits.today || 0) + ' aujourd’hui · ' + (d.visits.week || 0) + ' ces 7 jours';
+        }
+
+        // 3. Événements
+        if (d.events) {
+          var eVal = document.getElementById('stat-events-val');
+          var eSub = document.getElementById('stat-events-sub');
+          if (eVal) eVal.textContent = (d.events.count || 0) + ' événement(s)';
+          if (eSub) eSub.textContent = (d.events.registrations || 0) + ' inscription(s)';
+        }
+
+        // 4. Sécurité
+        var secCard = document.getElementById('stat-card-sec');
+        if (d.security) {
+          if (secCard) secCard.style.display = '';
+          var sVal = document.getElementById('stat-sec-val');
+          var sSub = document.getElementById('stat-sec-sub');
+          if (sVal) sVal.textContent = (d.security.activeAdmins || 0) + ' compte(s) actif(s)';
+          if (sSub) sSub.textContent = (d.security.activeSessions || 0) + ' session(s) · ' + (d.security.recentFailures || 0) + ' échec récent';
+        } else if (secCard) {
+          secCard.style.display = 'none';
+        }
+      })
+      .catch(function() {});
   }
 
   function populateUI(s) {
@@ -342,6 +426,8 @@ PANNEAU_SYNC_SCRIPT = r'''<script id="sa-panneau-sync">
         }
       })
       .catch(function() {});
+
+    loadStats();
   }
 
   document.addEventListener('input', function() { markDirty(); });
@@ -380,6 +466,7 @@ PANNEAU_SYNC_SCRIPT = r'''<script id="sa-panneau-sync">
           lastSettings = JSON.parse(JSON.stringify(d.settings || payload));
           setStatus(false, 'Tout est enregistré');
           toast('Réglages enregistrés. Le site est à jour.');
+          loadStats();
         } else {
           btn.removeAttribute('disabled');
           toast('Erreur : ' + (d.message || 'La sauvegarde a échoué.'));
@@ -830,11 +917,26 @@ PUBLIC_HOME_SYNC_SCRIPT = r'''<script id="ascil-home-sync">
     }
   }
 
+  // 1. Enregistrement anonyme de la visite (sans cookies, sans IP)
+  try {
+    var pName = location.pathname || '/';
+    if (!sessionStorage.getItem('ascil_viewed_' + pName)) {
+      sessionStorage.setItem('ascil_viewed_' + pName, '1');
+      fetch('/api/views', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: pName })
+      }).catch(function() {});
+    }
+  } catch (e) {}
+
+  // 2. Cache local immédiat
   try {
     var cached = localStorage.getItem('ascil_home_settings');
     if (cached) applySettings(JSON.parse(cached));
   } catch (e) {}
 
+  // 3. Mise à jour en direct
   function syncLive() {
     fetch('/api/settings/home')
       .then(function(r) { return r.ok ? r.json() : null; })
@@ -856,7 +958,7 @@ PUBLIC_HOME_SYNC_SCRIPT = r'''<script id="ascil-home-sync">
 </script>
 '''
 
-def update_file(path, script_tag, script_id):
+def update_file(path, script_tag, script_id, inject_html=None, inject_anchor=None):
     content = path.read_text(encoding='utf-8')
     m = re.search(r'<script type="__bundler/template">(.*?)</script>', content, re.S)
     if not m:
@@ -866,6 +968,13 @@ def update_file(path, script_tag, script_id):
     # Supprime toute version antérieure de ce script
     pat = re.compile(r'<script id="' + re.escape(script_id) + r'">.*?</script>\s*', re.S)
     tpl = pat.sub('', tpl)
+
+    # Injection HTML optionnelle (ex. bandeau stats)
+    if inject_html and inject_anchor and inject_anchor in tpl:
+        # Supprime ancienne version du bandeau si présente
+        tpl = re.sub(r'\s*<!-- Bandeau des statistiques réelles \(étape 2b\) -->.*?</div>\s*</div>', '', tpl, flags=re.S)
+        idx_anchor = tpl.index(inject_anchor) + len(inject_anchor)
+        tpl = tpl[:idx_anchor] + '\n' + inject_html + tpl[idx_anchor:]
 
     # Insère immédiatement avant </body>
     idx_body = tpl.rindex('</body>')
@@ -881,9 +990,10 @@ def update_file(path, script_tag, script_id):
     print(f"Modifié avec succès : {path.name} (script #{script_id})")
 
 def main():
-    # 1. Panneau superadmin
+    # 1. Panneau superadmin (avec bandeau stats)
     panneau = ROOT / 'SA-Panneau.dc.html'
-    update_file(panneau, PANNEAU_SYNC_SCRIPT, 'sa-panneau-sync')
+    intro_anchor = 'L’aperçu change tout de suite ; le site, après <strong>Enregistrer</strong>.</p>\n   </div>'
+    update_file(panneau, PANNEAU_SYNC_SCRIPT, 'sa-panneau-sync', inject_html=STATS_BANNER_HTML, inject_anchor=intro_anchor)
 
     # 2. Pages d'accueil publiques
     for name in ['Main.dc.html', 'index.html', 'M-Accueil.dc.html', 'T-Accueil.dc.html']:
