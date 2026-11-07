@@ -2,7 +2,7 @@
 // Configuration de l'événement et de la jauge (titre, dates, places, options).
 import { requireRole } from '../../../_lib/guard.js';
 import { json, error, readJson } from '../../../_lib/http.js';
-import { logAudit } from '../../../_lib/auth.js';
+import { audit } from '../../../_lib/auth.js';
 import { DEFAULT_SETTINGS, cleanEventRegistrationSettings } from '../../../_lib/settings.js';
 
 export async function onRequestGet({ request, env }) {
@@ -78,11 +78,11 @@ export async function onRequestPut({ request, env }) {
       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
     `).bind('event_registration', jsonStr, now).run();
 
-    await logAudit(db, admin.id, 'events.settings_update', 'event_registration', {
+    await audit(db, admin.id, 'events.settings_update', request, 'settings:event_registration', {
       event_title: cleaned.event_title,
       total_seats: cleaned.total_seats,
       is_open: cleaned.is_open,
-    }, request.headers.get('cf-connecting-ip') || '');
+    });
   } catch (err) {
     console.error('save event settings error:', err);
     return error(500, 'db_error', 'Échec de la sauvegarde des paramètres.');

@@ -2,7 +2,7 @@
 // Liste des inscrits, recherche, synthèse et annulation d'une inscription.
 import { requireRole } from '../../../_lib/guard.js';
 import { json, error, readJson } from '../../../_lib/http.js';
-import { logAudit } from '../../../_lib/auth.js';
+import { audit } from '../../../_lib/auth.js';
 
 export async function onRequestGet({ request, env }) {
   const { admin, response } = await requireRole(env, request, ['superadmin', 'events', 'editor']);
@@ -97,11 +97,11 @@ export async function onRequestDelete({ request, env }) {
 
     await db.prepare("UPDATE event_registrations SET status = 'cancelled' WHERE id = ?").bind(id).run();
 
-    await logAudit(db, admin.id, 'events.registration_cancel', `registration_${id}`, {
+    await audit(db, admin.id, 'events.registration_cancel', request, `registration:${id}`, {
       code: existing.code,
       name: existing.name,
       attendees_count: existing.attendees_count,
-    }, request.headers.get('cf-connecting-ip') || '');
+    });
 
     return json({ ok: true, cancelled_id: id });
   } catch (err) {
