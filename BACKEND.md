@@ -17,8 +17,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | Site entier | « Bannière d'alerte » (clé `alert`) : bande en haut de toutes les pages publiques, avec message, lien, période et couleur | en ligne |
 | Site entier | « Mode du site » (clé `season`) : bandeau Ramadan / Aïd en haut de l'accueil pendant la période ; « Langues » (clé `languages`) : langues proposées dans le sélecteur | fait, à pousser |
 | 5a | Créer une page : base (`custom_pages`, `page_redirects`) et API (créer, lire, modifier, dupliquer, supprimer) | en ligne |
-| 5b | Créer une page : écrans « Mes pages » et éditeur (blocs Texte, Bouton, Tableau) | fait, à pousser |
-| 5c | Créer une page : affichage public `/p/<lien>` (publiée, lien privé, brouillon pour les comptes connectés) | à faire |
+| 5b | Créer une page : écrans « Mes pages » et éditeur (blocs Texte, Bouton, Tableau) | en ligne |
+| 5c | Créer une page : affichage public `/p/<lien>` (publiée, lien privé, brouillon pour les comptes connectés) | fait, à pousser |
 | 5d | Créer une page : pages proposées dans les sélecteurs de liens du panneau | à faire |
 | 4 | Horaires, annonces, dons : API sur les tables existantes `prayer_times`, `announcements`, `donations`, `events` | à faire |
 
@@ -75,6 +75,10 @@ et les textes ne sont pas traduits : les langues ne règlent que ce que propose 
   - `GET/PUT/DELETE /api/admin/pages/:id` ; changer le lien crée une redirection depuis l'ancien ;
   - `POST /api/admin/pages/:id/duplicate` (copie en brouillon) ;
   - règles (lien, blocs Texte / Bouton / Tableau, limites) dans `functions/_lib/custom-pages.js`.
+- **Pages publiques** : `GET /p/<lien>` (`functions/p/[slug].js`), rendu serveur sans script
+  (`functions/_lib/render-page.js`) : publiée = visible et indexée ; lien privé = visible, jamais indexée ;
+  brouillon = comptes connectés seulement (bandeau), sinon page introuvable ; ancienne adresse = 301 ;
+  mise en page « avec menu et pied » = en-tête, pied et bannière d'alerte du site ; « vierge » = sans.
 - **Statistiques** : `GET /api/admin/stats`.
 - **Visites** : `POST /api/views`, qui ne compte que les pages connues du site.
 - **Événements, côté public** :
@@ -120,4 +124,5 @@ Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `-
 - Connexion : 5 échecs en 15 minutes, par IP ou par identifiant, bloquent pendant 15 minutes.
 - Écritures refusées si elles ne viennent pas du site (en-tête `Origin`).
 - `functions/`, `migrations/`, `scripts/`, `wrangler.toml` ne sont jamais servis.
-- `_routes.json` limite les Functions à l'API, au superadmin et aux pages publiques masquables.
+- `_routes.json` limite les Functions à l'API, au superadmin, aux pages publiques masquables et à `/p/*`.
+- `/p/<lien>` : en-tête `Content-Security-Policy` sans aucun script, tout texte échappé.

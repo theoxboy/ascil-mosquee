@@ -2,6 +2,8 @@
   "version": 1,
   "include": [
     "/api/*",
+    "/p/*",
+    "/p",
     "/superadmin",
     "/superadmin.html",
     "/SA-*",
