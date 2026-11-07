@@ -8,7 +8,8 @@
    (saison, langues, bannière) le diront honnêtement au lieu de prétendre être enregistrés.
    « Compte et sécurité » affiche les vraies données de la session (voir wire_account()).
 
-2. Toutes les pages publiques : un petit script lit GET /api/settings/pages et retire du menu,
+2. Toutes les pages publiques : la bannière d'alerte (GET /api/settings/alert, si active et dans
+   sa période) en haut de page, et un petit script qui lit GET /api/settings/pages et retire du menu,
    du pied de page et des contenus les liens vers une page masquée. L'adresse directe d'une page
    masquée est déjà renvoyée vers l'accueil par le serveur (functions/_middleware.js).
 
@@ -89,7 +90,7 @@ COMPONENT_PATCHES = [
 def wire_panel():
     path = ROOT / 'SA-Site.dc.html'
     s, i, j, tpl = load(path)
-    if 'savePages()' in tpl:
+    if 'savePages()' in tpl or 'saveAll()' in tpl:
         print('SA-Site.dc.html : déjà branché')
         return
     for a, b in COMPONENT_PATCHES:
@@ -138,15 +139,91 @@ PUBLIC_SCRIPT = r'''<script id="ascil-pages-sync">
 '''
 
 
+# ---------------------------------------------------------------- 5. Bannière d'alerte (site public)
+ALERT_SCRIPT = r"""<script id="ascil-alert-banner">
+(function () {
+  var FILES = { pg_horaires: 'Horaires', pg_apropos: 'APropos', pg_services: 'Services', pg_dons: 'Dons',
+    pg_evenements: 'Evenements', pg_ressources: 'Ressources', pg_contact: 'Contact', pg_cours: 'N2-Cours',
+    pg_mariages: 'N2-Mariages', pg_funerailles: 'N2-Funerailles', pg_aide: 'N2-AideAlimentaire',
+    pg_femmes: 'N2-EspaceFemmes', pg_khutba: 'N2-Khutba', pg_rappel: 'N3-Rappel', pg_campagne: 'N3-Campagne',
+    pg_calendrier: 'N3-Calendrier', pg_inscription: 'N3-Inscription', pg_dua: 'N3-Dua' };
+  // Couleurs du site ; contrastes texte / fond : blanc sur vert 9,6:1, encre sur or 6,9:1, blanc sur rouge 6,5:1.
+  var TONES = {
+    info: { bg: '#0E4D3C', fg: '#FFFFFF', label: 'Information' },
+    attention: { bg: '#C49A4A', fg: '#1E2B26', label: 'Attention' },
+    urgent: { bg: '#B3261E', fg: '#FFFFFF', label: 'Urgent' }
+  };
+  var ICON = { info: '<circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path>',
+    alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"></path><path d="M12 9v4"></path><path d="M12 17h.01"></path>' };
+  var banner = null;
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function build(a) {
+    var t = TONES[a.tone] || TONES.attention;
+    var el = document.createElement('div');
+    el.id = 'ascil-alert';
+    el.setAttribute('role', 'region');
+    el.setAttribute('aria-label', 'Information importante');
+    el.style.cssText = 'position:relative;z-index:60;background:' + t.bg + ';color:' + t.fg +
+      ';font:600 15px/1.45 "Noto Sans",system-ui,sans-serif;padding:10px 16px';
+    var row = document.createElement('div');
+    row.style.cssText = 'max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;text-align:center';
+    var svg = '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+      'stroke-linecap="round" stroke-linejoin="round" style="flex:none">' + (a.tone === 'info' ? ICON.info : ICON.alert) + '</svg>';
+    row.innerHTML = svg;
+    var msg = document.createElement('p');
+    msg.style.cssText = 'margin:0;min-width:0;overflow-wrap:anywhere';
+    var sr = document.createElement('span');
+    sr.textContent = t.label + ' : ';
+    sr.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap';
+    msg.appendChild(sr);
+    msg.appendChild(document.createTextNode(a.message));
+    row.appendChild(msg);
+    var href = a.link && a.link.type === 'page' && FILES[a.link.page] ? FILES[a.link.page] + '.dc.html'
+      : a.link && a.link.type === 'url' ? a.link.url : '';
+    if (href) {
+      var link = document.createElement('a');
+      link.href = href;
+      link.textContent = 'En savoir plus';
+      link.style.cssText = 'color:inherit;text-decoration:underline;text-underline-offset:3px;display:inline-flex;align-items:center;min-height:24px;padding:2px 4px';
+      if (a.link.type === 'url') { link.target = '_blank'; link.rel = 'noopener'; }
+      row.appendChild(link);
+    }
+    el.appendChild(row);
+    return el;
+  }
+  function place() {
+    if (!banner || !document.body) return;
+    if (document.body.firstChild !== banner) document.body.insertBefore(banner, document.body.firstChild);
+  }
+  fetch('/api/settings/alert', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !d.ok) return;
+      var a = d.settings, now = today();
+      if (!a.on || !a.message) return;
+      if (a.from && now < a.from) return;
+      if (a.to && now > a.to) return;
+      banner = build(a);
+      place();
+      new MutationObserver(place).observe(document.body, { childList: true });
+    }, function () {});
+})();
+</script>
+"""
+
+
 def wire_public():
     n = 0
     for path in sorted(ROOT.glob('*.dc.html')) + [ROOT / 'index.html']:
         if path.name.startswith('SA-'):
             continue
         s, i, j, tpl = load(path)
-        tpl = re.sub(r'<script id="ascil-pages-sync">.*?</script>\s*', '', tpl, flags=re.S)
+        tpl = re.sub(r'<script id="ascil-(?:pages-sync|alert-banner)">.*?</script>\s*', '', tpl, flags=re.S)
         k = tpl.rindex('</body>')
-        tpl = tpl[:k] + PUBLIC_SCRIPT + tpl[k:]
+        tpl = tpl[:k] + PUBLIC_SCRIPT + ALERT_SCRIPT + tpl[k:]
         save(path, s, i, j, tpl)
         n += 1
     print('pages publiques reliées :', n)
@@ -331,7 +408,159 @@ def wire_account():
     print('SA-Site.dc.html : Compte et sécurité relié aux vraies données')
 
 
+# ---------------------------------------------------------------- 4. Bannière d'alerte (panneau)
+# Liste des liens possibles : uniquement de vraies pages du site (la maquette proposait une page
+# inventée), ou une adresse externe saisie dans un champ dédié.
+ALERT_LINKS = [
+    ('', 'Aucun lien'),
+    ('pg_horaires', 'Page : Horaires du mois'), ('pg_evenements', 'Page : Événements'),
+    ('pg_inscription', 'Page : Inscription aux événements'), ('pg_dons', 'Page : Faire un don'),
+    ('pg_campagne', 'Page : Campagne en direct'), ('pg_contact', 'Page : Contact'),
+    ('pg_apropos', 'Page : À propos'), ('pg_services', 'Page : Services'), ('pg_ressources', 'Page : Ressources'),
+    ('__url', 'Lien externe…'),
+]
+
+ALERT_CARD_PATCHES = [
+    ('<input class="in" id="f4" type="text" value="La mosquée est fermée ce soir à cause de la tempête." placeholder="Message court">',
+     '<input class="in" id="f4" type="text" value="" maxlength="200" placeholder="Ex. La mosquée est fermée ce soir à cause de la tempête." aria-describedby="alert-msg-hint">'
+     '<p class="hint" id="alert-msg-hint">200 caractères au plus. La bannière ne s’affiche que si un message est saisi.</p>'),
+    ('<sc-raw-select class="in" id="f5"><option>Page : Horaires du mois</option><option>Ma page : Inscriptions Ramadan 2027</option><option>Lien externe…</option></sc-raw-select></div>',
+     '<sc-raw-select class="in" id="f5">' + ''.join('<option>' + label + '</option>' for _, label in ALERT_LINKS) + '</sc-raw-select>'
+     '<div id="alert-url-wrap" style="display:none;flex-direction:column;gap:6px;margin-top:8px">'
+     '<label class="lbl" for="alert-url">Adresse du lien externe</label>'
+     '<input class="in" id="alert-url" type="url" placeholder="https://…" maxlength="500"></div></div>'),
+    ('<input class="in tnum" id="f6" type="date" value="2026-11-10">',
+     '<input class="in tnum" id="f6" type="date" value="" aria-describedby="alert-dates-hint">'),
+    ('<input class="in tnum" id="f7" type="date" value="2026-11-11"></div></div>',
+     '<input class="in tnum" id="f7" type="date" value=""></div></div>'
+     '<p class="hint" id="alert-dates-hint" style="margin:-4px 0 0">Laissez vide pour afficher dès maintenant, ou sans date de fin.</p>'),
+    ('<button type="button" aria-pressed="false">Information (vert)</button><button type="button" aria-pressed="true">Attention (or)</button><button type="button" aria-pressed="false">Urgent (rouge)</button>',
+     '<button type="button" data-alert-tone="info" aria-pressed="false">Information (vert)</button>'
+     '<button type="button" data-alert-tone="attention" aria-pressed="true">Attention (or)</button>'
+     '<button type="button" data-alert-tone="urgent" aria-pressed="false">Urgent (rouge)</button>'),
+]
+
+ALERT_METHODS = """  alertLinks() { return __ALERT_LINKS__; }
+  readAlertForm() {
+    const v = (id) => { const e = document.getElementById(id); return e ? e.value : ''; };
+    const sel = document.getElementById('f5');
+    const label = sel && sel.selectedIndex > -1 ? sel.options[sel.selectedIndex].text.trim() : '';
+    const found = this.alertLinks().find((x) => x[1] === label);
+    const key = found ? found[0] : '';
+    const pressed = document.querySelector('[data-alert-tone][aria-pressed="true"]');
+    return {
+      on: !!this.state.on.alerte,
+      message: v('f4').replace(/\\s+/g, ' ').trim(),
+      link: key === '__url' ? { type: 'url', url: v('alert-url').trim() } : key ? { type: 'page', page: key } : { type: 'none' },
+      from: v('f6'), to: v('f7'),
+      tone: pressed ? pressed.getAttribute('data-alert-tone') : 'attention'
+    };
+  }
+  setAlertForm(a) {
+    const set = (id, val) => { const e = document.getElementById(id); if (e) e.value = val || ''; };
+    set('f4', a.message); set('f6', a.from); set('f7', a.to);
+    const key = a.link && a.link.type === 'url' ? '__url' : a.link && a.link.type === 'page' ? a.link.page : '';
+    const sel = document.getElementById('f5');
+    if (sel) {
+      const label = (this.alertLinks().find((x) => x[0] === key) || this.alertLinks()[0])[1];
+      for (let i = 0; i < sel.options.length; i++) if (sel.options[i].text.trim() === label) sel.selectedIndex = i;
+    }
+    set('alert-url', a.link && a.link.type === 'url' ? a.link.url : '');
+    this.showAlertUrl();
+    document.querySelectorAll('[data-alert-tone]').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-alert-tone') === a.tone)));
+  }
+  showAlertUrl() {
+    const w = document.getElementById('alert-url-wrap'), sel = document.getElementById('f5');
+    if (w && sel) w.style.display = sel.selectedIndex > -1 && sel.options[sel.selectedIndex].text.trim() === 'Lien externe…' ? 'flex' : 'none';
+  }
+  alertDirty() {
+    if (!this.alertBase) return false;
+    return JSON.stringify(this.readAlertForm()) !== JSON.stringify(Object.assign({}, this.alertBase, { on: !!this.base.alerte }));
+  }
+  listenAlert() {
+    const inCard = (t) => t && t.closest && t.closest('section[aria-label="Bannière d’alerte"]');
+    const changed = (e) => { if (inCard(e.target)) { this.showAlertUrl(); this.forceUpdate(); } };
+    document.addEventListener('input', changed);
+    document.addEventListener('change', changed);
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('[data-alert-tone]');
+      if (!b) return;
+      document.querySelectorAll('[data-alert-tone]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      this.forceUpdate();
+    });
+  }
+  loadAlert() {
+    fetch('/api/admin/settings/alert', { credentials: 'same-origin' })
+      .then((r) => r.json().catch(() => ({ ok: false })))
+      .then((d) => {
+        if (!d.ok) { this.flash(d.message || 'Impossible de charger la bannière d’alerte. Rechargez la page.'); return; }
+        this.alertBase = d.settings;
+        this.base = Object.assign({}, this.base, { alerte: d.settings.on });
+        this.setState({ on: Object.assign({}, this.state.on, { alerte: d.settings.on }) });
+        this.setAlertForm(d.settings);
+      })
+      .catch(() => this.flash('Impossible de joindre le serveur. Vérifiez votre connexion et rechargez la page.'));
+  }
+  saveAll() {
+    if (this.saving) return;
+    const alert = this.readAlertForm();
+    if (alert.on && !alert.message) { this.flash('Écrivez le message de la bannière, ou désactivez-la.'); document.getElementById('f4') && document.getElementById('f4').focus(); return; }
+    if (alert.link.type === 'url' && !/^https?:\\/\\/\\S{3,}$/i.test(alert.link.url)) { this.flash('L’adresse du lien externe doit commencer par https://'); return; }
+    this.saving = true;
+    const on = this.state.on, pages = {};
+    Object.keys(on).forEach((k) => { if (k.indexOf('pg_') === 0 && k !== 'pg_accueil') pages[k] = !!on[k]; });
+    this.flash('Enregistrement…');
+    const put = (key, body) => fetch('/api/admin/settings/' + key, {
+      method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    }).then((r) => r.json().catch(() => ({ ok: false })));
+    Promise.all([put('pages', pages), put('alert', alert)])
+      .then(([p, a]) => {
+        this.saving = false;
+        if (!p.ok || !a.ok) { this.flash((!p.ok ? p : a).message || 'L’enregistrement a échoué. Réessayez.'); return; }
+        this.alertBase = a.settings;
+        this.base = Object.assign({}, this.base, p.settings, { alerte: a.settings.on });
+        this.setAlertForm(a.settings);
+        this.forceUpdate();
+        const rest = Object.keys(this.state.on).some((k) => (k === 'mode_auto' || k.indexOf('lang_') === 0) && this.state.on[k] !== this.base[k]);
+        this.flash(rest
+          ? 'Pages et bannière enregistrées. Le mode du site et les langues ne sont pas encore reliés : ils n’ont pas été enregistrés.'
+          : 'Réglages enregistrés. Le site est à jour.');
+      })
+      .catch(() => { this.saving = false; this.flash('Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.'); });
+  }
+"""
+
+
+def wire_alert_panel():
+    path = ROOT / 'SA-Site.dc.html'
+    s, i, j, tpl = load(path)
+    if 'saveAll()' in tpl:
+        print('SA-Site.dc.html : bannière déjà branchée')
+        return
+    for a, b in ALERT_CARD_PATCHES:
+        assert tpl.count(a) == 1, a[:70]
+        tpl = tpl.replace(a, b)
+    methods = ALERT_METHODS.replace('__ALERT_LINKS__', json.dumps([list(x) for x in ALERT_LINKS], ensure_ascii=False))
+    # savePages() est remplacé par saveAll() (pages + bannière en un seul « Enregistrer »).
+    tpl, n = re.subn(r'  savePages\(\) \{.*?\n  \}\n(?=  flash\()', lambda m: methods, tpl, count=1, flags=re.S)
+    assert n == 1, 'savePages introuvable'
+    patches = [
+        ('  componentDidMount() {\n', '  componentDidMount() {\n    this.listenAlert();\n    this.loadAlert();\n'),
+        ('const dirty = Object.keys(on).some((k) => on[k] !== this.base[k]);',
+         'const dirty = Object.keys(on).some((k) => on[k] !== this.base[k]) || this.alertDirty();'),
+        ('      save: () => this.savePages(),', '      save: () => this.saveAll(),'),
+        ("      undo: () => { this.setState({ on: Object.assign({}, this.base) }); this.flash('Changements annulés.'); },",
+         "      undo: () => { this.setState({ on: Object.assign({}, this.base) }); if (this.alertBase) this.setAlertForm(this.alertBase); this.flash('Changements annulés.'); },"),
+    ]
+    for a, b in patches:
+        assert tpl.count(a) == 1, a[:70]
+        tpl = tpl.replace(a, b)
+    save(path, s, i, j, tpl)
+    print('SA-Site.dc.html : bannière d’alerte branchée sur la base')
+
+
 if __name__ == '__main__':
     wire_panel()
+    wire_alert_panel()
     wire_account()
     wire_public()

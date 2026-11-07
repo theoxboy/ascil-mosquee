@@ -1,13 +1,13 @@
 // GET /api/settings/:key
 // Renvoie les réglages publics actifs pour la clé donnée (ex. "home").
 import { json, error } from '../../_lib/http.js';
-import { DEFAULT_SETTINGS, cleanHomeSettings, cleanPagesSettings } from '../../_lib/settings.js';
+import { DEFAULT_SETTINGS, GENERIC_KEYS, PUBLIC_KEYS } from '../../_lib/settings.js';
 
 export async function onRequestGet({ env, params }) {
   const key = String(params.key || '').trim().toLowerCase();
   if (!key) return error(400, 'bad_key', 'Clé de réglage requise.');
   // Lecture publique limitée aux réglages affichés sur le site.
-  if (!['home', 'pages'].includes(key)) return error(404, 'not_found', 'Aucun réglage trouvé pour cette clé.');
+  if (!PUBLIC_KEYS.includes(key)) return error(404, 'not_found', 'Aucun réglage trouvé pour cette clé.');
 
   let settings = null;
   let updatedAt = null;
@@ -33,12 +33,7 @@ export async function onRequestGet({ env, params }) {
     return error(404, 'not_found', 'Aucun réglage trouvé pour cette clé.');
   }
 
-  if (key === 'home') {
-    settings = cleanHomeSettings(settings);
-  }
-  if (key === 'pages') {
-    settings = cleanPagesSettings(settings);
-  }
+  settings = GENERIC_KEYS[key].clean(settings);
 
   return json(
     { ok: true, key, settings, updatedAt },

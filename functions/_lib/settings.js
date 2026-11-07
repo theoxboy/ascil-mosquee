@@ -244,10 +244,43 @@ export async function readEventRegistrationSettings(db) {
   return { ...DEFAULT_SETTINGS.event_registration };
 }
 
+// « Site entier → Saison et langues → Bannière d'alerte » : bande en haut de toutes les pages publiques.
+// Désactivée tant que rien n'est enregistré.
+DEFAULT_SETTINGS.alert = { on: false, message: '', link: { type: 'none' }, from: '', to: '', tone: 'attention' };
+const ALERT_TONES = ['info', 'attention', 'urgent'];
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+export function cleanAlertSettings(input) {
+  const def = DEFAULT_SETTINGS.alert;
+  const i = input && typeof input === 'object' ? input : {};
+  const day = (v) => (typeof v === 'string' && ISO_DAY.test(v) ? v : '');
+  const out = {
+    on: typeof i.on === 'boolean' ? i.on : def.on,
+    message: typeof i.message === 'string' ? i.message.replace(/\s+/g, ' ').trim().slice(0, 200) : '',
+    link: { type: 'none' },
+    from: day(i.from),
+    to: day(i.to),
+    tone: ALERT_TONES.includes(i.tone) ? i.tone : def.tone,
+  };
+  const l = i.link && typeof i.link === 'object' ? i.link : {};
+  if (l.type === 'page' && Object.prototype.hasOwnProperty.call(PAGE_FILES, l.page)) {
+    out.link = { type: 'page', page: l.page };
+  } else if (l.type === 'url' && typeof l.url === 'string' && /^https?:\/\/[^\s]{3,}$/i.test(l.url.trim()) && l.url.length <= 500) {
+    out.link = { type: 'url', url: l.url.trim() };
+  }
+  // Période à l'envers : on garde le début, on efface la fin plutôt que de ne jamais afficher.
+  if (out.from && out.to && out.to < out.from) out.to = '';
+  return out;
+}
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
 export const GENERIC_KEYS = {
   home: { roles: ['superadmin', 'editor'], clean: cleanHomeSettings },
   pages: { roles: ['superadmin', 'editor'], clean: cleanPagesSettings },
+  alert: { roles: ['superadmin', 'editor'], clean: cleanAlertSettings },
 };
+
+// Réglages lisibles publiquement par /api/settings/:key.
+export const PUBLIC_KEYS = ['home', 'pages', 'alert'];

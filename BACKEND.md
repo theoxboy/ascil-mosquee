@@ -14,7 +14,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | 2b | Statistiques réelles (`page_views`, `/api/admin/stats`) et bandeau du panneau Accueil | en ligne |
 | 2c | Inscriptions aux événements (`event_registrations`, clé `event_registration`), panneau Événements, export CSV | en ligne |
 | Site entier | « Pages publiées » (clé `pages`) ; « Compte et sécurité » avec les vraies données de session | en ligne |
-| Site entier | « Saison et langues » (mode Ramadan / Aïd, langues, bannière d'alerte) | à faire |
+| Site entier | « Bannière d'alerte » (clé `alert`) : bande en haut de toutes les pages publiques, avec message, lien, période et couleur | fait, à pousser |
+| Site entier | « Saison et langues » : mode Ramadan / Aïd et langues | à faire |
 | 3 | Pages créées dans le superadmin (`custom_pages`, blocs, lien `/p/<slug>`, brouillon / publiée) | à faire |
 | 4 | Horaires, annonces, dons : API sur les tables existantes `prayer_times`, `announcements`, `donations`, `events` | à faire |
 
@@ -45,10 +46,12 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES ('0006_dates_iso_et_limites.sq
 |---|---|---|---|
 | `home` | superadmin, editor | `PUT /api/admin/settings/home` | `GET /api/settings/home` |
 | `pages` | superadmin, editor | `PUT /api/admin/settings/pages` | `GET /api/settings/pages` + middleware |
+| `alert` | superadmin, editor | `PUT /api/admin/settings/alert` | `GET /api/settings/alert` |
 | `event_registration` | superadmin, events | `PUT /api/admin/events/settings` | `GET /api/events/registration-info` |
 
 La route générique `/api/admin/settings/:key` n'accepte que les clés de `GENERIC_KEYS`
 (`functions/_lib/settings.js`), chacune avec ses rôles et sa validation : aucune clé arbitraire.
+La lecture publique `/api/settings/:key` est limitée à `PUBLIC_KEYS` (`home`, `pages`, `alert`).
 `updated_at` est toujours une date ISO, `updated_by` l'id du compte.
 
 ## Routes
@@ -82,7 +85,8 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
    **Il relance lui-même les étapes 2 à 4**, sauf avec `--sans-branchements`.
 2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
 3. `scripts/wire_events.py` : inscriptions publiques, panneau Événements.
-4. `scripts/wire_site.py` : Site entier (Pages publiées, Compte et sécurité) et masquage des pages sur le site public.
+4. `scripts/wire_site.py` : Site entier (Pages publiées, bannière d'alerte, Compte et sécurité), et sur le site public :
+   masquage des pages et affichage de la bannière d'alerte.
 
 Les scripts 2 à 4 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
