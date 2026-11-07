@@ -16,8 +16,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | Site entier | « Pages publiées » (clé `pages`) ; « Compte et sécurité » avec les vraies données de session | en ligne |
 | Site entier | « Bannière d'alerte » (clé `alert`) : bande en haut de toutes les pages publiques, avec message, lien, période et couleur | en ligne |
 | Site entier | « Mode du site » (clé `season`) : bandeau Ramadan / Aïd en haut de l'accueil pendant la période ; « Langues » (clé `languages`) : langues proposées dans le sélecteur | fait, à pousser |
-| 5a | Créer une page : base (`custom_pages`, `page_redirects`) et API (créer, lire, modifier, dupliquer, supprimer) | fait, à pousser |
-| 5b | Créer une page : écrans « Mes pages » et éditeur (blocs Texte, Bouton, Tableau) | à faire |
+| 5a | Créer une page : base (`custom_pages`, `page_redirects`) et API (créer, lire, modifier, dupliquer, supprimer) | en ligne |
+| 5b | Créer une page : écrans « Mes pages » et éditeur (blocs Texte, Bouton, Tableau) | fait, à pousser |
 | 5c | Créer une page : affichage public `/p/<lien>` (publiée, lien privé, brouillon pour les comptes connectés) | à faire |
 | 5d | Créer une page : pages proposées dans les sélecteurs de liens du panneau | à faire |
 | 4 | Horaires, annonces, dons : API sur les tables existantes `prayer_times`, `announcements`, `donations`, `events` | à faire |
@@ -96,18 +96,19 @@ Les pages `SA-*` sont générées depuis la maquette, puis « branchées » sur 
 modifient les pages générées. Régénérer sans rebrancher efface les branchements.
 
 1. `scripts/install_superadmin.py /Users/mac/Documents/mosque/superadmin.html .` régénère les pages `SA-*`.
-   **Il relance lui-même les étapes 2 à 5**, sauf avec `--sans-branchements`.
+   **Il relance lui-même les étapes 2 à 6**, sauf avec `--sans-branchements`.
 2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
 3. `scripts/wire_events.py` : inscriptions publiques, panneau Événements.
 4. `scripts/wire_site.py` : tout Site entier (pages publiées, mode du site, langues, bannière d'alerte, compte et sécurité),
    et sur le site public : masquage des pages, bannière d'alerte, sélecteur de langues, bandeau de saison (accueil).
 
-5. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
+5. `scripts/wire_pages.py` : Créer une page (« Mes pages » et l'éditeur `SA-PageEditeur.dc.html?id=<page>`).
+6. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
    avec `value="…"` dans la maquette devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
    de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
-   `defaultChecked`). Les scripts 2 à 4 s'appuient sur les attributs d'origine, d'où cet ordre.
+   `defaultChecked`). Les scripts 2 à 5 s'appuient sur les attributs d'origine, d'où cet ordre.
 
-Les scripts 2 à 5 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
+Les scripts 2 à 6 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
 
 Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `--reset` pour un nouveau mot de passe).
