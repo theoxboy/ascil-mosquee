@@ -9,7 +9,7 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml`).
 | Étape | Contenu | État |
 |---|---|---|
 | 1 | Compte superadmin (un seul, imposé par la base), sessions, limitation des essais, journal ; connexion et déconnexion reliées au frontend ; pages `SA-*` protégées côté serveur | **fait, testé en local sur une copie du schéma de prod** |
-| 2 | Réglages des widgets de l'accueil (`site_settings`, JSON versionné) + API + bouton « Enregistrer » du panneau ; l'accueil public lit ces réglages | à faire |
+| 2 | Réglages des widgets de l'accueil (`site_settings`, JSON versionné) + API + bouton « Enregistrer » du panneau ; l'accueil public lit ces réglages | **fait, testé en local** |
 | 3 | Pages créées dans le superadmin (`custom_pages`, blocs, lien personnalisable `/p/<slug>`, brouillon / publiée) | à faire |
 | 4 | Événements, annonces, dons : API sur les tables existantes `events`, `announcements`, `donations` (+ `prayer_times` pour les horaires) | à faire |
 | 5 | Journal des modifications affiché dans « Site entier », export / import des réglages | à faire |
