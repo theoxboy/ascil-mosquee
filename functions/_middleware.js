@@ -2,10 +2,10 @@
 // (API, pages superadmin, fichiers du dépôt qui ne doivent pas être servis).
 import { currentAdmin } from './_lib/auth.js';
 import { error, sameOrigin } from './_lib/http.js';
+import { canOpenPage, homeFor, pageKey } from './_lib/roles.js';
 
 const PRIVATE = [/^\/functions(\/|$)/, /^\/migrations(\/|$)/, /^\/scripts(\/|$)/, /^\/wrangler\.toml$/, /^\/_routes\.json$/, /^\/\.git/];
 const LOGIN_PAGES = [/^\/superadmin(\.html)?$/, /^\/SA-Connexion\.dc(\.html)?$/];
-const ADMIN_PAGE = /^\/SA-[A-Za-z]+\.dc(\.html)?$/;
 
 const PAGE_HEADERS = {
   'Cache-Control': 'no-store',
@@ -46,12 +46,18 @@ export async function onRequest(context) {
   }
 
   const isLogin = LOGIN_PAGES.some((re) => re.test(path));
-  if (isLogin || ADMIN_PAGE.test(path)) {
+  const key = isLogin ? null : pageKey(path);
+  if (isLogin || key) {
     const admin = env.DB ? await currentAdmin(env.DB, request).catch(() => null) : null;
     if (isLogin) {
-      if (admin) return redirect('/SA-Panneau.dc.html');
+      // Connecté : on file vers sa page d'accueil, sauf s'il doit d'abord changer son mot de passe.
+      if (admin && !admin.mustChangePassword) return redirect(homeFor(admin.role));
     } else if (!admin) {
       return redirect('/superadmin.html?next=' + encodeURIComponent(path + url.search));
+    } else if (admin.mustChangePassword) {
+      return redirect('/superadmin.html');
+    } else if (!canOpenPage(admin.role, key)) {
+      return redirect(homeFor(admin.role));
     }
     return withHeaders(await next(), PAGE_HEADERS);
   }

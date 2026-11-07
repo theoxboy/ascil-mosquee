@@ -85,7 +85,7 @@ export async function currentAdmin(db, request) {
   const id = await sha256Hex(token);
   const now = Date.now();
   const row = await db.prepare(
-    `SELECT s.id AS sid, s.last_seen_at, a.id, a.username, a.role, a.display_name
+    `SELECT s.id AS sid, s.last_seen_at, a.id, a.username, a.role, a.display_name, a.must_change_password
        FROM admin_sessions s JOIN admins a ON a.id = s.admin_id
       WHERE s.id = ? AND s.expires_at > ? AND a.is_active = 1`
   ).bind(id, now).first();
@@ -93,7 +93,8 @@ export async function currentAdmin(db, request) {
   if (now - row.last_seen_at > 5 * 60 * 1000) {
     await db.prepare('UPDATE admin_sessions SET last_seen_at = ? WHERE id = ?').bind(now, id).run();
   }
-  return { id: row.id, username: row.username, role: row.role, displayName: row.display_name, sessionId: row.sid };
+  return { id: row.id, username: row.username, role: row.role, displayName: row.display_name,
+    mustChangePassword: row.must_change_password === 1, sessionId: row.sid };
 }
 
 export async function destroySession(db, request) {
@@ -120,6 +121,19 @@ export async function recordAttempt(db, ip, username, success) {
     db.prepare('DELETE FROM login_attempts WHERE attempted_at < ?').bind(now - 24 * 60 * 60 * 1000),
     db.prepare('DELETE FROM admin_sessions WHERE expires_at < ?').bind(now),
   ]);
+}
+
+// Mot de passe provisoire lisible à l'oral : 4 groupes de 4, sans caractères ambigus (0/O, 1/l/I).
+export function tempPassword() {
+  const alphabet = 'abcdefghjkmnpqrstuvwxyz23456789';
+  const limit = 256 - (256 % alphabet.length); // rejet pour éviter le biais du modulo
+  const chars = [];
+  while (chars.length < 16) {
+    for (const b of crypto.getRandomValues(new Uint8Array(32))) {
+      if (b < limit && chars.length < 16) chars.push(alphabet[b % alphabet.length]);
+    }
+  }
+  return chars.join('').match(/.{4}/g).join('-');
 }
 
 export async function audit(db, adminId, action, request, target = null, details = null) {

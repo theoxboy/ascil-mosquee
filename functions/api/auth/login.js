@@ -1,6 +1,7 @@
 // POST /api/auth/login  { username, password, remember }
 import { audit, clientIp, createSession, recordAttempt, tooManyAttempts, verifyPassword } from '../../_lib/auth.js';
 import { error, json, readJson } from '../../_lib/http.js';
+import { homeFor } from '../../_lib/roles.js';
 
 export async function onRequestPost({ request, env }) {
   const body = await readJson(request);
@@ -18,7 +19,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const admin = await db.prepare(
-    'SELECT id, username, role, display_name, password_hash, is_active FROM admins WHERE username = ? COLLATE NOCASE AND password_hash IS NOT NULL'
+    'SELECT id, username, role, display_name, password_hash, is_active, must_change_password FROM admins WHERE username = ? COLLATE NOCASE AND password_hash IS NOT NULL'
   ).bind(username).first();
   const ok = await verifyPassword(password, admin?.password_hash);
   if (!ok || !admin.is_active) {
@@ -32,6 +33,11 @@ export async function onRequestPost({ request, env }) {
   await db.prepare('UPDATE admins SET last_login_at = ? WHERE id = ?').bind(new Date().toISOString(), admin.id).run();
   await audit(db, admin.id, 'auth.login', request);
 
-  return json({ ok: true, admin: { username: admin.username, role: admin.role, displayName: admin.display_name } }, 200,
+  return json({
+    ok: true,
+    admin: { username: admin.username, role: admin.role, displayName: admin.display_name },
+    mustChangePassword: admin.must_change_password === 1,
+    home: homeFor(admin.role),
+  }, 200,
     { 'Set-Cookie': setCookie });
 }

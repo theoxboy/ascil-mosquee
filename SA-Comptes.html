@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Superadmin · Comptes et accès — ASCIL</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans:wght@400;500;600;700;800&family=Noto+Serif:wght@700&display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#FAF8F1}
+a{color:#0E4D3C}a:hover{color:#08362a}
+.sa{container-type:inline-size;position:relative;box-sizing:border-box;font-family:'Noto Sans',system-ui,sans-serif;color:#1E2B26;background:#FAF8F1;font-size:15px;line-height:1.5;min-height:100vh}
+.sa *{box-sizing:border-box}
+.sa button,.sa input,.sa select,.sa textarea{font:inherit;color:inherit}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.serif{font-family:'Noto Serif',Georgia,serif}
+.tnum{font-variant-numeric:tabular-nums}
+.top{display:flex;align-items:center;gap:12px;padding:10px 24px;min-height:68px;background:#0E4D3C;color:#fff;position:sticky;top:0;z-index:30}
+.role{font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;background:#C49A4A;color:#1E2B26;border-radius:999px;padding:3px 10px}
+.status{margin:0;display:flex;align-items:center;gap:8px;font-size:14px;color:#F3EAD8}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:44px;padding:0 18px;border-radius:999px;border:1.5px solid transparent;font-weight:700;font-size:15px;cursor:pointer;text-decoration:none;white-space:nowrap;background:none;position:relative;overflow:hidden;transition:background .2s ease,color .2s ease,transform .15s ease,box-shadow .2s ease,border-color .2s ease}
+.btn-gold{background:#C49A4A;color:#1E2B26}.btn-gold:hover:not([disabled]){background:#AE8436;box-shadow:0 8px 20px -10px rgba(196,154,74,.9)}
+.btn-green{background:#0E4D3C;color:#fff}.btn-green:hover:not([disabled]){background:#08362a;color:#fff}
+.btn-line{background:#fff;border-color:#E4D9C0;color:#0E4D3C}.btn-line:hover:not([disabled]){border-color:#0E4D3C}
+.btn-danger{background:#fff;border-color:#E8B4B0;color:#8C1D18}.btn-danger:hover:not([disabled]){background:#FBEAE8;border-color:#B3261E}
+.btn-onDark{background:transparent;border-color:rgba(255,255,255,.45);color:#fff}.btn-onDark:hover:not([disabled]){border-color:#fff;color:#fff}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn-sm{min-height:36px;padding:0 14px;font-size:13px}
+.ico{display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:10px;border:1.5px solid #E4D9C0;background:#fff;color:#0E4D3C;cursor:pointer;flex:none;text-decoration:none;transition:border-color .2s ease,transform .15s ease,background .2s ease}
+.ico:hover:not([disabled]){border-color:#0E4D3C;transform:translateY(-2px)}
+.in{width:100%;min-height:44px;padding:8px 12px;border-radius:10px;border:1.5px solid #CDBF9C;background:#fff;transition:border-color .2s ease,box-shadow .2s ease}
+.in:focus{outline:none;border-color:#0E4D3C;box-shadow:0 0 0 3px rgba(14,77,60,.16)}
+.in[aria-invalid="true"]{border-color:#B3261E}
+.lbl{font-weight:600;font-size:14px}
+.hint{font-size:13px;color:#4F5E57;margin:0}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.sw{position:relative;flex:none;width:52px;height:30px;border-radius:999px;border:0;background:#CFC6B1;cursor:pointer;padding:0;transition:background .15s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .3s cubic-bezier(.2,1.4,.4,1)}
+.sw[aria-checked="true"]{background:#0E4D3C}
+.sw[aria-checked="true"]::after{transform:translateX(22px)}
+.sw:hover:not([disabled]){box-shadow:0 0 0 4px rgba(196,154,74,.25)}
+.sw[disabled]{opacity:.45;cursor:not-allowed}
+.row{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:52px;padding:10px 0;border-top:1px solid #F3EAD8}
+.row:first-child{border-top:0}
+.sp{display:flex;flex-direction:column;gap:16px;scroll-margin-top:84px}
+.sp + .sp{margin-top:22px;padding-top:28px;border-top:2px solid #E4D9C0}
+.sp-h{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.eyebrow{margin:0;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7A5A1E}
+.ttl-page{margin:4px 0 0;font-size:32px;color:#0E4D3C;font-weight:700}
+.card{background:#FFFEF9;border:1px solid #E4D9C0;border-radius:18px;position:relative;transition:transform .25s ease,border-color .25s ease,box-shadow .25s ease}
+.card:hover{border-color:#C49A4A;box-shadow:0 10px 28px -18px rgba(14,77,60,.35)}
+.card-h{display:flex;align-items:center;gap:14px;padding:18px 22px}
+.card-b{padding:14px 22px 22px;border-top:1px solid #F3EAD8;display:flex;flex-direction:column;gap:16px}
+.num{flex:none;width:34px;height:34px;border-radius:10px;background:#F3EAD8;color:#0E4D3C;font-weight:800;font-size:14px;display:flex;align-items:center;justify-content:center;transition:background .25s ease,color .25s ease}
+.card:hover .num{background:#0E4D3C;color:#fff}
+.ttl{margin:0;font-size:18px;font-weight:700;color:#0E4D3C}
+.dsc{margin:2px 0 0;font-size:13px;color:#4F5E57}
+.tag{font-size:12px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+.tag-green{background:#E3F3EC;color:#0E4D3C}
+.tag-gold{background:#FBF3E0;color:#7A5A1E;border:1px solid #E8C98A}
+.tag-red{background:#FBEAE8;color:#8C1D18}
+.tag-super{background:#C49A4A;color:#1E2B26}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.g3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.info{margin:0;padding:12px 14px;border-radius:12px;background:#F7F2E4;font-size:13px;color:#4F5E57}
+.warn{margin:0;padding:14px 16px;border-radius:12px;background:#FFF4E0;border:1px solid #E8C98A;font-size:14px;color:#5C4313}
+.err{margin:0;padding:12px 14px;border-radius:12px;background:#FBEAE8;color:#8C1D18;font-size:14px}
+.ok-box{margin:0;padding:16px 18px;border-radius:14px;background:#E8F5EE;border:1.5px solid #0E4D3C;color:#0E4D3C}
+.pw-code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:18px;font-weight:800;letter-spacing:.04em;background:#fff;padding:8px 14px;border-radius:10px;border:1.5px solid #0E4D3C;color:#1E2B26;user-select:all}
+.lay{display:flex;flex-wrap:wrap;gap:28px;align-items:flex-start;max-width:1400px;margin:0 auto;padding:24px 24px 80px}
+.side{flex:0 0 230px;display:flex;flex-direction:column;gap:2px}
+.side-t{margin:0 0 8px 12px;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#7A5A1E}
+.nav a{display:flex;align-items:center;gap:8px;min-height:40px;padding:0 12px;border-radius:10px;text-decoration:none;color:#1E2B26;font-weight:600;font-size:14px;transition:background .2s ease,color .2s ease}
+.nav a:hover{background:#F3EAD8;color:#0E4D3C}
+.nav a.on{background:#0E4D3C;color:#fff}
+.side-sub{display:flex;flex-direction:column;margin:4px 0 8px 14px;padding-left:10px;border-left:2px solid #E4D9C0}
+.side-sub a{min-height:36px;font-weight:500;font-size:13px;color:#4F5E57}
+.acct-card{border:1px solid #E4D9C0;border-radius:14px;padding:16px 18px;background:#fff;display:flex;flex-direction:column;gap:12px}
+.acct-card.is-off{background:#F9F6EE;opacity:.82}
+.acct-top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.acct-meta{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:#4F5E57}
+.acct-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;padding-top:10px;border-top:1px solid #F3EAD8}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:40;background:#1E2B26;color:#fff;padding:12px 20px;border-radius:999px;font-weight:600;max-width:calc(100% - 32px);text-align:center;box-shadow:0 10px 24px rgba(0,0,0,.25)}
+.only-s{display:none !important}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid #C49A4A;outline-offset:2px}
+@container (max-width: 899px){
+ .side{display:none !important}
+ .only-s{display:flex !important}
+ .g3{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .hide-t{display:none !important}
+}
+@container (max-width: 640px){
+ .g2,.g3{grid-template-columns:minmax(0,1fr)}
+ .top{flex-wrap:wrap}
+ .top .status{order:9;width:100%}
+ .hide-m{display:none !important}
+ .card-h{flex-wrap:wrap;padding:16px}
+ .card-b{padding:12px 16px 16px}
+ .ttl-page{font-size:26px}
+ .lay{padding:16px 16px 96px}
+}
+</style>
+</head>
+<body>
+<div class="sa">
+ <header class="top">
+  <div style="display:flex;align-items:center;gap:12px">
+   <svg aria-hidden="true" width="30" height="34" viewBox="8 16 190 212" style="flex:none;overflow:visible">
+    <path d="M58 226 C48 160 62 102 122 76 C182 102 196 160 188 226 L183 226 C188 166 174 118 122 95 C74 116 62 166 66 226 Z" fill="#F3EAD8"></path>
+    <path d="M14 226 C10 186 30 160 60 148 L61 162 C38 172 24 194 22 226 Z" fill="#F3EAD8"></path>
+    <path d="M117.5 80 L122 42 L126.5 80 Z" fill="#F3EAD8"></path>
+    <g transform="rotate(-40 122 30)"><path d="M127.83 20.67 A11.00 11.00 0 1 0 127.83 39.33 A9.33 9.33 0 0 1 127.83 20.67 Z" fill="#C49A4A"></path></g>
+   </svg>
+   <span style="display:flex;flex-direction:column;line-height:1.15">
+    <span style="font-size:20px;font-weight:800">ASCIL</span>
+    <span class="hide-m" style="font-size:12px;color:#F3EAD8;font-weight:600">Panneau de gestion</span>
+   </span>
+   <span class="hide-m role lg-tag">Superadmin</span>
+  </div>
+  <span style="flex:1"></span>
+  <p class="status" id="sa-status" aria-live="polite">
+   <span aria-hidden="true" style="width:9px;height:9px;border-radius:50%;background:#67D49B"></span>
+   <span id="sa-status-txt">Accès réservé au superadmin</span>
+  </p>
+  <a class="btn btn-onDark btn-sm" href="Main.dc.html">Voir le site public</a>
+  <a class="ico" href="SA-Connexion.dc.html" aria-label="Se déconnecter" title="Se déconnecter" style="background:transparent;border-color:rgba(255,255,255,.45);color:#fff">
+   <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4M10 17l5-5-5-5M15 12H3"></path></svg>
+  </a>
+ </header>
+
+ <div class="lay">
+  <nav class="side nav" aria-label="Pages du site">
+   <p class="side-t">Pages du site</p>
+   <a href="SA-Panneau.dc.html">Accueil</a>
+   <a href="SA-Site.dc.html">Site entier</a>
+   <a href="SA-Pages.dc.html">Créer une page</a>
+   <a href="SA-Horaires.dc.html">Horaires</a>
+   <a href="SA-APropos.dc.html">À propos</a>
+   <a href="SA-Services.dc.html">Services</a>
+   <a href="SA-Dons.dc.html">Faire un don</a>
+   <a href="SA-Evenements.dc.html">Événements</a>
+   <a href="SA-Ressources.dc.html">Ressources</a>
+   <a href="SA-Contact.dc.html">Contact</a>
+   <a href="SA-Comptes.html" aria-current="page" class="on">Comptes</a>
+   <div class="side-sub">
+    <a href="#sp-liste">Comptes de l’équipe</a>
+    <a href="#sp-creer">Créer un compte</a>
+    <a href="#sp-roles">Rôles et accès</a>
+    <a href="#sp-mdp">Mon mot de passe</a>
+   </div>
+  </nav>
+
+  <main style="flex:999 1 560px;min-width:0;display:flex;flex-direction:column;gap:18px">
+   <div>
+    <p class="eyebrow">Administration</p>
+    <h1 class="serif ttl-page">Comptes et accès</h1>
+    <p style="margin:6px 0 0;color:#4F5E57;max-width:680px">Créez des comptes pour les bénévoles de l’ASCIL avec un accès adapté à leur rôle. Chaque nouveau compte reçoit un mot de passe provisoire et doit choisir le sien dès sa première connexion.</p>
+   </div>
+
+   <div class="only-s" style="flex-direction:column;gap:6px">
+    <label class="lbl" for="jump-page">Page à gérer</label>
+    <select class="in" id="jump-page">
+     <option>Accueil</option>
+     <option>Site entier</option>
+     <option>Créer une page</option>
+     <option>Horaires</option>
+     <option>À propos</option>
+     <option>Services</option>
+     <option>Faire un don</option>
+     <option>Événements</option>
+     <option>Ressources</option>
+     <option>Contact</option>
+     <option selected>Comptes</option>
+    </select>
+   </div>
+
+   <!-- Zone d'affichage du mot de passe provisoire (création ou réinitialisation) -->
+   <div id="temp-pw-banner" class="ok-box" role="region" aria-live="polite" hidden>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+     <div>
+      <p style="margin:0;font-weight:800;font-size:16px" id="temp-pw-title">Mot de passe provisoire généré</p>
+      <p style="margin:4px 0 12px;font-size:14px;color:#1E2B26">Transmettez cet identifiant et ce mot de passe provisoire à la personne concernée. Il ne sera plus affiché après la fermeture de cet encadré, et la personne devra choisir son propre mot de passe (12 caractères minimum) dès sa première connexion.</p>
+     </div>
+     <button type="button" class="btn btn-line btn-sm" id="temp-pw-close">Fermer</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+     <span style="font-size:14px;font-weight:700">Identifiant : <strong id="temp-pw-user"></strong></span>
+     <span class="pw-code" id="temp-pw-val"></span>
+     <button type="button" class="btn btn-green btn-sm" id="temp-pw-copy">Copier le mot de passe</button>
+    </div>
+   </div>
+
+   <!-- 1. Liste des comptes -->
+   <div id="sp-liste" class="sp">
+    <section class="card" aria-label="Comptes de l’équipe">
+     <div class="card-h">
+      <span class="num" aria-hidden="true">1</span>
+      <div style="flex:1">
+       <h2 class="ttl">Comptes de l’équipe</h2>
+       <p class="dsc">Modifiez le rôle d’un bénévole, réinitialisez son mot de passe ou désactivez son accès.</p>
+      </div>
+      <button type="button" class="btn btn-line btn-sm" id="btn-refresh">Actualiser</button>
+     </div>
+     <div class="card-b">
+      <p id="accounts-err" class="err" role="alert" hidden></p>
+      <div id="accounts-list" style="display:flex;flex-direction:column;gap:12px">
+       <p class="info">Chargement des comptes…</p>
+      </div>
+     </div>
+    </section>
+   </div>
+
+   <!-- 2. Créer un compte -->
+   <div id="sp-creer" class="sp">
+    <section class="card" aria-label="Créer un nouveau compte">
+     <div class="card-h">
+      <span class="num" aria-hidden="true">2</span>
+      <div>
+       <h2 class="ttl">Créer un compte</h2>
+       <p class="dsc">Un mot de passe provisoire sera généré automatiquement.</p>
+      </div>
+     </div>
+     <div class="card-b">
+      <form id="form-create" novalidate style="display:flex;flex-direction:column;gap:16px">
+       <div class="g2">
+        <div class="fld">
+         <label class="lbl" for="c-username">Identifiant de connexion</label>
+         <input class="in" id="c-username" name="username" type="text" autocomplete="off" placeholder="ex. benevole.evenements" required>
+         <p class="hint">3 à 40 caractères : lettres non accentuées, chiffres, points, tirets.</p>
+        </div>
+        <div class="fld">
+         <label class="lbl" for="c-display">Nom affiché</label>
+         <input class="in" id="c-display" name="displayName" type="text" autocomplete="off" placeholder="ex. Comité Événements">
+         <p class="hint">Nom visible dans le journal des modifications.</p>
+        </div>
+       </div>
+       <div class="g2">
+        <div class="fld">
+         <label class="lbl" for="c-role">Rôle et pages autorisées</label>
+         <select class="in" id="c-role" name="role">
+          <option value="editor">Éditeur — toutes les pages sauf Comptes</option>
+          <option value="events">Responsable événements — page Événements uniquement</option>
+         </select>
+        </div>
+        <div class="fld">
+         <label class="lbl" for="c-email">Courriel (facultatif)</label>
+         <input class="in" id="c-email" name="email" type="email" autocomplete="off" placeholder="ex. prenom@exemple.ca">
+        </div>
+       </div>
+       <p id="create-err" class="err" role="alert" hidden></p>
+       <div>
+        <button type="submit" class="btn btn-gold" id="btn-create">Créer le compte et générer le mot de passe</button>
+       </div>
+      </form>
+     </div>
+    </section>
+   </div>
+
+   <!-- 3. Résumé des rôles -->
+   <div id="sp-roles" class="sp">
+    <section class="card" aria-label="Rôles et accès">
+     <div class="card-h">
+      <span class="num" aria-hidden="true">3</span>
+      <div>
+       <h2 class="ttl">Rôles et pages accessibles</h2>
+       <p class="dsc">Les restrictions sont vérifiées par le serveur sur chaque page et chaque action.</p>
+      </div>
+     </div>
+     <div class="card-b">
+      <div style="overflow-x:auto;border:1px solid #E4D9C0;border-radius:12px;background:#fff">
+       <table style="border-collapse:collapse;width:100%;font-size:14px">
+        <thead>
+         <tr style="border-bottom:1px solid #E4D9C0;background:#FAF8F1">
+          <th scope="col" style="text-align:left;padding:10px 14px;color:#4F5E57;font-weight:700">Rôle</th>
+          <th scope="col" style="text-align:left;padding:10px 14px;color:#4F5E57;font-weight:700">Pages autorisées</th>
+          <th scope="col" style="text-align:left;padding:10px 14px;color:#4F5E57;font-weight:700">Gestion des comptes</th>
+         </tr>
+        </thead>
+        <tbody>
+         <tr style="border-bottom:1px solid #F3EAD8">
+          <td style="padding:10px 14px;font-weight:700"><span class="tag tag-super">Superadmin</span></td>
+          <td style="padding:10px 14px">Toutes les pages du panneau</td>
+          <td style="padding:10px 14px;color:#0E4D3C;font-weight:600">Oui (création, rôles, désactivation)</td>
+         </tr>
+         <tr style="border-bottom:1px solid #F3EAD8">
+          <td style="padding:10px 14px;font-weight:700"><span class="tag tag-green">Éditeur</span></td>
+          <td style="padding:10px 14px">Accueil, Site entier, Créer une page, Horaires, À propos, Services, Faire un don, Événements, Ressources, Contact</td>
+          <td style="padding:10px 14px;color:#4F5E57">Non</td>
+         </tr>
+         <tr>
+          <td style="padding:10px 14px;font-weight:700"><span class="tag tag-gold">Responsable événements</span></td>
+          <td style="padding:10px 14px">Uniquement la page <strong>Événements</strong></td>
+          <td style="padding:10px 14px;color:#4F5E57">Non</td>
+         </tr>
+        </tbody>
+       </table>
+      </div>
+     </div>
+    </section>
+   </div>
+
+   <!-- 4. Changer mon propre mot de passe -->
+   <div id="sp-mdp" class="sp">
+    <section class="card" aria-label="Changer mon mot de passe">
+     <div class="card-h">
+      <span class="num" aria-hidden="true">4</span>
+      <div>
+       <h2 class="ttl">Changer mon mot de passe</h2>
+       <p class="dsc">Modifie le mot de passe de votre propre compte et déconnecte vos autres appareils.</p>
+      </div>
+     </div>
+     <div class="card-b">
+      <form id="form-own-pw" novalidate style="display:flex;flex-direction:column;gap:16px">
+       <div class="g3">
+        <div class="fld">
+         <label class="lbl" for="own-cur">Mot de passe actuel</label>
+         <input class="in" id="own-cur" type="password" autocomplete="current-password" required>
+        </div>
+        <div class="fld">
+         <label class="lbl" for="own-new">Nouveau mot de passe (12 caractères min.)</label>
+         <input class="in" id="own-new" type="password" autocomplete="new-password" required>
+        </div>
+        <div class="fld">
+         <label class="lbl" for="own-new2">Confirmer le nouveau mot de passe</label>
+         <input class="in" id="own-new2" type="password" autocomplete="new-password" required>
+        </div>
+       </div>
+       <p id="own-pw-err" class="err" role="alert" hidden></p>
+       <p id="own-pw-ok" class="info" role="status" style="background:#E3F3EC;color:#0E4D3C;font-weight:600" hidden></p>
+       <div>
+        <button type="submit" class="btn btn-line" id="btn-own-pw">Mettre à jour mon mot de passe</button>
+       </div>
+      </form>
+     </div>
+    </section>
+   </div>
+  </main>
+ </div>
+
+ <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</div>
+
+<script id="sa-nav">
+(function () {
+  var PAGES = {
+    'Accueil': 'SA-Panneau.dc.html', 'Site entier': 'SA-Site.dc.html', 'Créer une page': 'SA-Pages.dc.html',
+    'Horaires': 'SA-Horaires.dc.html', 'À propos': 'SA-APropos.dc.html', 'Services': 'SA-Services.dc.html',
+    'Faire un don': 'SA-Dons.dc.html', 'Événements': 'SA-Evenements.dc.html', 'Ressources': 'SA-Ressources.dc.html',
+    'Contact': 'SA-Contact.dc.html', 'Comptes': 'SA-Comptes.html'
+  };
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || t.tagName !== 'SELECT' || t.id !== 'jump-page') return;
+    var href = PAGES[t.value.trim()];
+    if (href && location.pathname.split('/').pop() !== href) location.href = href;
+  });
+})();
+</script>
+<script id="sa-logout">
+document.addEventListener('click', function (e) {
+  var a = e.target.closest && e.target.closest('a[href="SA-Connexion.dc.html"]');
+  if (!a) return;
+  e.preventDefault();
+  a.setAttribute('aria-busy', 'true');
+  fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+    .catch(function () {})
+    .then(function () { location.href = 'superadmin.html'; });
+});
+</script>
+<script id="sa-role">
+(function () {
+  var ALLOW = { superadmin: null, editor: { not: ['SA-Comptes'] }, events: { only: ['SA-Evenements'] } };
+  var NAMES = { 'Accueil': 'SA-Panneau', 'Site entier': 'SA-Site', 'Créer une page': 'SA-Pages', 'Horaires': 'SA-Horaires',
+    'À propos': 'SA-APropos', 'Services': 'SA-Services', 'Faire un don': 'SA-Dons', 'Événements': 'SA-Evenements',
+    'Ressources': 'SA-Ressources', 'Contact': 'SA-Contact', 'Comptes': 'SA-Comptes' };
+  var me = null;
+  function ok(key) {
+    var r = ALLOW[me.role];
+    if (r === null) return true;
+    if (!r) return false;
+    return r.only ? r.only.indexOf(key) > -1 : r.not.indexOf(key) === -1;
+  }
+  function apply() {
+    if (!me) return;
+    document.querySelectorAll('.lg-tag').forEach(function (t) { if (t.textContent !== me.roleLabel) t.textContent = me.roleLabel; });
+    document.querySelectorAll('a[href^="SA-"]').forEach(function (a) {
+      var m = /^(SA-[A-Za-z]+)/.exec(a.getAttribute('href'));
+      if (m && m[1] !== 'SA-Connexion' && !ok(m[1]) && !a.hidden) { a.hidden = true; a.style.display = 'none'; }
+    });
+    document.querySelectorAll('select#jump-page option').forEach(function (o) {
+      var key = NAMES[o.textContent.trim()];
+      if (key && !ok(key) && !o.hidden) { o.hidden = true; o.disabled = true; }
+    });
+  }
+  fetch('/api/auth/me', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    if (!d || !d.ok) return;
+    me = d.admin;
+    apply();
+  }, function () {});
+})();
+</script>
+<script id="sa-comptes-js">
+(function () {
+  var listEl = document.getElementById('accounts-list');
+  var errEl = document.getElementById('accounts-err');
+  var banner = document.getElementById('temp-pw-banner');
+  var bannerTitle = document.getElementById('temp-pw-title');
+  var bannerUser = document.getElementById('temp-pw-user');
+  var bannerVal = document.getElementById('temp-pw-val');
+  var toastEl = document.getElementById('toast');
+  var toastTimer = null;
+
+  function toast(msg) {
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 3500);
+  }
+
+  function showBanner(title, username, pw) {
+    bannerTitle.textContent = title;
+    bannerUser.textContent = username;
+    bannerVal.textContent = pw;
+    banner.hidden = false;
+    banner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  document.getElementById('temp-pw-close').addEventListener('click', function () {
+    banner.hidden = true;
+    bannerVal.textContent = '';
+  });
+
+  document.getElementById('temp-pw-copy').addEventListener('click', function () {
+    var pw = bannerVal.textContent;
+    if (!pw || !navigator.clipboard) return;
+    navigator.clipboard.writeText(pw).then(function () {
+      toast('Mot de passe provisoire copié dans le presse-papiers.');
+    }, function () {});
+  });
+
+  function fmtDate(iso) {
+    if (!iso) return 'Jamais';
+    try {
+      var d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      return d.toLocaleDateString('fr-CA', { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    } catch (e) {
+      return iso;
+    }
+  }
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s == null ? '' : String(s);
+    return d.innerHTML;
+  }
+
+  function renderAccount(a) {
+    var isSuper = a.role === 'superadmin';
+    var roleBadge = isSuper
+      ? '<span class="tag tag-super">Superadmin</span>'
+      : (a.role === 'events'
+        ? '<span class="tag tag-gold">Responsable événements</span>'
+        : '<span class="tag tag-green">Éditeur</span>');
+    var statusBadge = a.isActive
+      ? '<span class="tag tag-green">Actif</span>'
+      : '<span class="tag tag-red">Désactivé</span>';
+    var tempBadge = a.mustChangePassword
+      ? '<span class="tag tag-gold" title="La personne devra choisir son propre mot de passe à sa prochaine connexion">Mot de passe provisoire</span>'
+      : '';
+
+    var html = '<div class="acct-card' + (a.isActive ? '' : ' is-off') + '" data-id="' + a.id + '" data-username="' + esc(a.username) + '">'
+      + '<div class="acct-top">'
+      + '<div>'
+      + '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'
+      + '<strong style="font-size:17px;color:#0E4D3C">' + esc(a.displayName || a.username) + '</strong>'
+      + '<span style="font-size:13px;color:#4F5E57;font-family:ui-monospace,monospace">@' + esc(a.username) + '</span>'
+      + roleBadge + statusBadge + tempBadge
+      + '</div>'
+      + '<div class="acct-meta" style="margin-top:6px">'
+      + (a.email ? '<span>Courriel : ' + esc(a.email) + '</span>' : '<span>Aucun courriel</span>')
+      + '<span>Dernière connexion : ' + esc(fmtDate(a.lastLoginAt)) + '</span>'
+      + '</div>'
+      + '</div>'
+      + '</div>';
+
+    if (isSuper) {
+      html += '<p class="hint">Compte principal de l’ASCIL (accès complet, ne peut pas être désactivé).</p>';
+    } else {
+      html += '<div class="acct-actions">'
+        + '<label class="lbl" style="display:inline-flex;align-items:center;gap:8px;font-size:13px">Rôle :'
+        + '<select class="in" data-action="role" style="width:auto;min-height:36px;padding:4px 10px;font-size:13px">'
+        + '<option value="editor"' + (a.role === 'editor' ? ' selected' : '') + '>Éditeur (toutes les pages sauf Comptes)</option>'
+        + '<option value="events"' + (a.role === 'events' ? ' selected' : '') + '>Responsable événements (Événements uniquement)</option>'
+        + '</select></label>'
+        + '<button type="button" class="btn btn-line btn-sm" data-action="reset-pw">Nouveau mot de passe provisoire</button>'
+        + '<button type="button" class="btn ' + (a.isActive ? 'btn-danger' : 'btn-green') + ' btn-sm" data-action="toggle-active" data-active="' + (a.isActive ? '1' : '0') + '">'
+        + (a.isActive ? 'Désactiver le compte' : 'Réactiver le compte')
+        + '</button>'
+        + '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function loadAccounts() {
+    errEl.hidden = true;
+    fetch('/api/admin/accounts', { credentials: 'same-origin' })
+      .then(function (r) { return r.json().catch(function () { return { ok: false, message: 'Erreur de lecture de la réponse.' }; }); })
+      .then(function (d) {
+        if (!d.ok) {
+          errEl.textContent = d.message || 'Impossible de charger les comptes.';
+          errEl.hidden = false;
+          return;
+        }
+        if (!d.accounts || !d.accounts.length) {
+          listEl.innerHTML = '<p class="info">Aucun compte trouvé.</p>';
+          return;
+        }
+        listEl.innerHTML = d.accounts.map(renderAccount).join('');
+      }, function () {
+        errEl.textContent = 'Impossible de joindre le serveur.';
+        errEl.hidden = false;
+      });
+  }
+
+  document.getElementById('btn-refresh').addEventListener('click', loadAccounts);
+
+  // Actions sur un compte (changement de rôle, activation/désactivation, réinitialisation du mot de passe)
+  listEl.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || t.getAttribute('data-action') !== 'role') return;
+    var card = t.closest('.acct-card');
+    if (!card) return;
+    var id = card.getAttribute('data-id');
+    t.disabled = true;
+    fetch('/api/admin/accounts/' + encodeURIComponent(id), {
+      method: 'PATCH',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ role: t.value })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      t.disabled = false;
+      if (!d.ok) { toast(d.message || 'Modification refusée.'); loadAccounts(); return; }
+      toast('Rôle mis à jour.');
+      loadAccounts();
+    }, function () {
+      t.disabled = false;
+      toast('Erreur réseau.');
+      loadAccounts();
+    });
+  });
+
+  listEl.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('button[data-action]');
+    if (!btn) return;
+    var card = btn.closest('.acct-card');
+    if (!card) return;
+    var id = card.getAttribute('data-id');
+    var username = card.getAttribute('data-username');
+    var act = btn.getAttribute('data-action');
+
+    if (act === 'toggle-active') {
+      var currentlyActive = btn.getAttribute('data-active') === '1';
+      btn.disabled = true;
+      fetch('/api/admin/accounts/' + encodeURIComponent(id), {
+        method: 'PATCH',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !currentlyActive })
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        btn.disabled = false;
+        if (!d.ok) { toast(d.message || 'Modification refusée.'); return; }
+        toast(currentlyActive ? 'Compte désactivé et sessions fermées.' : 'Compte réactivé.');
+        loadAccounts();
+      }, function () {
+        btn.disabled = false;
+        toast('Erreur réseau.');
+      });
+    } else if (act === 'reset-pw') {
+      btn.disabled = true;
+      fetch('/api/admin/accounts/' + encodeURIComponent(id) + '/reset-password', {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: '{}'
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        btn.disabled = false;
+        if (!d.ok) { toast(d.message || 'Impossible de réinitialiser le mot de passe.'); return; }
+        showBanner('Nouveau mot de passe provisoire généré', username, d.temporaryPassword);
+        toast('Mot de passe provisoire généré.');
+        loadAccounts();
+      }, function () {
+        btn.disabled = false;
+        toast('Erreur réseau.');
+      });
+    }
+  });
+
+  // Création d'un compte
+  var createForm = document.getElementById('form-create');
+  var createErr = document.getElementById('create-err');
+  var createBtn = document.getElementById('btn-create');
+  createForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (createBtn.disabled) return;
+    createErr.hidden = true;
+    var u = document.getElementById('c-username');
+    var dn = document.getElementById('c-display');
+    var rl = document.getElementById('c-role');
+    var em = document.getElementById('c-email');
+    u.removeAttribute('aria-invalid');
+    if (!u.value.trim()) {
+      u.setAttribute('aria-invalid', 'true');
+      createErr.textContent = 'Choisissez un identifiant de connexion.';
+      createErr.hidden = false;
+      u.focus();
+      return;
+    }
+    createBtn.disabled = true;
+    fetch('/api/admin/accounts', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: u.value.trim(),
+        displayName: dn.value.trim(),
+        role: rl.value,
+        email: em.value.trim()
+      })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      createBtn.disabled = false;
+      if (!d.ok) {
+        createErr.textContent = d.message || 'La création du compte a échoué.';
+        createErr.hidden = false;
+        if (d.code === 'username' || d.code === 'taken') { u.setAttribute('aria-invalid', 'true'); u.focus(); }
+        return;
+      }
+      var createdUser = d.account ? d.account.username : u.value.trim();
+      createForm.reset();
+      showBanner('Compte créé — mot de passe provisoire à transmettre', createdUser, d.temporaryPassword);
+      toast('Compte créé avec succès.');
+      loadAccounts();
+    }, function () {
+      createBtn.disabled = false;
+      createErr.textContent = 'Impossible de joindre le serveur.';
+      createErr.hidden = false;
+    });
+  });
+
+  // Changement du propre mot de passe du superadmin
+  var ownForm = document.getElementById('form-own-pw');
+  var ownErr = document.getElementById('own-pw-err');
+  var ownOk = document.getElementById('own-pw-ok');
+  var ownBtn = document.getElementById('btn-own-pw');
+  ownForm.addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (ownBtn.disabled) return;
+    ownErr.hidden = true;
+    ownOk.hidden = true;
+    var cur = document.getElementById('own-cur');
+    var n1 = document.getElementById('own-new');
+    var n2 = document.getElementById('own-new2');
+    if (!cur.value || !n1.value) {
+      ownErr.textContent = 'Remplissez votre mot de passe actuel et le nouveau mot de passe.';
+      ownErr.hidden = false;
+      return;
+    }
+    if (n1.value.length < 12) {
+      ownErr.textContent = 'Le nouveau mot de passe doit contenir au moins 12 caractères.';
+      ownErr.hidden = false;
+      n1.focus();
+      return;
+    }
+    if (n1.value !== n2.value) {
+      ownErr.textContent = 'Les deux nouveaux mots de passe ne correspondent pas.';
+      ownErr.hidden = false;
+      n2.focus();
+      return;
+    }
+    ownBtn.disabled = true;
+    fetch('/api/auth/password', {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current: cur.value, next: n1.value })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      ownBtn.disabled = false;
+      if (!d.ok) {
+        ownErr.textContent = d.message || 'Le changement de mot de passe a échoué.';
+        ownErr.hidden = false;
+        return;
+      }
+      ownForm.reset();
+      ownOk.textContent = 'Votre mot de passe a été mis à jour.';
+      ownOk.hidden = false;
+    }, function () {
+      ownBtn.disabled = false;
+      ownErr.textContent = 'Impossible de joindre le serveur.';
+      ownErr.hidden = false;
+    });
+  });
+
+  loadAccounts();
+})();
+</script>
+</body>
+</html>

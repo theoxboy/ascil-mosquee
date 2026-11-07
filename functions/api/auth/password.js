@@ -2,6 +2,7 @@
 // Change le mot de passe et ferme toutes les autres sessions de ce compte.
 import { audit, currentAdmin, hashPassword, verifyPassword } from '../../_lib/auth.js';
 import { error, json, readJson } from '../../_lib/http.js';
+import { homeFor } from '../../_lib/roles.js';
 
 export async function onRequestPost({ request, env }) {
   const db = env.DB;
@@ -11,6 +12,9 @@ export async function onRequestPost({ request, env }) {
   const body = await readJson(request);
   const current = typeof body?.current === 'string' ? body.current : '';
   const next = typeof body?.next === 'string' ? body.next : '';
+  if (next === current) {
+    return error(400, 'same', 'Le nouveau mot de passe doit être différent de l’actuel.');
+  }
   if (next.length < 12 || next.length > 256) {
     return error(400, 'weak', 'Le nouveau mot de passe doit contenir au moins 12 caractères. Une courte phrase fonctionne bien.');
   }
@@ -21,10 +25,10 @@ export async function onRequestPost({ request, env }) {
   }
 
   await db.batch([
-    db.prepare('UPDATE admins SET password_hash = ?, password_changed_at = ? WHERE id = ?')
+    db.prepare('UPDATE admins SET password_hash = ?, password_changed_at = ?, must_change_password = 0 WHERE id = ?')
       .bind(await hashPassword(next), new Date().toISOString(), admin.id),
     db.prepare('DELETE FROM admin_sessions WHERE admin_id = ? AND id != ?').bind(admin.id, admin.sessionId),
   ]);
   await audit(db, admin.id, 'auth.password_changed', request);
-  return json({ ok: true });
+  return json({ ok: true, home: homeFor(admin.role) });
 }

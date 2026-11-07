@@ -69,7 +69,7 @@ NAV_SCRIPT = r'''<script id="sa-nav">
     'Accueil': 'SA-Panneau.dc.html', 'Site entier': 'SA-Site.dc.html', 'Créer une page': 'SA-Pages.dc.html',
     'Horaires': 'SA-Horaires.dc.html', 'À propos': 'SA-APropos.dc.html', 'Services': 'SA-Services.dc.html',
     'Faire un don': 'SA-Dons.dc.html', 'Événements': 'SA-Evenements.dc.html', 'Ressources': 'SA-Ressources.dc.html',
-    'Contact': 'SA-Contact.dc.html'
+    'Contact': 'SA-Contact.dc.html', 'Comptes': 'SA-Comptes.html'
   };
   function labelOf(el) {
     var l = el.id && document.querySelector('label[for="' + el.id + '"]');
@@ -133,10 +133,53 @@ LOGIN_STYLE = '''<style id="sa-login-style">
 '''
 LOGIN_SCRIPT = r'''<script id="sa-login-js">
 (function () {
-  function nextUrl() {
+  function nextUrl(home) {
     var n = new URLSearchParams(location.search).get('next') || '';
-    return /^\/SA-[A-Za-z]+\.dc(\.html)?(\?[^#]*)?$/.test(n) && !/SA-Connexion/.test(n) ? n : 'SA-Panneau.dc.html';
+    return /^\/SA-[A-Za-z]+(\.dc)?(\.html)?(\?[^#]*)?$/.test(n) && !/SA-Connexion/.test(n) ? n : (home || 'SA-Panneau.dc.html');
   }
+  // Compte créé ou réinitialisé par le superadmin : il choisit d'abord son propre mot de passe.
+  function showChange(current) {
+    var login = document.getElementById('sa-login'), change = document.getElementById('sa-change');
+    if (!login || !change) return;
+    login.style.display = 'none';
+    change.style.display = 'flex';
+    var cur = document.getElementById('sa-cur');
+    if (current) { cur.value = current; document.getElementById('sa-cur-wrap').style.display = 'none'; }
+    (current ? document.getElementById('sa-new') : cur).focus();
+  }
+  fetch('/api/auth/me', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (d && d.ok && d.admin.mustChangePassword) showChange(''); }, function () {});
+  document.addEventListener('submit', function (e) {
+    var f = e.target;
+    if (!f || f.id !== 'sa-change') return;
+    e.preventDefault();
+    var cur = document.getElementById('sa-cur'), n1 = document.getElementById('sa-new'), n2 = document.getElementById('sa-new2');
+    var btn = document.getElementById('sa-change-btn'), err = document.getElementById('sa-change-err');
+    if (btn.getAttribute('aria-busy') === 'true') return;
+    [cur, n1, n2].forEach(function (x) { x.removeAttribute('aria-invalid'); });
+    show(err, '');
+    var bad = !cur.value ? [cur, 'Entrez le mot de passe provisoire reçu.']
+      : n1.value.length < 12 ? [n1, 'Le nouveau mot de passe doit contenir au moins 12 caractères. Une courte phrase fonctionne bien.']
+      : n1.value !== n2.value ? [n2, 'Les deux mots de passe ne correspondent pas. Retapez-le.'] : null;
+    if (bad) { bad[0].setAttribute('aria-invalid', 'true'); show(err, bad[1]); bad[0].focus(); return; }
+    var label = btn.innerHTML;
+    btn.setAttribute('aria-busy', 'true');
+    btn.innerHTML = '<span class="lg-spin" aria-hidden="true"></span>Enregistrement…';
+    fetch('/api/auth/password', {
+      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ current: cur.value, next: n1.value })
+    }).then(function (r) {
+      return r.json().catch(function () { return { ok: false, message: 'Le serveur ne répond pas correctement. Réessayez dans un instant.' }; });
+    }).then(function (d) {
+      if (d.ok) { location.href = nextUrl(d.home); return; }
+      btn.removeAttribute('aria-busy'); btn.innerHTML = label;
+      if (d.code === 'wrong_current') { document.getElementById('sa-cur-wrap').style.display = ''; cur.value = ''; cur.setAttribute('aria-invalid', 'true'); cur.focus(); }
+      show(err, d.message || 'L’enregistrement a échoué. Réessayez.');
+    }, function () {
+      btn.removeAttribute('aria-busy'); btn.innerHTML = label;
+      show(err, 'Impossible de joindre le serveur. Vérifiez votre connexion Internet et réessayez.');
+    });
+  });
   function show(el, msg) { if (!el) return; el.textContent = msg; el.hidden = !msg; }
   document.addEventListener('click', function (e) {
     var a = e.target.closest && e.target.closest('#sa-forgot');
@@ -169,7 +212,8 @@ LOGIN_SCRIPT = r'''<script id="sa-login-js">
     }).then(function (r) {
       return r.json().catch(function () { return { ok: false, message: 'Le serveur ne répond pas correctement. Réessayez dans un instant.' }; });
     }).then(function (d) {
-      if (d.ok) { location.href = nextUrl(); return; }
+      if (d.ok && d.mustChangePassword) { btn.removeAttribute('aria-busy'); btn.innerHTML = label; showChange(pw.value); return; }
+      if (d.ok) { location.href = nextUrl(d.home); return; }
       btn.removeAttribute('aria-busy'); btn.innerHTML = label;
       if (d.code === 'invalid') { pw.setAttribute('aria-invalid', 'true'); pw.value = ''; pw.focus(); }
       show(err, d.message || 'La connexion a échoué. Réessayez.');
@@ -181,6 +225,26 @@ LOGIN_SCRIPT = r'''<script id="sa-login-js">
 })();
 </script>
 '''
+
+
+CHANGE_FORM = (
+    '<form id="sa-change" novalidate style="display:none;flex-direction:column;gap:16px">'
+    '<div><p style="margin:0;font-weight:700;font-size:18px;color:#0E4D3C">Choisissez votre mot de passe</p>'
+    '<p style="margin:6px 0 0;font-size:14px;color:#4F5E57">Votre compte utilise un mot de passe provisoire. '
+    'Choisissez-en un à vous : 12 caractères minimum. Une courte phrase fonctionne bien.</p></div>'
+    '<div id="sa-cur-wrap" style="display:flex;flex-direction:column;gap:6px">'
+    '<label for="sa-cur" style="font-weight:600;font-size:14px">Mot de passe provisoire</label>'
+    '<input class="lg-in" id="sa-cur" type="password" autocomplete="current-password"></div>'
+    '<div style="display:flex;flex-direction:column;gap:6px">'
+    '<label for="sa-new" style="font-weight:600;font-size:14px">Nouveau mot de passe</label>'
+    '<input class="lg-in" id="sa-new" type="password" autocomplete="new-password" aria-describedby="sa-change-err"></div>'
+    '<div style="display:flex;flex-direction:column;gap:6px">'
+    '<label for="sa-new2" style="font-weight:600;font-size:14px">Confirmez le nouveau mot de passe</label>'
+    '<input class="lg-in" id="sa-new2" type="password" autocomplete="new-password"></div>'
+    '<p id="sa-change-err" class="lg-err" role="alert" hidden></p>'
+    '<button type="submit" class="lg-btn btn" id="sa-change-btn">Enregistrer mon mot de passe</button>'
+    '</form>'
+)
 
 
 def fix_login(tpl):
@@ -203,10 +267,62 @@ def fix_login(tpl):
                                '<button type="submit" class="lg-btn btn" id="sa-login-btn">' + m.group(1) + '</button>',
                      tpl, count=1, flags=re.S)
     assert n == 1
+    k = tpl.index('</form>', tpl.index('id="sa-login"')) + len('</form>')
+    tpl = tpl[:k] + CHANGE_FORM + tpl[k:]
     k = tpl.index('</head>')
     tpl = tpl[:k] + LOGIN_STYLE + tpl[k:]
     k = tpl.rindex('</body>')
     return tpl[:k] + LOGIN_SCRIPT + tpl[k:]
+
+
+# Rôle connecté : badge du haut, et menus limités aux pages que ce rôle peut ouvrir.
+# Le serveur refuse de toute façon les autres pages (functions/_lib/roles.js) ; ceci évite
+# d'afficher des liens qui ne mèneraient nulle part.
+ROLE_SCRIPT = r'''<script id="sa-role">
+(function () {
+  var ALLOW = { superadmin: null, editor: { not: ['SA-Comptes'] }, events: { only: ['SA-Evenements'] } };
+  var NAMES = { 'Accueil': 'SA-Panneau', 'Site entier': 'SA-Site', 'Créer une page': 'SA-Pages', 'Horaires': 'SA-Horaires',
+    'À propos': 'SA-APropos', 'Services': 'SA-Services', 'Faire un don': 'SA-Dons', 'Événements': 'SA-Evenements',
+    'Ressources': 'SA-Ressources', 'Contact': 'SA-Contact', 'Comptes': 'SA-Comptes' };
+  var me = null;
+  function ok(key) {
+    var r = ALLOW[me.role];
+    if (r === null) return true;
+    if (!r) return false;
+    return r.only ? r.only.indexOf(key) > -1 : r.not.indexOf(key) === -1;
+  }
+  function apply() {
+    if (!me) return;
+    document.querySelectorAll('.lg-tag').forEach(function (t) { if (t.textContent !== me.roleLabel) t.textContent = me.roleLabel; });
+    document.querySelectorAll('a[href^="SA-"]').forEach(function (a) {
+      var m = /^(SA-[A-Za-z]+)/.exec(a.getAttribute('href'));
+      if (m && m[1] !== 'SA-Connexion' && !ok(m[1]) && !a.hidden) { a.hidden = true; a.style.display = 'none'; }
+    });
+    document.querySelectorAll('select#jump-page option, select#jump option').forEach(function (o) {
+      var key = NAMES[o.textContent.trim()];
+      var sel = o.parentElement, lbl = sel.id && document.querySelector('label[for="' + sel.id + '"]');
+      if (key && lbl && lbl.textContent.trim().indexOf('Page') === 0 && !ok(key) && !o.hidden) { o.hidden = true; o.disabled = true; }
+    });
+  }
+  fetch('/api/auth/me', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    if (!d || !d.ok) return;
+    me = d.admin;
+    apply();
+    new MutationObserver(apply).observe(document.body, { childList: true, subtree: true });
+  }, function () {});
+})();
+</script>
+'''
+
+
+def add_comptes(tpl):
+    # Lien « Comptes » en fin de menu latéral, et option dans la liste « Page à gérer » (mobile, tablette).
+    tpl, n = re.subn(r'(<nav class="side nav"[^>]*>.*?)(</nav>)', r'\1<a href="SA-Comptes.html">Comptes</a>\2', tpl, count=1, flags=re.S)
+    assert n == 1
+    sel = 'jump-page' if 'id="jump-page"' in tpl else 'jump'
+    tpl, n = re.subn(r'(<sc-raw-select class="in" id="' + sel + r'">.*?)(</sc-raw-select>)', r'\1<option>Comptes</option>\2', tpl, count=1, flags=re.S)
+    assert n == 1 or 'id="' + sel + '"' not in tpl, sel  # l'éditeur de page n'a pas de liste
+    return tpl
 
 
 def fix_sa(text, out_name):
@@ -224,7 +340,9 @@ def fix_sa(text, out_name):
         tpl = fix_login(tpl)
     elif 'id="sa-logout"' not in tpl:
         k = tpl.rindex('</body>')
-        tpl = tpl[:k] + LOGOUT_SCRIPT + tpl[k:]
+        tpl = tpl[:k] + LOGOUT_SCRIPT + ROLE_SCRIPT + tpl[k:]
+        if 'href="SA-Comptes.html"' not in tpl and '<nav class="side nav"' in tpl:
+            tpl = add_comptes(tpl)
     if out_name in TITLES:
         tpl = re.sub(r'<title>.*?</title>', '<title>' + TITLES[out_name] + '</title>', tpl, count=1)
     return join(text, i, j, tpl)
