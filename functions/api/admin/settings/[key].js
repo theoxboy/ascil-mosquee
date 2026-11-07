@@ -17,6 +17,10 @@ export async function onRequestGet({ request, env, params }) {
   const { response } = await requireRole(env, request, conf.roles);
   if (response) return response;
 
+  // ?defaults=1 : valeurs d'origine (« Revenir aux valeurs d'origine » du panneau), sans rien enregistrer.
+  if (new URL(request.url).searchParams.get('defaults') === '1') {
+    return json({ ok: true, key, settings: conf.clean(DEFAULT_SETTINGS[key]), defaults: true });
+  }
   const row = await env.DB.prepare('SELECT value, updated_at, updated_by FROM site_settings WHERE key = ?').bind(key).first();
   let saved = null;
   try { saved = row && row.value ? JSON.parse(row.value) : null; } catch { saved = null; }

@@ -1,6 +1,6 @@
 """Branchement dynamique de la page d'accueil, des statistiques (étape 2b) et du panneau superadmin.
 
-1. SA-Panneau.dc.html :
+1. SA-Panneau.dc.html (la logique de la page est remplacée par scripts/panneau_component.js) :
    - Bandeau synthétique des statistiques réelles (Campagne, Visites, Événements, Sécurité)
    - Pré-remplit les champs et réglages depuis GET /api/admin/settings/home
    - Récupère les métriques en direct depuis GET /api/admin/stats
@@ -62,76 +62,21 @@ STATS_BANNER_HTML = r'''   <!-- Bandeau des statistiques réelles (étape 2b) --
 
 PANNEAU_SYNC_SCRIPT = r'''<script id="sa-panneau-sync">
 (function() {
+  // Panneau Accueil : enregistrement réel (PUT /api/admin/settings/home) et statistiques.
+  // Les interrupteurs, l'ordre, les cartes, les annonces et les heures vivent dans la logique de la
+  // page (window.__saHome, voir scripts/panneau_component.js) ; ce script gère les autres champs.
   var lastSettings = null;
-  var isDirty = false;
+  var DOM_FIELDS = ['f-mail', 'f-fb', 'f-adr', 'f-ville', 'f-map', 'f-dur', 'f-h1', 'f-h2', 'f-obj', 'f-rec',
+    'f-int', 'f-sui', 'f-tous', 'f-bv', 'f-inv', 'f-tcom', 'f-cciq'];
 
-  function setStatus(dirty, msg) {
-    isDirty = dirty;
-    var dot = document.querySelector('header.top p.status span.sdot');
-    var statusTxt = document.querySelector('header.top p.status');
-    var saveBtn = document.querySelector('header.top button.btn-gold');
-    var cancelBtn = document.querySelector('header.top button.btn-onDark');
-
-    if (dot) dot.style.background = dirty ? '#C49A4A' : '#7FB89F';
-    if (statusTxt) {
-      var sdot = statusTxt.querySelector('span.sdot');
-      statusTxt.innerHTML = '';
-      if (sdot) statusTxt.appendChild(sdot);
-      statusTxt.appendChild(document.createTextNode(msg || (dirty ? 'Changements non enregistrés' : 'Tout est enregistré')));
-    }
-    if (saveBtn) {
-      if (dirty) saveBtn.removeAttribute('disabled');
-      else saveBtn.setAttribute('disabled', 'true');
-    }
-    if (cancelBtn) {
-      if (dirty) cancelBtn.removeAttribute('disabled');
-      else cancelBtn.setAttribute('disabled', 'true');
-    }
-  }
-
-  function markDirty() {
-    setStatus(true);
-  }
-
-  function toast(msg) {
-    var t = document.getElementById('__sa_toast');
-    if (!t) {
-      t = document.createElement('div');
-      t.id = '__sa_toast';
-      t.style.cssText = 'position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:9999;background:#1E2B26;color:#fff;padding:12px 24px;border-radius:999px;font-weight:600;font-size:14px;box-shadow:0 10px 24px rgba(0,0,0,.25);transition:opacity .3s ease';
-      document.body.appendChild(t);
-    }
-    t.textContent = msg;
-    t.style.opacity = '1';
-    t.hidden = false;
-    clearTimeout(t._timer);
-    t._timer = setTimeout(function() {
-      t.style.opacity = '0';
-      setTimeout(function() { t.hidden = true; }, 300);
-    }, 2800);
-  }
-
-  function setVal(id, v) {
-    var el = document.getElementById(id);
-    if (el && v != null) el.value = v;
-  }
-  function getVal(id) {
-    var el = document.getElementById(id);
-    return el ? el.value.trim() : '';
-  }
-
-  function setSwitch(label, on) {
-    var sw = document.querySelector('button.sw[aria-label="' + label + '"]');
-    if (sw) {
-      sw.setAttribute('aria-checked', on ? 'true' : 'false');
-      if (on) sw.style.background = '#0E4D3C';
-      else sw.style.background = '#CFC6B1';
-    }
-  }
-  function getSwitch(label, fallback) {
-    var sw = document.querySelector('button.sw[aria-label="' + label + '"]');
-    if (sw) return sw.getAttribute('aria-checked') === 'true';
-    return fallback != null ? fallback : true;
+  function bridge() { return window.__saHome; }
+  function toast(msg) { var b = bridge(); if (b) b.flash(msg); }
+  function setVal(id, v) { var el = document.getElementById(id); if (el && v != null) el.value = v; }
+  function getVal(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+  function fmt(n) { return String(n || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+  function api(url, opt) {
+    return fetch(url, Object.assign({ credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } }, opt || {}))
+      .then(function(r) { return r.json().catch(function() { return { ok: false }; }); });
   }
 
   function loadStats() {
@@ -178,324 +123,143 @@ PANNEAU_SYNC_SCRIPT = r'''<script id="sa-panneau-sync">
       })
       .catch(function() {});
   }
-
-  function populateUI(s) {
+  function populateDom(s) {
     if (!s) return;
-    lastSettings = JSON.parse(JSON.stringify(s));
-
     if (s.general) {
-      setVal('f-mail', s.general.email);
-      setVal('f-fb', s.general.facebook);
-      setVal('f-adr', s.general.address);
-      setVal('f-ville', s.general.city);
-      setVal('f-map', s.general.mapUrl);
+      setVal('f-mail', s.general.email); setVal('f-fb', s.general.facebook); setVal('f-adr', s.general.address);
+      setVal('f-ville', s.general.city); setVal('f-map', s.general.mapUrl);
     }
-
     if (s.chargement) setVal('f-dur', s.chargement.duration === 'rapide' ? 'Rapide (environ 1,5 s)' : 'Normale (environ 3 s)');
-
-    if (s.hero) {
-      setVal('f-h1', s.hero.h1);
-      setVal('f-h2', s.hero.h2);
-    }
-
-    if (s.priere) {
-      setVal('h-0', s.priere.fajr);
-      setVal('h-1', s.priere.lever);
-      setVal('h-2', s.priere.dohr);
-      setVal('h-3', s.priere.jumua);
-      setVal('h-4', s.priere.asr);
-      setVal('h-5', s.priere.maghreb);
-      setVal('h-6', s.priere.icha);
-    }
-
-    if (s.acces && Array.isArray(s.acces.cartes)) {
-      s.acces.cartes.forEach(function(c, i) {
-        setVal('k-' + i, c.lien);
-      });
-    }
-
+    if (s.hero) { setVal('f-h1', s.hero.h1); setVal('f-h2', s.hero.h2); }
     if (s.campagne) {
-      setVal('f-obj', s.campagne.objectif ? String(s.campagne.objectif).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : '350 000');
-      setVal('f-rec', s.campagne.recolte ? String(s.campagne.recolte).replace(/\B(?=(\d{3})+(?!\d))/g, ' ') : '0');
-      setVal('f-int', s.campagne.btnInterac);
-      setVal('f-sui', s.campagne.btnSuivre);
+      setVal('f-obj', fmt(s.campagne.objectif || 350000)); setVal('f-rec', fmt(s.campagne.recolte || 0));
+      setVal('f-int', s.campagne.btnInterac); setVal('f-sui', s.campagne.btnSuivre);
     }
-
-    if (s.annonces) {
-      setVal('f-tous', s.annonces.btnTous);
-      if (Array.isArray(s.annonces.items)) {
-        s.annonces.items.forEach(function(item, idx) {
-          setVal('a-d-' + idx, item.date);
-          setVal('a-t-' + idx, item.titre);
-          setVal('a-r-' + idx, item.resume);
-          setVal('a-l-' + idx, item.lien);
-        });
-      }
-    }
-
+    if (s.annonces) setVal('f-tous', s.annonces.btnTous);
     if (s.bienvenue) setVal('f-bv', s.bienvenue.lien);
     if (s.invitation) setVal('f-inv', s.invitation.lien);
-
-    if (s.pied) {
-      setVal('f-tcom', s.pied.tcom);
-      setVal('f-cciq', s.pied.cciq);
-    }
-
-    if (s.on) {
-      setSwitch('Afficher l’écran de chargement', s.on.chargement !== false);
-      setSwitch('Afficher le bandeau du haut', s.on.bandeau !== false);
-      setSwitch('Compte à rebours', s.on.compte !== false);
-      setSwitch('Courriel', s.on.mail !== false);
-      setSwitch('Lien Facebook', s.on.fb !== false);
-      setSwitch('Bouton « Faire un don »', s.on.don !== false);
-      setSwitch('Sélecteur de langue', s.on.langue !== false);
-      setSwitch('Horaires', s.on.horaires !== false);
-      setSwitch('À propos', s.on.apropos !== false);
-      setSwitch('Services', s.on.services !== false);
-      setSwitch('Événements', s.on.evenements !== false);
-      setSwitch('Ressources', s.on.ressources !== false);
-      setSwitch('Contact', s.on.contact !== false);
-      setSwitch('Afficher le héros', s.on.hero !== false);
-      setSwitch('Afficher la prochaine prière', s.on.priere !== false);
-      setSwitch('Date hégirienne', s.on.hegirien !== false);
-      setSwitch('Barre de progression', s.on.progression !== false);
-      setSwitch('Puces des prières', s.on.puces !== false);
-      setSwitch('Afficher les accès rapides', s.on.acces !== false);
-      setSwitch('Afficher la campagne', s.on.campagne !== false);
-      setSwitch('Barre de progression de la campagne', s.on.barre !== false);
-      setSwitch('Afficher les annonces', s.on.annonces !== false);
-      setSwitch('Afficher Bienvenue aux visiteurs', s.on.bienvenue !== false);
-      setSwitch('Afficher l’invitation', s.on.invitation !== false);
-      setSwitch('Afficher le bouton Revenir en haut', s.on.haut !== false);
-      setSwitch('Horaires résumés', s.on.pHor !== false);
-      setSwitch('Bouton « Itinéraire »', s.on.pIti !== false);
-      setSwitch('Page Facebook de l’ASCIL', s.on.pFb !== false);
-      setSwitch('TCOM — annonces Ramadan et Aïd', s.on.pTcom !== false);
-      setSwitch('CCIQ — annonces Ramadan et Aïd', s.on.pCciq !== false);
-    }
-
-    setStatus(false, 'Tout est enregistré');
+    if (s.pied) { setVal('f-tcom', s.pied.tcom); setVal('f-cciq', s.pied.cciq); }
   }
 
-  function collectPayload() {
-    var cleanNum = function(v) { return parseInt(String(v || '').replace(/[^\d]/g, ''), 10) || 0; };
-    var durVal = getVal('f-dur');
-    var isRapide = durVal.toLowerCase().indexOf('rapide') !== -1;
-
-    var ordre = [];
-    var NAME_TO_ID = {
-      'Accès rapides': 'acces',
-      'Campagne nouveau lieu': 'campagne',
-      'Dernières annonces': 'annonces',
-      'Bienvenue aux visiteurs': 'bienvenue',
-      'Invitation': 'invitation'
-    };
-    var olItems = document.querySelectorAll('#w-ordre ol li.item');
-    olItems.forEach(function(li) {
-      for (var name in NAME_TO_ID) {
-        if (li.textContent.indexOf(name) !== -1) {
-          ordre.push(NAME_TO_ID[name]);
-          break;
-        }
-      }
-    });
-    if (!ordre.length) {
-      ordre = lastSettings && lastSettings.ordre ? lastSettings.ordre : ['acces', 'campagne', 'annonces', 'bienvenue', 'invitation'];
-    }
-
+  function collect() {
+    var num = function(v) { return parseInt(String(v || '').replace(/[^\d]/g, ''), 10) || 0; };
+    var part = bridge().part();
     return {
-      general: {
-        email: getVal('f-mail') || 'associationrdl.ascil@gmail.com',
-        facebook: getVal('f-fb') || 'https://www.facebook.com/',
-        address: getVal('f-adr') || '174 rue Lafontaine',
-        city: getVal('f-ville') || 'Rivière-du-Loup (Québec)',
-        mapUrl: getVal('f-map') || 'https://maps.google.com/?q=174+rue+Lafontaine+Riviere-du-Loup'
-      },
-      ordre: ordre,
-      on: {
-        chargement: getSwitch('Afficher l’écran de chargement'),
-        bandeau: getSwitch('Afficher le bandeau du haut'),
-        compte: getSwitch('Compte à rebours'),
-        mail: getSwitch('Courriel'),
-        fb: getSwitch('Lien Facebook'),
-        don: getSwitch('Bouton « Faire un don »'),
-        langue: getSwitch('Sélecteur de langue'),
-        horaires: getSwitch('Horaires'),
-        apropos: getSwitch('À propos'),
-        services: getSwitch('Services'),
-        evenements: getSwitch('Événements'),
-        ressources: getSwitch('Ressources'),
-        contact: getSwitch('Contact'),
-        hero: getSwitch('Afficher le héros'),
-        priere: getSwitch('Afficher la prochaine prière'),
-        hegirien: getSwitch('Date hégirienne'),
-        progression: getSwitch('Barre de progression'),
-        puces: getSwitch('Puces des prières'),
-        acces: getSwitch('Afficher les accès rapides'),
-        campagne: getSwitch('Afficher la campagne'),
-        barre: getSwitch('Barre de progression de la campagne'),
-        annonces: getSwitch('Afficher les annonces'),
-        bienvenue: getSwitch('Afficher Bienvenue aux visiteurs'),
-        invitation: getSwitch('Afficher l’invitation'),
-        haut: getSwitch('Afficher le bouton Revenir en haut'),
-        pHor: getSwitch('Horaires résumés'),
-        pIti: getSwitch('Bouton « Itinéraire »'),
-        pFb: getSwitch('Page Facebook de l’ASCIL'),
-        pTcom: getSwitch('TCOM — annonces Ramadan et Aïd'),
-        pCciq: getSwitch('CCIQ — annonces Ramadan et Aïd'),
-        pMail: getSwitch('Courriel', true)
-      },
-      chargement: {
-        duration: isRapide ? 'rapide' : 'normale'
-      },
-      hero: {
-        h1: getVal('f-h1') || 'Page : Horaires du mois',
-        h2: getVal('f-h2') || 'Page : Faire un don'
-      },
-      priere: {
-        fajr: getVal('h-0'),
-        lever: getVal('h-1'),
-        dohr: getVal('h-2'),
-        jumua: getVal('h-3'),
-        asr: getVal('h-4'),
-        maghreb: getVal('h-5'),
-        icha: getVal('h-6')
-      },
-      acces: {
-        cartes: [
-          { id: 'vendredi', on: getSwitch('Afficher Prière du vendredi', true), lien: getVal('k-0') || 'Page : Horaires du mois' },
-          { id: 'trouver', on: getSwitch('Afficher Nous trouver', true), lien: getVal('k-1') || 'Page : Contact' },
-          { id: 'campagne', on: getSwitch('Afficher Nouveau lieu — campagne en cours', true), lien: getVal('k-2') || 'Page : Faire un don' }
-        ]
-      },
-      campagne: {
-        objectif: cleanNum(getVal('f-obj')) || 350000,
-        recolte: cleanNum(getVal('f-rec')),
-        btnInterac: getVal('f-int') || 'Page : Faire un don',
-        btnSuivre: getVal('f-sui') || 'Page : Campagne en direct'
-      },
-      annonces: {
-        max: 3,
-        btnTous: getVal('f-tous') || 'Page : Événements',
-        items: [
-          {
-            id: 0,
-            date: getVal('a-d-0') || 'Oct. 2026',
-            titre: getVal('a-t-0') || 'Lancement de la campagne nouveau lieu',
-            resume: getVal('a-r-0') || 'Objectif 350 000 $ pour acquérir et transformer un bâtiment en mosquée.',
-            lien: getVal('a-l-0') || 'Page : Événements',
-            on: true
-          },
-          {
-            id: 1,
-            date: getVal('a-d-1') || '27 mai 2026',
-            titre: getVal('a-t-1') || 'Aïd al-Adha 1447',
-            resume: getVal('a-r-1') || 'Prière célébrée à la salle louée du 15 rue Frontenac.',
-            lien: getVal('a-l-1') || 'Page : Événements',
-            on: true
-          },
-          {
-            id: 2,
-            date: getVal('a-d-2') || '25 avr. 2026',
-            titre: getVal('a-t-2') || 'Journée de parrainage d’orphelins',
-            resume: getVal('a-r-2') || 'Avec l’organisme Soleil des Orphelins, au 174 rue Lafontaine.',
-            lien: getVal('a-l-2') || 'Page : Événements',
-            on: true
-          }
-        ]
-      },
-      bienvenue: {
-        lien: getVal('f-bv') || 'Page : Contact'
-      },
-      invitation: {
-        lien: getVal('f-inv') || 'Page : Contact'
-      },
-      pied: {
-        tcom: getVal('f-tcom') || 'https://www.tcomq.ca/',
-        cciq: getVal('f-cciq') || ''
-      }
+      general: { email: getVal('f-mail'), facebook: getVal('f-fb'), address: getVal('f-adr'), city: getVal('f-ville'), mapUrl: getVal('f-map') },
+      ordre: part.ordre,
+      on: part.on,
+      chargement: { duration: getVal('f-dur').toLowerCase().indexOf('rapide') > -1 ? 'rapide' : 'normale' },
+      hero: { h1: getVal('f-h1'), h2: getVal('f-h2') },
+      priere: part.priere,
+      acces: { cartes: part.cartes },
+      campagne: { objectif: num(getVal('f-obj')), recolte: num(getVal('f-rec')), btnInterac: getVal('f-int'), btnSuivre: getVal('f-sui') },
+      annonces: { max: part.max, btnTous: getVal('f-tous'), items: part.items },
+      bienvenue: { lien: getVal('f-bv') },
+      invitation: { lien: getVal('f-inv') },
+      pied: { tcom: getVal('f-tcom'), cciq: getVal('f-cciq') }
     };
   }
+
+  function check(p) {
+    if (!p.campagne.objectif) return 'Indiquez l’objectif de la campagne (en dollars), par exemple 350 000.';
+    if (p.general.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.general.email)) return 'Le courriel de l’association n’est pas valide. Exemple : nom@exemple.com';
+    var bad = p.annonces.items.filter(function(a) { return a.on && !a.titre; });
+    if (bad.length) return 'Une annonce affichée n’a pas de titre. Donnez-lui un titre ou masquez-la.';
+    return '';
+  }
+
+  window.saHomeSave = function() {
+    var b = bridge();
+    if (!b || b.state.saving) return;
+    var payload = collect();
+    var err = check(payload);
+    if (err) { toast(err); return; }
+    b.setState({ saving: true });
+    api('/api/admin/settings/home', { method: 'PUT', body: JSON.stringify(payload) }).then(function(d) {
+      if (!d.ok) { b.setState({ saving: false }); toast(d.message || 'La sauvegarde a échoué. Réessayez.'); return; }
+      lastSettings = JSON.parse(JSON.stringify(d.settings));
+      populateDom(d.settings);
+      b.load(d.settings);
+      b.commit();
+      toast('Réglages enregistrés. L’accueil du site est à jour.');
+      loadStats();
+    }, function() { b.setState({ saving: false }); toast('Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.'); });
+  };
+
+  window.saHomeUndo = function() {
+    var b = bridge();
+    if (!b) return;
+    if (lastSettings) populateDom(lastSettings);
+    b.revert();
+    toast('Changements annulés.');
+  };
+
+  // Menu « … » ---------------------------------------------------------------
+  window.saHomeExport = function() {
+    if (!bridge()) return;
+    var blob = new Blob([JSON.stringify(collect(), null, 2)], { type: 'application/json' });
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'reglages-accueil-ascil-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function() { URL.revokeObjectURL(a.href); }, 1000);
+    toast('Réglages exportés : le fichier .json est dans vos téléchargements.');
+  };
+
+  window.saHomeImport = function() {
+    var input = document.createElement('input');
+    input.type = 'file'; input.accept = 'application/json,.json';
+    input.addEventListener('change', function() {
+      var f = input.files && input.files[0];
+      if (!f) return;
+      if (f.size > 200 * 1024) { toast('Fichier trop lourd : un fichier de réglages fait quelques ko.'); return; }
+      f.text().then(function(txt) {
+        var s;
+        try { s = JSON.parse(txt); } catch (e) { s = null; }
+        if (!s || typeof s !== 'object' || !s.general || !s.on) {
+          toast('Ce fichier n’est pas un export des réglages de l’accueil. Choisissez un fichier exporté depuis ce panneau.');
+          return;
+        }
+        populateDom(s);
+        bridge().apply(s);
+        toast('Réglages importés dans le panneau. Vérifiez-les, puis cliquez sur « Enregistrer » pour les mettre en ligne.');
+      });
+    });
+    input.click();
+  };
+
+  window.saHomeReset = function() {
+    if (!window.confirm('Remettre tous les réglages de l’accueil à leurs valeurs d’origine ?\n\nRien n’est mis en ligne tant que vous ne cliquez pas sur « Enregistrer ». « Annuler » revient aux réglages actuels.')) return;
+    api('/api/admin/settings/home?defaults=1').then(function(d) {
+      if (!d.ok) { toast(d.message || 'Impossible de charger les valeurs d’origine.'); return; }
+      populateDom(d.settings);
+      bridge().apply(d.settings);
+      toast('Valeurs d’origine chargées dans le panneau. Cliquez sur « Enregistrer » pour les mettre en ligne.');
+    }, function() { toast('Impossible de joindre le serveur. Réessayez.'); });
+  };
+
+  // Champs gérés ici : toute modification rend la page « non enregistrée ».
+  function onField(e) {
+    var t = e.target;
+    if (t && DOM_FIELDS.indexOf(t.id) > -1 && bridge()) bridge().markExt();
+  }
+  document.addEventListener('input', onField);
+  document.addEventListener('change', onField);
 
   function init() {
-    fetch('/api/admin/settings/home', { credentials: 'same-origin' })
-      .then(function(r) { return r.ok ? r.json() : null; })
-      .then(function(d) {
-        if (d && d.ok && d.settings) {
-          populateUI(d.settings);
-        }
-      })
-      .catch(function() {});
-
+    api('/api/admin/settings/home').then(function(d) {
+      if (!d.ok) { toast(d.message || 'Impossible de charger les réglages de l’accueil. Rechargez la page.'); return; }
+      lastSettings = JSON.parse(JSON.stringify(d.settings));
+      populateDom(d.settings);
+      bridge().load(d.settings);
+    }, function() { toast('Impossible de joindre le serveur. Rechargez la page.'); });
     loadStats();
   }
-
-  document.addEventListener('input', function() { markDirty(); });
-  document.addEventListener('change', function() { markDirty(); });
-  document.addEventListener('click', function(e) {
-    var t = e.target;
-    if (t && (t.matches('button.sw') || t.closest('button.sw'))) {
-      setTimeout(markDirty, 50);
-    }
-    if (t && (t.matches('#w-ordre button.ico') || t.closest('#w-ordre button.ico'))) {
-      setTimeout(markDirty, 50);
-    }
-    if (t && t.closest('.seg')) {
-      setTimeout(markDirty, 50);
-    }
-
-    var isSave = t && (t.matches('header.top button.btn-gold') || t.closest('header.top button.btn-gold'));
-    if (isSave) {
-      e.preventDefault();
-      e.stopPropagation();
-      var btn = t.closest('header.top button.btn-gold') || t;
-      btn.setAttribute('disabled', 'true');
-      btn.textContent = 'Enregistrement…';
-
-      var payload = collectPayload();
-      fetch('/api/admin/settings/home', {
-        method: 'PUT',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      .then(function(r) { return r.json(); })
-      .then(function(d) {
-        btn.textContent = 'Enregistrer';
-        if (d && d.ok) {
-          lastSettings = JSON.parse(JSON.stringify(d.settings || payload));
-          setStatus(false, 'Tout est enregistré');
-          toast('Réglages enregistrés. Le site est à jour.');
-          loadStats();
-        } else {
-          btn.removeAttribute('disabled');
-          toast('Erreur : ' + (d.message || 'La sauvegarde a échoué.'));
-        }
-      })
-      .catch(function() {
-        btn.textContent = 'Enregistrer';
-        btn.removeAttribute('disabled');
-        toast('Erreur de connexion avec le serveur.');
-      });
-      return;
-    }
-
-    var isCancel = t && (t.matches('header.top button.btn-onDark') || t.closest('header.top button.btn-onDark'));
-    if (isCancel) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (lastSettings) {
-        populateUI(lastSettings);
-        toast('Changements annulés.');
-      }
-      return;
-    }
-  }, true);
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  function ready() { return window.__saHome && document.getElementById('f-mail'); }
+  if (ready()) init();
+  else {
+    var obs = new MutationObserver(function() { if (ready()) { obs.disconnect(); init(); } });
+    obs.observe(document.documentElement, { childList: true, subtree: true });
   }
 })();
 </script>
@@ -645,9 +409,12 @@ PUBLIC_HOME_SYNC_SCRIPT = r'''<script id="ascil-home-sync">
   function applySettings(s) {
     if (!s) return;
     try {
-      if (s.on && s.on.chargement === false) {
-        var ld = document.querySelector('div[role="status"][aria-label="Chargement"]');
-        if (ld) { ld.style.display = 'none'; ld.remove(); }
+      // Écran de chargement : masqué (jamais retiré de la page, ce qui ferait planter son affichage).
+      var ld = document.querySelector('div[role="status"][aria-label="Chargement"]');
+      if (ld && s.on && s.on.chargement === false) {
+        ld.style.display = 'none';
+      } else if (ld && s.chargement && s.chargement.duration === 'rapide') {
+        setTimeout(function() { ld.style.display = 'none'; }, 1500);
       }
 
       var topBar = document.querySelector('header.hdr > div:first-child');
@@ -750,6 +517,16 @@ PUBLIC_HOME_SYNC_SCRIPT = r'''<script id="ascil-home-sync">
       }
 
       var priereSec = document.querySelector('section[aria-labelledby="pp-title"]');
+      // Date hégirienne (« samedi 7 novembre 2026 · 26 joumada I 1448 ») : masquée si désactivée.
+      if (priereSec && s.on && s.on.hegirien === false) {
+        priereSec.querySelectorAll('p').forEach(function(p) {
+          var first = p.firstChild, sp = p.querySelector(':scope > span');
+          if (sp && first && first.nodeType === 3 && / · $/.test(first.textContent)) {
+            sp.style.display = 'none';
+            first.textContent = first.textContent.replace(/ · $/, '');
+          }
+        });
+      }
       if (priereSec && s.on) {
         priereSec.style.display = s.on.priere === false ? 'none' : '';
       }
@@ -761,12 +538,15 @@ PUBLIC_HOME_SYNC_SCRIPT = r'''<script id="ascil-home-sync">
       if (accesSec && s.on) {
         accesSec.style.display = s.on.acces === false ? 'none' : '';
         if (s.acces && Array.isArray(s.acces.cartes)) {
+          // Cartes dans l'ordre enregistré : propriété CSS « order » (la grille ne bouge pas les éléments).
           var cards = accesSec.querySelectorAll('.wrap.g3 > a.card');
-          s.acces.cartes.forEach(function(k, idx) {
-            if (cards[idx]) {
-              cards[idx].style.display = k.on === false ? 'none' : '';
-              if (k.lien) cards[idx].href = toUrl(k.lien);
-            }
+          var CARD_IDS = ['vendredi', 'trouver', 'campagne'];
+          s.acces.cartes.forEach(function(k, pos) {
+            var el = cards[CARD_IDS.indexOf(k.id)];
+            if (!el) return;
+            el.style.display = k.on === false ? 'none' : '';
+            el.style.order = String(pos);
+            if (k.lien) el.href = toUrl(k.lien);
           });
         }
       }
@@ -833,6 +613,8 @@ PUBLIC_HOME_SYNC_SCRIPT = r'''<script id="ascil-home-sync">
           var max = s.annonces.max || 3;
           var activeItems = s.annonces.items.filter(function(a) { return a.on !== false; }).slice(0, max);
           var annContainer = annSec.querySelector('.g3');
+          // Aucune annonce à afficher : la section disparaît au lieu de montrer les exemples d'origine.
+          if (!activeItems.length) annSec.style.display = 'none';
           if (annContainer && activeItems.length) {
             annContainer.innerHTML = activeItems.map(function(item) {
               return '<a class="card" href="' + escAttr(toUrl(item.lien || 'Page : Événements')) + '">'
@@ -981,6 +763,64 @@ def remove_stats_banner(tpl):
     return tpl[:start] + tpl[k:]
 
 
+# ---------------------------------------------------------------- logique du panneau Accueil
+# La logique de la maquette gardait des textes fixes (annonces, heures, liens) et laissait les champs
+# figés ; elle est remplacée par scripts/panneau_component.js, et le gabarit est relié à ce nouvel état.
+COMPONENT_FILE = pathlib.Path(__file__).resolve().parent / 'panneau_component.js'
+OPTS = '<sc-for list="{{%s.opts}}" as="op" hint-placeholder-count="3"><option value="{{op.v}}">{{op.t}}</option></sc-for>'
+PANEL_PATCHES = [
+    ('<input class="in tnum" id="h-{{$index}}" type="time" value="{{hh.v}}">',
+     '<input class="in tnum" id="h-{{$index}}" type="time" value="{{hh.v}}" sc-camel-on-change="{{hh.set}}">'),
+    ('<input class="in" id="a-d-{{$index}}" value="{{a.date}}">',
+     '<input class="in" id="a-d-{{$index}}" value="{{a.date}}" maxlength="40" placeholder="Ex. 27 mai 2026" sc-camel-on-change="{{a.setDate}}">'),
+    ('<input class="in" id="a-t-{{$index}}" value="{{a.titre}}">',
+     '<input class="in" id="a-t-{{$index}}" value="{{a.titre}}" maxlength="160" sc-camel-on-change="{{a.setTitre}}">'),
+    ('<textarea class="in" id="a-r-{{$index}}" rows="2" value="{{a.resume}}"></textarea>',
+     '<textarea class="in" id="a-r-{{$index}}" rows="2" maxlength="400" value="{{a.resume}}" sc-camel-on-change="{{a.setResume}}"></textarea>'),
+    ('<button type="button" class="btn btn-line" style="align-self:flex-start">+ Ajouter une annonce</button>',
+     '<button type="button" class="btn btn-line" style="align-self:flex-start" disabled="{{annFull}}" sc-camel-on-click="{{addAnn}}">+ Ajouter une annonce</button>'),
+    ('<button type="button" class="ico" aria-label="Supprimer {{a.titre}}">',
+     '<button type="button" class="ico" aria-label="Supprimer {{a.lbl}}" sc-camel-on-click="{{a.del}}" style="color:#B3261E;border-color:#E9B4AF">'),
+    ('<span style="flex:1;min-width:150px;font-weight:700">{{a.pos}}. {{a.titre}}</span>',
+     '<span style="flex:1;min-width:150px;font-weight:700">{{a.pos}}. {{a.lbl}}</span>'),
+    ('aria-label="Monter {{a.titre}}"', 'aria-label="Monter {{a.lbl}}"'),
+    ('aria-label="Descendre {{a.titre}}"', 'aria-label="Descendre {{a.lbl}}"'),
+    ('aria-label="Afficher {{a.titre}}"', 'aria-label="Afficher {{a.lbl}}"'),
+    ('sc-camel-on-click="{{toggleMore}}" style="display:flex;width:100%;align-items:center;min-height:44px;padding:0 12px;border:0;background:none;border-radius:10px;cursor:pointer;text-align:left">Exporter les réglages (.json)',
+     'sc-camel-on-click="{{doExport}}" style="display:flex;width:100%;align-items:center;min-height:44px;padding:0 12px;border:0;background:none;border-radius:10px;cursor:pointer;text-align:left">Exporter les réglages (.json)'),
+    ('sc-camel-on-click="{{toggleMore}}" style="display:flex;width:100%;align-items:center;min-height:44px;padding:0 12px;border:0;background:none;border-radius:10px;cursor:pointer;text-align:left">Importer des réglages…',
+     'sc-camel-on-click="{{doImport}}" style="display:flex;width:100%;align-items:center;min-height:44px;padding:0 12px;border:0;background:none;border-radius:10px;cursor:pointer;text-align:left">Importer des réglages…'),
+    ('sc-camel-on-click="{{toggleMore}}" style="display:flex;width:100%;align-items:center;min-height:44px;padding:0 12px;border:0;background:none;border-radius:10px;cursor:pointer;text-align:left">Revenir aux valeurs d’origine',
+     'sc-camel-on-click="{{doReset}}" style="display:flex;width:100%;align-items:center;min-height:44px;padding:0 12px;border:0;background:none;border-radius:10px;cursor:pointer;text-align:left">Revenir aux valeurs d’origine'),
+]
+
+
+def patch_panel(path):
+    content = path.read_text(encoding='utf-8')
+    m = re.search(r'<script type="__bundler/template">(.*?)</script>', content, re.S)
+    tpl = json.loads(m.group(1))
+    code = COMPONENT_FILE.read_text(encoding='utf-8')
+    tpl = re.sub(r'(<script type="text/x-dc"[^>]*>).*?(</script>)', lambda x: x.group(1) + code + x.group(2), tpl, count=1, flags=re.S)
+    if 'sc-camel-on-change="{{hh.set}}"' not in tpl:
+        # Listes de liens des cartes et des annonces : options fournies par la logique (quelles que
+        # soient les options d'exemple encore présentes dans la maquette).
+        for sel, var in (('k', 'k'), ('a-l', 'a')):
+            tpl, n = re.subn(r'<sc-raw-select class="in" id="' + sel + r'-\{\{\$index\}\}">.*?</sc-raw-select>',
+                             lambda m, sel=sel, var=var: ('<sc-raw-select class="in" id="' + sel + '-{{$index}}" value="{{' + var + '.lien}}" '
+                                                          'sc-camel-on-change="{{' + var + '.setLien}}">' + OPTS % var + '</sc-raw-select>'),
+                             tpl, count=1, flags=re.S)
+            assert n == 1, sel
+        for a, b in PANEL_PATCHES:
+            assert tpl.count(a) == 1, a[:80]
+            tpl = tpl.replace(a, b)
+    enc = json.dumps(tpl).replace('</', '<\\u002F')
+    assert json.loads(enc) == tpl
+    i = content.index('<script type="__bundler/template">') + len('<script type="__bundler/template">')
+    j = content.index('</script>', i)
+    path.write_text(content[:i] + enc + content[j:], encoding='utf-8')
+    print(f"Logique du panneau Accueil remplacée : {path.name}")
+
+
 def update_file(path, script_tag, script_id, inject_html=None, inject_anchor=None):
     content = path.read_text(encoding='utf-8')
     m = re.search(r'<script type="__bundler/template">(.*?)</script>', content, re.S)
@@ -1017,6 +857,7 @@ def main():
     panneau = ROOT / 'SA-Panneau.dc.html'
     intro_anchor = 'L’aperçu change tout de suite ; le site, après <strong>Enregistrer</strong>.</p>\n   </div>'
     update_file(panneau, PANNEAU_SYNC_SCRIPT, 'sa-panneau-sync', inject_html=STATS_BANNER_HTML, inject_anchor=intro_anchor)
+    patch_panel(panneau)
 
     # 2. Pages d'accueil publiques
     for name in ['Main.dc.html', 'index.html', 'M-Accueil.dc.html', 'T-Accueil.dc.html']:

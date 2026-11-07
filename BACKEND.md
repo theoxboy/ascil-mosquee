@@ -11,6 +11,7 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | 1 | Compte superadmin (un seul, imposé par la base), sessions, limitation des essais, journal ; connexion et déconnexion ; pages `SA-*` protégées côté serveur | en ligne |
 | 2a | Autres comptes à rôle limité (`editor`, `events`), mot de passe provisoire à changer à la 1re connexion, page `SA-Comptes.html` | en ligne |
 | 2 | Réglages des widgets de l'accueil (`site_settings` clé `home`) ; « Enregistrer » du panneau Accueil ; l'accueil public les applique | en ligne |
+| Accueil | Panneau Accueil fiabilisé : vraie logique (`scripts/panneau_component.js`), heures et annonces modifiables, rubriques du menu, ordres, nombre d'annonces, menu « … » (exporter, importer, valeurs d'origine) ; accueil public : durée de chargement, date hégirienne, ordre des cartes | fait, à pousser |
 | 2b | Statistiques réelles (`page_views`, `/api/admin/stats`) et bandeau du panneau Accueil | en ligne |
 | 2c | Inscriptions aux événements (`event_registrations`, clé `event_registration`), panneau Événements, export CSV | en ligne |
 | Site entier | « Pages publiées » (clé `pages`) ; « Compte et sécurité » avec les vraies données de session | en ligne |
@@ -82,6 +83,7 @@ et les textes ne sont pas traduits : les langues ne règlent que ce que propose 
   (`functions/_lib/render-page.js`) : publiée = visible et indexée ; lien privé = visible, jamais indexée ;
   brouillon = comptes connectés seulement (bandeau), sinon page introuvable ; ancienne adresse = 301 ;
   mise en page « avec menu et pied » = en-tête, pied et bannière d'alerte du site ; « vierge » = sans.
+- **Réglages, valeurs d'origine** : `GET /api/admin/settings/:key?defaults=1` (sans rien enregistrer).
 - **Statistiques** : `GET /api/admin/stats`.
 - **Visites** : `POST /api/views`, qui ne compte que les pages connues du site.
 - **Événements, côté public** :
@@ -105,6 +107,8 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
 1. `scripts/install_superadmin.py /Users/mac/Documents/mosque/superadmin.html .` régénère les pages `SA-*`.
    **Il relance lui-même les étapes 2 à 6**, sauf avec `--sans-branchements`.
 2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
+   Il remplace la logique du panneau par `scripts/panneau_component.js` (état unique : interrupteurs,
+   ordre, cartes, annonces, heures) ; le script `#sa-panneau-sync` enregistre via `window.__saHome`.
 3. `scripts/wire_events.py` : inscriptions publiques, panneau Événements.
 4. `scripts/wire_site.py` : tout Site entier (pages publiées, mode du site, langues, bannière d'alerte, compte et sécurité),
    et sur le site public : masquage des pages, bannière d'alerte, sélecteur de langues, bandeau de saison (accueil).

@@ -630,12 +630,11 @@ def wire_editor():
 
 
 # ---------------------------------------------------------------- 3. Liens de l'accueil (étape 5d)
-# Panneau Accueil : 9 sélecteurs de liens. La maquette y proposait une page inventée et un
+# Panneau Accueil : 7 sélecteurs de liens hors cartes et annonces. La maquette y proposait une page inventée et un
 # « Lien externe… » qui s'enregistrait tel quel (bouton cassé sur l'accueil public).
-HOME_LINK_FIELDS = r"""{ 'f-h1': ['hero', 'h1'], 'f-h2': ['hero', 'h2'], 'k-0': ['acces', 'cartes', 0, 'lien'],
-  'k-1': ['acces', 'cartes', 1, 'lien'], 'k-2': ['acces', 'cartes', 2, 'lien'], 'f-int': ['campagne', 'btnInterac'],
-  'f-sui': ['campagne', 'btnSuivre'], 'f-tous': ['annonces', 'btnTous'], 'a-l-0': ['annonces', 'items', 0, 'lien'],
-  'a-l-1': ['annonces', 'items', 1, 'lien'], 'a-l-2': ['annonces', 'items', 2, 'lien'], 'f-bv': ['bienvenue', 'lien'],
+# Les liens des cartes et des annonces sont gérés par la logique du panneau (panneau_component.js).
+HOME_LINK_FIELDS = r"""{ 'f-h1': ['hero', 'h1'], 'f-h2': ['hero', 'h2'], 'f-int': ['campagne', 'btnInterac'],
+  'f-sui': ['campagne', 'btnSuivre'], 'f-tous': ['annonces', 'btnTous'], 'f-bv': ['bienvenue', 'lien'],
   'f-inv': ['invitation', 'lien'] }"""
 
 HOME_LINKS_SCRIPT = r"""<script id="sa-home-links">
