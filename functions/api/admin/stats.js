@@ -20,7 +20,7 @@ export async function onRequestGet({ request, env }) {
   } catch {}
 
   try {
-    const regRow = await db.prepare('SELECT COUNT(*) as count FROM event_registrations').first();
+    const regRow = await db.prepare("SELECT COUNT(*) as count FROM event_registrations WHERE status = 'confirmed'").first();
     if (regRow) registrationsCount = Number(regRow.count) || 0;
   } catch {}
 

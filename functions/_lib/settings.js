@@ -88,6 +88,20 @@ export const DEFAULT_SETTINGS = {
       cciq: '',
     },
   },
+  event_registration: {
+    event_slug: 'iftar-2027',
+    event_title: 'Iftar communautaire',
+    date_str: 'Samedi 20 février 2027 · 17 h 15',
+    location: '174 rue Lafontaine',
+    description: 'Repas de rupture du jeûne ouvert à tous : familles, voisins, étudiants. Gratuit, dons bienvenus.',
+    total_seats: 120,
+    max_per_reg: 6,
+    deadline: '2027-02-18',
+    is_open: true,
+    opt_vege: true,
+    opt_code: true,
+    opt_agenda: true,
+  },
 };
 
 export function cleanHomeSettings(input) {
@@ -157,4 +171,24 @@ export function cleanHomeSettings(input) {
   }
 
   return out;
+}
+
+export function cleanEventRegistrationSettings(input) {
+  const def = DEFAULT_SETTINGS.event_registration;
+  if (!input || typeof input !== 'object') return { ...def };
+
+  return {
+    event_slug: typeof input.event_slug === 'string' && input.event_slug.trim() ? input.event_slug.trim().slice(0, 64) : def.event_slug,
+    event_title: typeof input.event_title === 'string' && input.event_title.trim() ? input.event_title.trim().slice(0, 120) : def.event_title,
+    date_str: typeof input.date_str === 'string' && input.date_str.trim() ? input.date_str.trim().slice(0, 120) : def.date_str,
+    location: typeof input.location === 'string' && input.location.trim() ? input.location.trim().slice(0, 160) : def.location,
+    description: typeof input.description === 'string' ? input.description.trim().slice(0, 500) : def.description,
+    total_seats: typeof input.total_seats === 'number' ? Math.max(1, Math.min(10000, Math.floor(input.total_seats))) : (parseInt(input.total_seats, 10) || def.total_seats),
+    max_per_reg: typeof input.max_per_reg === 'number' ? Math.max(1, Math.min(20, Math.floor(input.max_per_reg))) : (parseInt(input.max_per_reg, 10) || def.max_per_reg),
+    deadline: typeof input.deadline === 'string' ? input.deadline.trim().slice(0, 20) : def.deadline,
+    is_open: typeof input.is_open === 'boolean' ? input.is_open : def.is_open,
+    opt_vege: typeof input.opt_vege === 'boolean' ? input.opt_vege : def.opt_vege,
+    opt_code: typeof input.opt_code === 'boolean' ? input.opt_code : def.opt_code,
+    opt_agenda: typeof input.opt_agenda === 'boolean' ? input.opt_agenda : def.opt_agenda,
+  };
 }
