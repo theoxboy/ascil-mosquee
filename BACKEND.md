@@ -87,13 +87,18 @@ Les pages `SA-*` sont générées depuis la maquette, puis « branchées » sur 
 modifient les pages générées. Régénérer sans rebrancher efface les branchements.
 
 1. `scripts/install_superadmin.py /Users/mac/Documents/mosque/superadmin.html .` régénère les pages `SA-*`.
-   **Il relance lui-même les étapes 2 à 4**, sauf avec `--sans-branchements`.
+   **Il relance lui-même les étapes 2 à 5**, sauf avec `--sans-branchements`.
 2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
 3. `scripts/wire_events.py` : inscriptions publiques, panneau Événements.
 4. `scripts/wire_site.py` : tout Site entier (pages publiées, mode du site, langues, bannière d'alerte, compte et sécurité),
    et sur le site public : masquage des pages, bannière d'alerte, sélecteur de langues, bandeau de saison (accueil).
 
-Les scripts 2 à 4 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
+5. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
+   avec `value="…"` dans la maquette devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
+   de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
+   `defaultChecked`). Les scripts 2 à 4 s'appuient sur les attributs d'origine, d'où cet ordre.
+
+Les scripts 2 à 5 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
 
 Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `--reset` pour un nouveau mot de passe).
