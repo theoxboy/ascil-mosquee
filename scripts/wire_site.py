@@ -90,7 +90,7 @@ COMPONENT_PATCHES = [
 def wire_panel():
     path = ROOT / 'SA-Site.dc.html'
     s, i, j, tpl = load(path)
-    if 'savePages()' in tpl or 'saveAll()' in tpl:
+    if 'savePages()' in tpl or 'saveAll()' in tpl:  # déjà branché (étapes suivantes incluses)
         print('SA-Site.dc.html : déjà branché')
         return
     for a, b in COMPONENT_PATCHES:
@@ -215,15 +215,126 @@ ALERT_SCRIPT = r"""<script id="ascil-alert-banner">
 """
 
 
+# ---------------------------------------------------------------- 7. Langues et saison (site public)
+LANG_SCRIPT = r"""<script id="ascil-languages">
+(function () {
+  var off = {};
+  function hide(el) { if (el && el.style.display !== 'none') el.style.display = 'none'; }
+  function apply() {
+    // Liste déroulante (PC) : « العربية », « English » ; pastilles du menu mobile : « العربية », « EN ».
+    document.querySelectorAll('li[role="option"]').forEach(function (li) {
+      var t = li.textContent.trim();
+      if ((off.ar && t === 'العربية') || (off.en && t === 'English')) hide(li);
+    });
+    document.querySelectorAll('span.pill').forEach(function (p) {
+      var t = p.textContent.trim();
+      if ((off.ar && t === 'العربية') || (off.en && t === 'EN')) hide(p);
+      // Plus aucune autre langue : on retire toute la rangée de pastilles.
+      if (off.ar && off.en && t === 'FR' && p.parentElement) hide(p.parentElement);
+    });
+    if (off.ar && off.en) document.querySelectorAll('.lang-desk').forEach(hide);
+  }
+  fetch('/api/settings/languages', { cache: 'no-store' })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !d.ok) return;
+      off = { ar: d.settings.ar === false, en: d.settings.en === false };
+      if (!off.ar && !off.en) return;
+      apply();
+      new MutationObserver(apply).observe(document.documentElement, { childList: true, subtree: true });
+    }, function () {});
+})();
+</script>
+"""
+
+SEASON_SCRIPT = r"""<script id="ascil-season">
+(function () {
+  var TEXT = {
+    ramadan: { title: 'Ramadan Moubarak', ar: 'رمضان مبارك' },
+    aid_fitr: { title: 'Aïd al-Fitr Moubarak', ar: 'عيد فطر مبارك',
+      sub: 'Bonne fête à toutes et à tous. L’heure de la prière de l’Aïd est indiquée dans les horaires.' },
+    aid_adha: { title: 'Aïd al-Adha Moubarak', ar: 'عيد أضحى مبارك',
+      sub: 'Bonne fête à toutes et à tous. L’heure de la prière de l’Aïd est indiquée dans les horaires.' }
+  };
+  var band = null;
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function active(s) {
+    if (!s || s.mode === 'normal' || !TEXT[s.mode]) return false;
+    if (!s.auto) return true;
+    var now = today();
+    return !!s.from && !!s.to && now >= s.from && now <= s.to;
+  }
+  function build(mode, priere) {
+    var t = TEXT[mode];
+    var el = document.createElement('section');
+    el.id = 'ascil-season';
+    el.setAttribute('aria-label', t.title);
+    // Fond vert du site : texte crème 8,6:1 ; titre arabe en or, en grand (≥ 18,7 px gras) : 4,3:1.
+    el.style.cssText = 'background:#0E4D3C;color:#F3EAD8;border-radius:20px;padding:20px 24px;margin:16px auto;' +
+      'max-width:1180px;box-sizing:border-box;display:flex;flex-wrap:wrap;align-items:center;gap:12px 24px;' +
+      'font-family:"Noto Sans",system-ui,sans-serif';
+    var head = document.createElement('div');
+    head.style.cssText = 'flex:1 1 260px;min-width:0';
+    var h = document.createElement('p');
+    h.style.cssText = 'margin:0;font-size:24px;font-weight:800;color:#FFFFFF;line-height:1.2';
+    h.textContent = t.title;
+    var ar = document.createElement('p');
+    ar.lang = 'ar'; ar.dir = 'rtl';
+    ar.style.cssText = 'margin:4px 0 0;font-size:22px;font-weight:700;color:#C49A4A;text-align:start';
+    ar.textContent = t.ar;
+    head.appendChild(h); head.appendChild(ar);
+    var info = document.createElement('p');
+    info.style.cssText = 'margin:0;flex:1 1 260px;min-width:0;font-size:16px;line-height:1.5';
+    if (mode === 'ramadan') {
+      var parts = [];
+      if (priere && priere.fajr) parts.push('Suhoor jusqu’à ' + priere.fajr);
+      if (priere && priere.maghreb) parts.push('Iftar à ' + priere.maghreb);
+      info.textContent = parts.length ? parts.join(' · ') + ' (aujourd’hui).' : 'Les heures de Suhoor et d’Iftar sont indiquées dans les horaires du mois.';
+    } else {
+      info.textContent = t.sub;
+    }
+    var link = document.createElement('a');
+    link.href = 'Horaires.dc.html';
+    link.textContent = 'Horaires du mois';
+    link.style.cssText = 'display:inline-flex;align-items:center;min-height:44px;padding:0 18px;border-radius:999px;' +
+      'background:#C49A4A;color:#1E2B26;font-weight:700;text-decoration:none';
+    el.appendChild(head); el.appendChild(info); el.appendChild(link);
+    return el;
+  }
+  function place() {
+    var main = document.querySelector('main');
+    if (!band || !main) return;
+    if (main.firstElementChild !== band) main.insertBefore(band, main.firstChild);
+  }
+  var get = function (k) { return fetch('/api/settings/' + k, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }); };
+  get('season').then(function (d) {
+    if (!d || !d.ok || !active(d.settings)) return;
+    var mode = d.settings.mode;
+    (mode === 'ramadan' ? get('home') : Promise.resolve(null)).then(function (h) {
+      band = build(mode, h && h.ok ? h.settings.priere : null);
+      place();
+      new MutationObserver(place).observe(document.documentElement, { childList: true, subtree: true });
+    }, function () {});
+  }, function () {});
+})();
+</script>
+"""
+HOME_PAGES = {'Main.dc.html', 'index.html', 'M-Accueil.dc.html', 'T-Accueil.dc.html'}
+
+
 def wire_public():
     n = 0
     for path in sorted(ROOT.glob('*.dc.html')) + [ROOT / 'index.html']:
         if path.name.startswith('SA-'):
             continue
         s, i, j, tpl = load(path)
-        tpl = re.sub(r'<script id="ascil-(?:pages-sync|alert-banner)">.*?</script>\s*', '', tpl, flags=re.S)
+        tpl = re.sub(r'<script id="ascil-(?:pages-sync|alert-banner|languages|season)">.*?</script>\s*', '', tpl, flags=re.S)
         k = tpl.rindex('</body>')
-        tpl = tpl[:k] + PUBLIC_SCRIPT + ALERT_SCRIPT + tpl[k:]
+        extra = SEASON_SCRIPT if path.name in HOME_PAGES else ''
+        tpl = tpl[:k] + PUBLIC_SCRIPT + ALERT_SCRIPT + LANG_SCRIPT + extra + tpl[k:]
         save(path, s, i, j, tpl)
         n += 1
     print('pages publiques reliées :', n)
@@ -559,8 +670,133 @@ def wire_alert_panel():
     print('SA-Site.dc.html : bannière d’alerte branchée sur la base')
 
 
+# ---------------------------------------------------------------- 6. Mode du site et langues (panneau)
+SEASON_CARD_PATCHES = [
+    ('<p class="dsc">Change l’accueil (bandeau, couleurs d’accent, horaires Suhoor / Iftar) pendant la période choisie.</p>',
+     '<p class="dsc">Affiche un bandeau de saison en haut de l’accueil (vœux, horaires Suhoor et Iftar pour le Ramadan) pendant la période choisie.</p>'),
+    ('<button type="button" aria-pressed="true">Normal</button><button type="button" aria-pressed="false">Ramadan</button>'
+     '<button type="button" aria-pressed="false">Aïd al-Fitr</button><button type="button" aria-pressed="false">Aïd al-Adha</button>',
+     '<button type="button" data-season-mode="normal" aria-pressed="true">Normal</button>'
+     '<button type="button" data-season-mode="ramadan" aria-pressed="false">Ramadan</button>'
+     '<button type="button" data-season-mode="aid_fitr" aria-pressed="false">Aïd al-Fitr</button>'
+     '<button type="button" data-season-mode="aid_adha" aria-pressed="false">Aïd al-Adha</button>'),
+    ('<input class="in tnum" id="f2" type="date" value="2027-02-08">', '<input class="in tnum" id="f2" type="date" value="">'),
+    ('<input class="in tnum" id="f3" type="date" value="2027-03-09">', '<input class="in tnum" id="f3" type="date" value="">'),
+    ('<p class="hint">Sinon, le mode reste celui choisi ci-dessus.</p>',
+     '<p class="hint">Activé : le mode ne s’affiche qu’entre les deux dates. Désactivé : il s’affiche tout de suite, jusqu’à ce que vous repassiez en Normal.</p>'),
+    ('<p class="hint">Une langue masquée disparaît du sélecteur. Les traductions arriveront avec la base de données.</p>',
+     '<p class="hint">Une langue masquée disparaît du sélecteur de toutes les pages. Les textes ne sont pas encore traduits : '
+     'choisir العربية ou EN n’affiche pas encore de traduction.</p>'),
+]
+
+SEASON_METHODS = """  readSeasonForm() {
+    const v = (id) => { const e = document.getElementById(id); return e ? e.value : ''; };
+    const pressed = document.querySelector('[data-season-mode][aria-pressed="true"]');
+    return { mode: pressed ? pressed.getAttribute('data-season-mode') : 'normal', from: v('f2'), to: v('f3'), auto: !!this.state.on.mode_auto };
+  }
+  setSeasonForm(a) {
+    const set = (id, val) => { const e = document.getElementById(id); if (e) e.value = val || ''; };
+    set('f2', a.from); set('f3', a.to);
+    document.querySelectorAll('[data-season-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-season-mode') === a.mode)));
+  }
+  seasonDirty() {
+    if (!this.seasonBase) return false;
+    return JSON.stringify(this.readSeasonForm()) !== JSON.stringify(Object.assign({}, this.seasonBase, { auto: !!this.base.mode_auto }));
+  }
+  listenSeason() {
+    const inCard = (t) => t && t.closest && t.closest('section[aria-label="Mode du site"]');
+    const changed = (e) => { if (inCard(e.target)) this.forceUpdate(); };
+    document.addEventListener('input', changed);
+    document.addEventListener('change', changed);
+    document.addEventListener('click', (e) => {
+      const b = e.target.closest && e.target.closest('[data-season-mode]');
+      if (!b) return;
+      document.querySelectorAll('[data-season-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+      this.forceUpdate();
+    });
+  }
+  loadSeason() {
+    const get = (key) => fetch('/api/admin/settings/' + key, { credentials: 'same-origin' }).then((r) => r.json().catch(() => ({ ok: false })));
+    Promise.all([get('season'), get('languages')])
+      .then(([s, l]) => {
+        if (!s.ok || !l.ok) { this.flash((!s.ok ? s : l).message || 'Impossible de charger la saison et les langues. Rechargez la page.'); return; }
+        this.seasonBase = s.settings;
+        const sw = { mode_auto: s.settings.auto, lang_fr: true, lang_ar: l.settings.ar, lang_en: l.settings.en };
+        this.base = Object.assign({}, this.base, sw);
+        this.setState({ on: Object.assign({}, this.state.on, sw) });
+        this.setSeasonForm(s.settings);
+      })
+      .catch(() => this.flash('Impossible de joindre le serveur. Vérifiez votre connexion et rechargez la page.'));
+  }
+  saveAll() {
+    if (this.saving) return;
+    const alert = this.readAlertForm(), season = this.readSeasonForm();
+    if (alert.on && !alert.message) { this.flash('Écrivez le message de la bannière, ou désactivez-la.'); document.getElementById('f4') && document.getElementById('f4').focus(); return; }
+    if (alert.link.type === 'url' && !/^https?:\\/\\/\\S{3,}$/i.test(alert.link.url)) { this.flash('L’adresse du lien externe doit commencer par https://'); return; }
+    if (season.mode !== 'normal' && season.auto && (!season.from || !season.to)) {
+      this.flash('Indiquez le début et la fin de la période, ou désactivez le changement automatique aux dates.');
+      document.getElementById(season.from ? 'f3' : 'f2') && document.getElementById(season.from ? 'f3' : 'f2').focus();
+      return;
+    }
+    this.saving = true;
+    const on = this.state.on, pages = {};
+    Object.keys(on).forEach((k) => { if (k.indexOf('pg_') === 0 && k !== 'pg_accueil') pages[k] = !!on[k]; });
+    const languages = { fr: true, ar: !!on.lang_ar, en: !!on.lang_en };
+    this.flash('Enregistrement…');
+    const put = (key, body) => fetch('/api/admin/settings/' + key, {
+      method: 'PUT', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    }).then((r) => r.json().catch(() => ({ ok: false })));
+    Promise.all([put('pages', pages), put('alert', alert), put('season', season), put('languages', languages)])
+      .then(([p, a, se, la]) => {
+        this.saving = false;
+        const failed = [p, a, se, la].find((x) => !x.ok);
+        if (failed) { this.flash(failed.message || 'L’enregistrement a échoué. Réessayez.'); return; }
+        this.alertBase = a.settings;
+        this.seasonBase = se.settings;
+        this.base = Object.assign({}, this.base, p.settings, {
+          alerte: a.settings.on, mode_auto: se.settings.auto, lang_fr: true, lang_ar: la.settings.ar, lang_en: la.settings.en
+        });
+        this.setState({ on: Object.assign({}, this.state.on, { mode_auto: se.settings.auto }) });
+        this.setAlertForm(a.settings);
+        this.setSeasonForm(se.settings);
+        this.forceUpdate();
+        this.flash('Réglages enregistrés. Le site est à jour.');
+      })
+      .catch(() => { this.saving = false; this.flash('Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.'); });
+  }
+"""
+
+
+def wire_season_panel():
+    path = ROOT / 'SA-Site.dc.html'
+    s, i, j, tpl = load(path)
+    if 'readSeasonForm()' in tpl:
+        print('SA-Site.dc.html : mode du site et langues déjà branchés')
+        return
+    for a, b in SEASON_CARD_PATCHES:
+        assert tpl.count(a) == 1, a[:70]
+        tpl = tpl.replace(a, b)
+    # saveAll() est remplacé par la version qui enregistre aussi la saison et les langues.
+    tpl, n = re.subn(r'  saveAll\(\) \{.*?\n  \}\n(?=  flash\()', lambda m: SEASON_METHODS, tpl, count=1, flags=re.S)
+    assert n == 1, 'saveAll introuvable'
+    patches = [
+        ('"lang_ar": false, "lang_en": false', '"lang_ar": true, "lang_en": true'),
+        ('  componentDidMount() {\n', '  componentDidMount() {\n    this.listenSeason();\n    this.loadSeason();\n'),
+        ('|| this.alertDirty();', '|| this.alertDirty() || this.seasonDirty();'),
+        ("t: () => k === 'pg_accueil' ? null : this.setState(", "t: () => (k === 'pg_accueil' || k === 'lang_fr') ? null : this.setState("),
+        ('if (this.alertBase) this.setAlertForm(this.alertBase);',
+         'if (this.alertBase) this.setAlertForm(this.alertBase); if (this.seasonBase) this.setSeasonForm(this.seasonBase);'),
+    ]
+    for a, b in patches:
+        assert tpl.count(a) == 1, a[:70]
+        tpl = tpl.replace(a, b)
+    save(path, s, i, j, tpl)
+    print('SA-Site.dc.html : mode du site et langues branchés sur la base')
+
+
 if __name__ == '__main__':
     wire_panel()
     wire_alert_panel()
+    wire_season_panel()
     wire_account()
     wire_public()

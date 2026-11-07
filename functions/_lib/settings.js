@@ -273,6 +273,38 @@ export function cleanAlertSettings(input) {
   return out;
 }
 
+// « Site entier → Saison et langues → Mode du site ».
+// auto = true : le mode n'est actif qu'entre les dates (bornes incluses) ; auto = false : le mode
+// choisi s'applique tout de suite, jusqu'à ce qu'on le change. « normal » = rien de particulier.
+DEFAULT_SETTINGS.season = { mode: 'normal', from: '', to: '', auto: true };
+const SEASON_MODES = ['normal', 'ramadan', 'aid_fitr', 'aid_adha'];
+
+export function cleanSeasonSettings(input) {
+  const i = input && typeof input === 'object' ? input : {};
+  const day = (v) => (typeof v === 'string' && ISO_DAY.test(v) ? v : '');
+  const out = {
+    mode: SEASON_MODES.includes(i.mode) ? i.mode : 'normal',
+    from: day(i.from),
+    to: day(i.to),
+    auto: typeof i.auto === 'boolean' ? i.auto : true,
+  };
+  if (out.from && out.to && out.to < out.from) out.to = '';
+  return out;
+}
+
+// « Site entier → Saison et langues → Langues » : langues proposées dans le sélecteur du site.
+// Le français est toujours actif. Par défaut, les trois restent visibles (comme avant ce réglage).
+DEFAULT_SETTINGS.languages = { fr: true, ar: true, en: true };
+
+export function cleanLanguagesSettings(input) {
+  const i = input && typeof input === 'object' ? input : {};
+  return {
+    fr: true,
+    ar: typeof i.ar === 'boolean' ? i.ar : true,
+    en: typeof i.en === 'boolean' ? i.en : true,
+  };
+}
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -280,7 +312,9 @@ export const GENERIC_KEYS = {
   home: { roles: ['superadmin', 'editor'], clean: cleanHomeSettings },
   pages: { roles: ['superadmin', 'editor'], clean: cleanPagesSettings },
   alert: { roles: ['superadmin', 'editor'], clean: cleanAlertSettings },
+  season: { roles: ['superadmin', 'editor'], clean: cleanSeasonSettings },
+  languages: { roles: ['superadmin', 'editor'], clean: cleanLanguagesSettings },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
-export const PUBLIC_KEYS = ['home', 'pages', 'alert'];
+export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages'];
