@@ -16,7 +16,10 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | Site entier | « Pages publiées » (clé `pages`) ; « Compte et sécurité » avec les vraies données de session | en ligne |
 | Site entier | « Bannière d'alerte » (clé `alert`) : bande en haut de toutes les pages publiques, avec message, lien, période et couleur | en ligne |
 | Site entier | « Mode du site » (clé `season`) : bandeau Ramadan / Aïd en haut de l'accueil pendant la période ; « Langues » (clé `languages`) : langues proposées dans le sélecteur | fait, à pousser |
-| 3 | Pages créées dans le superadmin (`custom_pages`, blocs, lien `/p/<slug>`, brouillon / publiée) | à faire |
+| 5a | Créer une page : base (`custom_pages`, `page_redirects`) et API (créer, lire, modifier, dupliquer, supprimer) | fait, à pousser |
+| 5b | Créer une page : écrans « Mes pages » et éditeur (blocs Texte, Bouton, Tableau) | à faire |
+| 5c | Créer une page : affichage public `/p/<lien>` (publiée, lien privé, brouillon pour les comptes connectés) | à faire |
+| 5d | Créer une page : pages proposées dans les sélecteurs de liens du panneau | à faire |
 | 4 | Horaires, annonces, dons : API sur les tables existantes `prayer_times`, `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -31,6 +34,7 @@ Les tables existantes ne sont jamais recréées : on les complète avec `ALTER T
 | `0004_page_views.sql` | `page_views (path, viewed_date, count)` : visites anonymes, sans cookie ni IP |
 | `0005_event_registrations.sql` | `event_registrations` + clé `event_registration` |
 | `0006_dates_iso_et_limites.sql` | `site_settings.updated_at` remis au format ISO ; `rate_limits` (limite des inscriptions publiques) |
+| `0007_custom_pages.sql` | `custom_pages` (titre, lien unique, blocs JSON, visibilité, mise en page, largeur, description) ; `page_redirects` (ancienne adresse → page) |
 
 Les migrations sont appliquées à la main dans la console D1. Après chaque application,
 enregistrer la ligne correspondante dans `d1_migrations`, sinon `wrangler d1 migrations apply --remote`
@@ -66,6 +70,11 @@ et les textes ne sont pas traduits : les langues ne règlent que ce que propose 
   - `GET sessions` liste les appareils connectés, `DELETE sessions` déconnecte les autres.
 - **Comptes** (`/api/admin/accounts`, superadmin) : liste, création avec mot de passe provisoire, modification, désactivation, réinitialisation.
 - **Journal** (`GET /api/admin/audit`, superadmin) : les dernières actions, affichées dans Site entier → Compte et sécurité.
+- **Pages créées** (`/api/admin/pages`, superadmin et éditeur) :
+  - `GET` liste, `POST { title, slug? }` crée un brouillon (lien tiré du titre et rendu unique) ;
+  - `GET/PUT/DELETE /api/admin/pages/:id` ; changer le lien crée une redirection depuis l'ancien ;
+  - `POST /api/admin/pages/:id/duplicate` (copie en brouillon) ;
+  - règles (lien, blocs Texte / Bouton / Tableau, limites) dans `functions/_lib/custom-pages.js`.
 - **Statistiques** : `GET /api/admin/stats`.
 - **Visites** : `POST /api/views`, qui ne compte que les pages connues du site.
 - **Événements, côté public** :

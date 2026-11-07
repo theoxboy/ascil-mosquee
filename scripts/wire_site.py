@@ -392,9 +392,12 @@ ACCOUNT_SCRIPT = r"""<script id="sa-site-account">
     'auth.login': 'Connexion', 'auth.logout': 'Déconnexion', 'auth.login_failed': 'Échec de connexion',
     'auth.password_changed': 'Mot de passe changé', 'auth.sessions_revoked': 'Autres appareils déconnectés',
     'account.create': 'Compte créé', 'account.update': 'Compte modifié', 'account.reset_password': 'Mot de passe réinitialisé',
-    'events.settings_update': 'Réglages de l’événement modifiés', 'events.registration_cancel': 'Inscription annulée'
+    'events.settings_update': 'Réglages de l’événement modifiés', 'events.registration_cancel': 'Inscription annulée',
+    'settings.update': 'Réglages modifiés', 'pages.create': 'Page créée', 'pages.update': 'Page modifiée',
+    'pages.duplicate': 'Page dupliquée', 'pages.delete': 'Page supprimée'
   };
-  var TARGETS = { 'settings:home': 'Accueil', 'settings:pages': 'Pages publiées', 'settings:event_registration': 'Événement' };
+  var TARGETS = { 'settings:home': 'Accueil', 'settings:pages': 'Pages publiées', 'settings:event_registration': 'Événement',
+    'settings:alert': 'Bannière d’alerte', 'settings:season': 'Mode du site', 'settings:languages': 'Langues' };
   function $(id) { return document.getElementById(id); }
   function text(id, v) { var e = $(id); if (e) e.textContent = v; }
   function when(iso) {
