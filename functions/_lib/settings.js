@@ -192,3 +192,40 @@ export function cleanEventRegistrationSettings(input) {
     opt_agenda: typeof input.opt_agenda === 'boolean' ? input.opt_agenda : def.opt_agenda,
   };
 }
+
+// « Site entier → Pages publiées » : réglage -> page du site public (versions PC, M- et T-).
+// Accueil n'y figure pas : elle ne peut pas être masquée.
+export const PAGE_FILES = {
+  pg_horaires: 'Horaires', pg_apropos: 'APropos', pg_services: 'Services', pg_dons: 'Dons',
+  pg_evenements: 'Evenements', pg_ressources: 'Ressources', pg_contact: 'Contact',
+  pg_cours: 'N2-Cours', pg_mariages: 'N2-Mariages', pg_funerailles: 'N2-Funerailles',
+  pg_aide: 'N2-AideAlimentaire', pg_femmes: 'N2-EspaceFemmes', pg_khutba: 'N2-Khutba',
+  pg_rappel: 'N3-Rappel', pg_campagne: 'N3-Campagne', pg_calendrier: 'N3-Calendrier',
+  pg_inscription: 'N3-Inscription', pg_dua: 'N3-Dua',
+};
+
+// Tant que rien n'est enregistré, tout reste publié : le site ne change pas tout seul.
+DEFAULT_SETTINGS.pages = Object.fromEntries(Object.keys(PAGE_FILES).map((k) => [k, true]));
+
+export function cleanPagesSettings(input) {
+  const out = { ...DEFAULT_SETTINGS.pages };
+  if (input && typeof input === 'object') {
+    for (const k of Object.keys(out)) if (typeof input[k] === 'boolean') out[k] = input[k];
+  }
+  return out;
+}
+
+export async function readPagesSettings(db) {
+  const row = await db.prepare("SELECT value FROM site_settings WHERE key = 'pages'").first();
+  let saved = null;
+  try { saved = row ? JSON.parse(row.value) : null; } catch { saved = null; }
+  return cleanPagesSettings(saved);
+}
+
+const PAGE_BY_FILE = Object.fromEntries(Object.entries(PAGE_FILES).map(([k, f]) => [f, k]));
+
+// '/M-N2-Cours.dc.html' ou '/N2-Cours.dc' -> 'pg_cours' ; null pour toute autre adresse.
+export function pageSettingForPath(path) {
+  const m = /^\/(?:M-|T-)?([A-Za-z0-9-]+?)\.dc(?:\.html)?$/.exec(path);
+  return m ? PAGE_BY_FILE[m[1]] || null : null;
+}

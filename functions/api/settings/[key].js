@@ -1,7 +1,7 @@
 // GET /api/settings/:key
 // Renvoie les réglages publics actifs pour la clé donnée (ex. "home").
 import { json, error } from '../../_lib/http.js';
-import { DEFAULT_SETTINGS, cleanHomeSettings } from '../../_lib/settings.js';
+import { DEFAULT_SETTINGS, cleanHomeSettings, cleanPagesSettings } from '../../_lib/settings.js';
 
 export async function onRequestGet({ env, params }) {
   const key = String(params.key || '').trim().toLowerCase();
@@ -33,6 +33,9 @@ export async function onRequestGet({ env, params }) {
 
   if (key === 'home') {
     settings = cleanHomeSettings(settings);
+  }
+  if (key === 'pages') {
+    settings = cleanPagesSettings(settings);
   }
 
   return json(

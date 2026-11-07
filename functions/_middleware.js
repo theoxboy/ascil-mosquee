@@ -3,6 +3,7 @@
 import { currentAdmin } from './_lib/auth.js';
 import { error, sameOrigin } from './_lib/http.js';
 import { canOpenPage, homeFor, pageKey } from './_lib/roles.js';
+import { pageSettingForPath, readPagesSettings } from './_lib/settings.js';
 
 const PRIVATE = [/^\/functions(\/|$)/, /^\/migrations(\/|$)/, /^\/scripts(\/|$)/, /^\/wrangler\.toml$/, /^\/_routes\.json$/, /^\/\.git/];
 const LOGIN_PAGES = [/^\/superadmin(\.html)?$/, /^\/SA-Connexion\.dc(\.html)?$/];
@@ -60,6 +61,13 @@ export async function onRequest(context) {
       return redirect(homeFor(admin.role));
     }
     return withHeaders(await next(), PAGE_HEADERS);
+  }
+
+  // Page publique masquée dans « Site entier → Pages publiées » : son adresse mène à l'accueil.
+  const pageSetting = pageSettingForPath(path);
+  if (pageSetting && env.DB) {
+    const pages = await readPagesSettings(env.DB).catch(() => null);
+    if (pages && pages[pageSetting] === false) return redirect('/');
   }
 
   return next();

@@ -3,7 +3,7 @@
 import { audit } from '../../../_lib/auth.js';
 import { requireRole } from '../../../_lib/guard.js';
 import { json, error, readJson } from '../../../_lib/http.js';
-import { DEFAULT_SETTINGS, cleanHomeSettings } from '../../../_lib/settings.js';
+import { DEFAULT_SETTINGS, cleanHomeSettings, cleanPagesSettings } from '../../../_lib/settings.js';
 
 export async function onRequestGet({ request, env, params }) {
   const { admin, response } = await requireRole(env, request, ['superadmin', 'editor']);
@@ -35,6 +35,9 @@ export async function onRequestGet({ request, env, params }) {
   if (key === 'home') {
     settings = cleanHomeSettings(settings);
   }
+  if (key === 'pages') {
+    settings = cleanPagesSettings(settings);
+  }
 
   return json({
     ok: true,
@@ -58,6 +61,9 @@ export async function onRequestPut({ request, env, params }) {
   let cleaned = body;
   if (key === 'home') {
     cleaned = cleanHomeSettings(body);
+  }
+  if (key === 'pages') {
+    cleaned = cleanPagesSettings(body);
   }
 
   const now = new Date().toISOString();
