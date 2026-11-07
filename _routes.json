@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "include": [
+    "/api/*",
+    "/superadmin",
+    "/superadmin.html",
+    "/SA-*",
+    "/functions/*",
+    "/migrations/*",
+    "/scripts/*",
+    "/wrangler.toml",
+    "/_routes.json",
+    "/.git/*",
+    "/.gitignore"
+  ],
+  "exclude": []
+}

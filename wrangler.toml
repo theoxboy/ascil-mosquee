@@ -1,0 +1,11 @@
+# Configuration Cloudflare Pages + Functions du site ASCIL.
+# Le site statique est servi depuis la racine du dépôt ; l'API vit dans functions/.
+name = "ascil-mosquee"
+compatibility_date = "2026-10-01"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "ascil-mosquee"
+database_id = "461b1f02-3d2f-48bd-a0b7-a946987eb86a"
+migrations_dir = "migrations"
