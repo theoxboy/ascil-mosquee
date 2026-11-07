@@ -1,90 +1,87 @@
 // GET & DELETE /api/admin/events/registrations
-// Liste des inscrits, recherche, synthèse et annulation d'une inscription.
+// Inscrits de l'événement en cours (event_slug des réglages), recherche, synthèse et annulation.
+// Les noms et contacts ne sont visibles que du superadmin et du responsable événements ;
+// l'éditeur ne reçoit que la synthèse chiffrée.
 import { requireRole } from '../../../_lib/guard.js';
-import { json, error, readJson } from '../../../_lib/http.js';
+import { json, error } from '../../../_lib/http.js';
 import { audit } from '../../../_lib/auth.js';
+import { readEventRegistrationSettings } from '../../../_lib/settings.js';
+
+const NOMINATIVE_ROLES = ['superadmin', 'events'];
 
 export async function onRequestGet({ request, env }) {
   const { admin, response } = await requireRole(env, request, ['superadmin', 'events', 'editor']);
   if (response) return response;
 
   const db = env.DB;
-  if (!db) return error(503, 'no_db', 'Base de données non disponible.');
+  const settings = await readEventRegistrationSettings(db);
+  const slug = settings.event_slug;
 
-  const url = new URL(request.url);
-  const status = url.searchParams.get('status') || 'all';
-  const search = (url.searchParams.get('q') || '').trim();
-
-  let query = 'SELECT id, event_slug, event_title, code, name, contact, attendees_count, is_vegetarian, status, notes, created_at FROM event_registrations WHERE 1=1';
-  const params = [];
-
-  if (status && status !== 'all') {
-    query += ' AND status = ?';
-    params.push(status);
-  }
-
-  if (search) {
-    query += ' AND (name LIKE ? OR contact LIKE ? OR code LIKE ?)';
-    const term = `%${search}%`;
-    params.push(term, term, term);
-  }
-
-  query += ' ORDER BY id DESC LIMIT 500';
-
-  let rows = [];
-  try {
-    let stmt = db.prepare(query);
-    if (params.length > 0) stmt = stmt.bind(...params);
-    const res = await stmt.all();
-    rows = res?.results || [];
-  } catch (err) {
-    console.error('get registrations error:', err);
-    return error(500, 'db_error', 'Impossible de récupérer la liste des inscrits.');
-  }
-
-  // Calcul du résumé global
-  let summary = {
-    total_registrations: 0,
-    total_attendees: 0,
-    vegetarian_count: 0,
-    cancelled_count: 0,
-  };
-
+  // Synthèse : uniquement l'événement en cours, comme registration-info et events/settings.
+  const summary = { event_slug: slug, total_registrations: 0, total_attendees: 0, vegetarian_count: 0, cancelled_count: 0 };
   try {
     const sumRow = await db.prepare(`
       SELECT
-        COUNT(CASE WHEN status = 'confirmed' THEN 1 END) as confirmed_regs,
-        COALESCE(SUM(CASE WHEN status = 'confirmed' THEN attendees_count ELSE 0 END), 0) as confirmed_att,
-        COALESCE(SUM(CASE WHEN status = 'confirmed' AND is_vegetarian = 1 THEN attendees_count ELSE 0 END), 0) as veg,
-        COUNT(CASE WHEN status = 'cancelled' THEN 1 END) as cancelled
+        COUNT(CASE WHEN status = 'confirmed' THEN 1 END) AS confirmed_regs,
+        COALESCE(SUM(CASE WHEN status = 'confirmed' THEN attendees_count ELSE 0 END), 0) AS confirmed_att,
+        COALESCE(SUM(CASE WHEN status = 'confirmed' AND is_vegetarian = 1 THEN attendees_count ELSE 0 END), 0) AS veg,
+        COUNT(CASE WHEN status = 'cancelled' THEN 1 END) AS cancelled
       FROM event_registrations
-    `).first();
-
+      WHERE event_slug = ?
+    `).bind(slug).first();
     if (sumRow) {
       summary.total_registrations = Number(sumRow.confirmed_regs) || 0;
       summary.total_attendees = Number(sumRow.confirmed_att) || 0;
       summary.vegetarian_count = Number(sumRow.veg) || 0;
       summary.cancelled_count = Number(sumRow.cancelled) || 0;
     }
-  } catch {}
+  } catch (err) {
+    console.warn('registrations summary error:', err && err.message);
+  }
 
-  return json({
-    ok: true,
-    summary,
-    registrations: rows,
-  });
+  if (!NOMINATIVE_ROLES.includes(admin.role)) {
+    return json({
+      ok: true,
+      summary,
+      registrations: [],
+      restricted: true,
+      message: 'La liste nominative des inscrits est réservée au superadmin et au responsable des événements.',
+    });
+  }
+
+  const url = new URL(request.url);
+  const status = url.searchParams.get('status') || 'all';
+  const search = (url.searchParams.get('q') || '').trim().slice(0, 100);
+
+  let query = `SELECT id, event_slug, event_title, code, name, contact, attendees_count, is_vegetarian, status, notes, created_at
+                 FROM event_registrations WHERE event_slug = ?`;
+  const params = [slug];
+  if (status === 'confirmed' || status === 'cancelled') {
+    query += ' AND status = ?';
+    params.push(status);
+  }
+  if (search) {
+    query += ' AND (name LIKE ? OR contact LIKE ? OR code LIKE ?)';
+    const term = `%${search}%`;
+    params.push(term, term, term);
+  }
+  query += ' ORDER BY id DESC LIMIT 500';
+
+  try {
+    const res = await db.prepare(query).bind(...params).all();
+    return json({ ok: true, summary, registrations: res?.results || [] });
+  } catch (err) {
+    console.error('get registrations error:', err);
+    return error(500, 'db_error', 'Impossible de récupérer la liste des inscrits. Réessayez dans un instant.');
+  }
 }
 
 export async function onRequestDelete({ request, env }) {
-  const { admin, response } = await requireRole(env, request, ['superadmin', 'events']);
+  const { admin, response } = await requireRole(env, request, NOMINATIVE_ROLES);
   if (response) return response;
 
   const db = env.DB;
-  if (!db) return error(503, 'no_db', 'Base de données non disponible.');
-
-  const url = new URL(request.url);
-  const idStr = url.searchParams.get('id');
-  const id = parseInt(idStr, 10);
+  const id = parseInt(new URL(request.url).searchParams.get('id'), 10);
   if (isNaN(id) || id <= 0) {
     return error(400, 'invalid_id', 'Identifiant d’inscription invalide.');
   }
@@ -92,7 +89,7 @@ export async function onRequestDelete({ request, env }) {
   try {
     const existing = await db.prepare('SELECT id, code, name, attendees_count FROM event_registrations WHERE id = ?').bind(id).first();
     if (!existing) {
-      return error(404, 'not_found', 'Inscription non trouvée.');
+      return error(404, 'not_found', 'Inscription non trouvée. Elle a peut-être déjà été supprimée.');
     }
 
     await db.prepare("UPDATE event_registrations SET status = 'cancelled' WHERE id = ?").bind(id).run();
@@ -106,6 +103,6 @@ export async function onRequestDelete({ request, env }) {
     return json({ ok: true, cancelled_id: id });
   } catch (err) {
     console.error('cancel registration error:', err);
-    return error(500, 'db_error', 'Échec de l’annulation de l’inscription.');
+    return error(500, 'db_error', 'Échec de l’annulation de l’inscription. Réessayez dans un instant.');
   }
 }

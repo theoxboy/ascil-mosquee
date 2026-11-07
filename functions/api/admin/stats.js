@@ -2,7 +2,7 @@
 // Renvoie les statistiques agrégées selon le rôle du compte connecté.
 import { requireRole } from '../../_lib/guard.js';
 import { json, error } from '../../_lib/http.js';
-import { DEFAULT_SETTINGS, cleanHomeSettings } from '../../_lib/settings.js';
+import { DEFAULT_SETTINGS, cleanHomeSettings, readEventRegistrationSettings } from '../../_lib/settings.js';
 
 export async function onRequestGet({ request, env }) {
   const { admin, response } = await requireRole(env, request, ['superadmin', 'editor', 'events']);
@@ -20,7 +20,9 @@ export async function onRequestGet({ request, env }) {
   } catch {}
 
   try {
-    const regRow = await db.prepare("SELECT COUNT(*) as count FROM event_registrations WHERE status = 'confirmed'").first();
+    // Comme les autres résumés : uniquement l'événement en cours.
+    const { event_slug: slug } = await readEventRegistrationSettings(db);
+    const regRow = await db.prepare("SELECT COUNT(*) as count FROM event_registrations WHERE status = 'confirmed' AND event_slug = ?").bind(slug).first();
     if (regRow) registrationsCount = Number(regRow.count) || 0;
   } catch {}
 

@@ -29,7 +29,7 @@ STATS_BANNER_HTML = r'''   <!-- Bandeau des statistiques réelles (étape 2b) --
     <div style="background:#fff;border:1px solid #E4D9C0;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:3px">
      <div style="display:flex;align-items:center;justify-content:space-between;color:#7A5A1E;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">
       <span>Campagne</span>
-      <span style="font-size:15px">💰</span>
+      <span style="display:inline-flex;color:#7A5A1E"><svg aria-hidden="true" width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"></path><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"></path></svg></span>
      </div>
      <div id="stat-campagne-val" style="font-size:20px;font-weight:800;color:#0E4D3C" class="tnum">—</div>
      <div id="stat-campagne-sub" style="font-size:12px;color:#4F5E57" class="tnum">—</div>
@@ -37,7 +37,7 @@ STATS_BANNER_HTML = r'''   <!-- Bandeau des statistiques réelles (étape 2b) --
     <div style="background:#fff;border:1px solid #E4D9C0;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:3px">
      <div style="display:flex;align-items:center;justify-content:space-between;color:#7A5A1E;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">
       <span>Visites du site</span>
-      <span style="font-size:15px">👁️</span>
+      <span style="display:inline-flex;color:#7A5A1E"><svg aria-hidden="true" width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"></path><circle cx="12" cy="12" r="3"></circle></svg></span>
      </div>
      <div id="stat-visits-val" style="font-size:20px;font-weight:800;color:#0E4D3C" class="tnum">—</div>
      <div id="stat-visits-sub" style="font-size:12px;color:#4F5E57" class="tnum">—</div>
@@ -45,7 +45,7 @@ STATS_BANNER_HTML = r'''   <!-- Bandeau des statistiques réelles (étape 2b) --
     <div style="background:#fff;border:1px solid #E4D9C0;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:3px">
      <div style="display:flex;align-items:center;justify-content:space-between;color:#7A5A1E;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">
       <span>Événements</span>
-      <span style="font-size:15px">📅</span>
+      <span style="display:inline-flex;color:#7A5A1E"><svg aria-hidden="true" width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v4"></path><path d="M16 2v4"></path><rect width="18" height="18" x="3" y="4" rx="2"></rect><path d="M3 10h18"></path></svg></span>
      </div>
      <div id="stat-events-val" style="font-size:20px;font-weight:800;color:#0E4D3C" class="tnum">—</div>
      <div id="stat-events-sub" style="font-size:12px;color:#4F5E57" class="tnum">—</div>
@@ -53,7 +53,7 @@ STATS_BANNER_HTML = r'''   <!-- Bandeau des statistiques réelles (étape 2b) --
     <div id="stat-card-sec" style="background:#fff;border:1px solid #E4D9C0;border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:3px">
      <div style="display:flex;align-items:center;justify-content:space-between;color:#7A5A1E;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em">
       <span>Sécurité & Accès</span>
-      <span style="font-size:15px">🛡️</span>
+      <span style="display:inline-flex;color:#7A5A1E"><svg aria-hidden="true" width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg></span>
      </div>
      <div id="stat-sec-val" style="font-size:20px;font-weight:800;color:#0E4D3C" class="tnum">—</div>
      <div id="stat-sec-sub" style="font-size:12px;color:#4F5E57" class="tnum">—</div>
@@ -958,6 +958,29 @@ PUBLIC_HOME_SYNC_SCRIPT = r'''<script id="ascil-home-sync">
 </script>
 '''
 
+def remove_stats_banner(tpl):
+    """Retire le bandeau des statistiques déjà injecté (commentaire + <div id="sa-stats-banner"> entier).
+
+    Compte les <div> ouvertes et fermées pour retirer le bloc complet : une simple expression
+    régulière s'arrêtait à la fin de la première carte et laissait le reste du bandeau.
+    """
+    start = tpl.find('<!-- Bandeau des statistiques réelles (étape 2b) -->')
+    if start < 0:
+        return tpl
+    div = tpl.find('<div id="sa-stats-banner"', start)
+    assert div > -1, 'bandeau sans <div id="sa-stats-banner">'
+    depth, k = 0, div
+    for m in re.finditer(r'<div\b|</div>', tpl[div:]):
+        depth += 1 if m.group(0) != '</div>' else -1
+        if depth == 0:
+            k = div + m.end()
+            break
+    assert depth == 0, 'bandeau mal fermé'
+    while start > 0 and tpl[start - 1] in ' \t\n':
+        start -= 1
+    return tpl[:start] + tpl[k:]
+
+
 def update_file(path, script_tag, script_id, inject_html=None, inject_anchor=None):
     content = path.read_text(encoding='utf-8')
     m = re.search(r'<script type="__bundler/template">(.*?)</script>', content, re.S)
@@ -972,7 +995,7 @@ def update_file(path, script_tag, script_id, inject_html=None, inject_anchor=Non
     # Injection HTML optionnelle (ex. bandeau stats)
     if inject_html and inject_anchor and inject_anchor in tpl:
         # Supprime ancienne version du bandeau si présente
-        tpl = re.sub(r'\s*<!-- Bandeau des statistiques réelles \(étape 2b\) -->.*?</div>\s*</div>', '', tpl, flags=re.S)
+        tpl = remove_stats_banner(tpl)
         idx_anchor = tpl.index(inject_anchor) + len(inject_anchor)
         tpl = tpl[:idx_anchor] + '\n' + inject_html + tpl[idx_anchor:]
 

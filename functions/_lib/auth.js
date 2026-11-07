@@ -85,7 +85,7 @@ export async function currentAdmin(db, request) {
   const id = await sha256Hex(token);
   const now = Date.now();
   const row = await db.prepare(
-    `SELECT s.id AS sid, s.last_seen_at, a.id, a.username, a.role, a.display_name, a.must_change_password
+    `SELECT s.id AS sid, s.last_seen_at, a.id, a.username, a.email, a.role, a.display_name, a.must_change_password
        FROM admin_sessions s JOIN admins a ON a.id = s.admin_id
       WHERE s.id = ? AND s.expires_at > ? AND a.is_active = 1`
   ).bind(id, now).first();
@@ -93,7 +93,7 @@ export async function currentAdmin(db, request) {
   if (now - row.last_seen_at > 5 * 60 * 1000) {
     await db.prepare('UPDATE admin_sessions SET last_seen_at = ? WHERE id = ?').bind(now, id).run();
   }
-  return { id: row.id, username: row.username, role: row.role, displayName: row.display_name,
+  return { id: row.id, username: row.username, email: row.email || null, role: row.role, displayName: row.display_name,
     mustChangePassword: row.must_change_password === 1, sessionId: row.sid };
 }
 

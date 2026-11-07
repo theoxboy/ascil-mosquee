@@ -2,6 +2,12 @@
 // Comptabilise anonymement la consultation d'une page publique (sans cookies ni IP).
 import { json, error, readJson } from '../_lib/http.js';
 
+const PAGES = ['Main', 'Horaires', 'APropos', 'Services', 'Dons', 'Evenements', 'Ressources', 'Contact',
+  'N2-Cours', 'N2-Mariages', 'N2-Funerailles', 'N2-AideAlimentaire', 'N2-EspaceFemmes', 'N2-Khutba',
+  'N3-Rappel', 'N3-Campagne', 'N3-Calendrier', 'N3-Inscription', 'N3-Dua'];
+// /Horaires.dc.html, /M-Horaires.dc, /T-Accueil.dc.html… (Accueil n'existe qu'en M- et T-).
+const KNOWN_PAGE = new RegExp('^/((?:(?:M-|T-)?(?:' + PAGES.join('|') + '))|(?:M-|T-)Accueil)\\.dc(?:\\.html)?$');
+
 export async function onRequestPost({ request, env }) {
   if (!env.DB) return error(503, 'no_db', 'Base de données non disponible.');
 
@@ -9,14 +15,14 @@ export async function onRequestPost({ request, env }) {
   let path = typeof body?.path === 'string' ? body.path.trim() : '';
   if (!path) path = '/';
 
-  // Ne pas comptabiliser les pages admin ni les appels API
-  if (path.startsWith('/api') || path.startsWith('/SA-') || path.startsWith('/superadmin')) {
-    return json({ ok: true, ignored: true });
+  // Seules les pages publiques connues du site sont comptées (pas d'adresse inventée,
+  // pas de pages admin) ; la forme « jolie » sans .html est ramenée à la forme du fichier.
+  if (path === '/index.html' || path === '/index') path = '/';
+  if (path !== '/') {
+    const m = KNOWN_PAGE.exec(path);
+    if (!m) return json({ ok: true, ignored: true });
+    path = `/${m[1]}.dc.html`;
   }
-
-  // Normalisation du chemin
-  if (path === '' || path === '/index.html') path = '/';
-  if (path.length > 100) path = path.slice(0, 100);
 
   try {
     await env.DB.prepare(`

@@ -244,7 +244,7 @@ PUBLIC_INSCRIPTION_SYNC_SCRIPT = r'''<script id="ascil-inscription-sync">
               if (agendaBtn) {
                 agendaBtn.addEventListener('click', function() {
                   downloadIcs(res.event_title, res.date_str, res.location, 'Réservation ASCIL code ' + res.code);
-                  agendaBtn.textContent = 'Téléchargé ✓';
+                  agendaBtn.textContent = 'Téléchargé';
                 });
               }
 
@@ -290,6 +290,7 @@ ADMIN_EVENEMENTS_SYNC_SCRIPT = r'''<script id="sa-evenements-sync">
   var initialSettings = null;
   var isDirty = false;
   var allRegistrations = [];
+  var lastRestricted = '';
 
   function esc(s) {
     if (!s) return '';
@@ -400,6 +401,13 @@ ADMIN_EVENEMENTS_SYNC_SCRIPT = r'''<script id="sa-evenements-sync">
       .then(function(d) {
         if (!d || !d.ok) return;
         allRegistrations = d.registrations || [];
+        if (d.restricted) {
+          // Éditeur : synthèse seulement, ni noms ni contacts, ni export ni courriel groupé.
+          Array.prototype.forEach.call(document.querySelectorAll('button, a'), function(b) {
+            var txt = (b.textContent || '').trim();
+            if (txt.indexOf('Exporter la liste (.csv)') > -1 || txt.indexOf('Écrire aux inscrits') > -1) b.style.display = 'none';
+          });
+        }
         var sm = d.summary || {};
 
         // Résumé en haut de la carte
@@ -410,6 +418,7 @@ ADMIN_EVENEMENTS_SYNC_SCRIPT = r'''<script id="sa-evenements-sync">
         }
 
         // Tableau des inscrits
+        lastRestricted = d.restricted ? (d.message || 'La liste nominative est réservée au superadmin et au responsable des événements.') : '';
         renderRegistrationsTable(allRegistrations);
       })
       .catch(function() {});
@@ -425,6 +434,11 @@ ADMIN_EVENEMENTS_SYNC_SCRIPT = r'''<script id="sa-evenements-sync">
       existingWrap.id = 'sa-reg-list-wrap';
       existingWrap.style.marginTop = '18px';
       cardB.appendChild(existingWrap);
+    }
+
+    if (lastRestricted) {
+      existingWrap.innerHTML = '<p style="color:#4F5E57;margin-top:12px">' + esc(lastRestricted) + '</p>';
+      return;
     }
 
     if (!list || list.length === 0) {
@@ -464,7 +478,7 @@ ADMIN_EVENEMENTS_SYNC_SCRIPT = r'''<script id="sa-evenements-sync">
         '  <td style="padding:10px 12px;font-weight:600">' + esc(r.name) + '</td>',
         '  <td style="padding:10px 12px"><a href="' + (r.contact && r.contact.includes('@') ? 'mailto:' + esc(r.contact) : 'tel:' + esc(r.contact)) + '" style="color:#0E4D3C;text-decoration:underline">' + esc(r.contact) + '</a></td>',
         '  <td style="padding:10px 12px;text-align:center;font-weight:700" class="tnum">' + (r.attendees_count || 1) + '</td>',
-        '  <td style="padding:10px 12px;text-align:center">' + (r.is_vegetarian ? '🌱 Oui' : '—') + '</td>',
+        '  <td style="padding:10px 12px;text-align:center">' + (r.is_vegetarian ? 'Oui' : '—') + '</td>',
         '  <td style="padding:10px 12px;color:#666;font-size:12px" class="tnum">' + esc(dateStr) + '</td>',
         '  <td style="padding:10px 12px;text-align:center">' + statusTag + '</td>',
         '  <td style="padding:10px 12px;text-align:right">',

@@ -3,7 +3,7 @@
 import { requireRole } from '../../../_lib/guard.js';
 import { json, error, readJson } from '../../../_lib/http.js';
 import { audit } from '../../../_lib/auth.js';
-import { DEFAULT_SETTINGS, cleanEventRegistrationSettings } from '../../../_lib/settings.js';
+import { cleanEventRegistrationSettings, nowIso, readEventRegistrationSettings } from '../../../_lib/settings.js';
 
 export async function onRequestGet({ request, env }) {
   const { admin, response } = await requireRole(env, request, ['superadmin', 'events', 'editor']);
@@ -12,15 +12,7 @@ export async function onRequestGet({ request, env }) {
   const db = env.DB;
   if (!db) return error(503, 'no_db', 'Base de données non disponible.');
 
-  let settings = DEFAULT_SETTINGS.event_registration;
-  try {
-    const row = await db.prepare('SELECT value FROM site_settings WHERE key = ?').bind('event_registration').first();
-    if (row && row.value) {
-      settings = cleanEventRegistrationSettings(JSON.parse(row.value));
-    }
-  } catch (err) {
-    console.warn('read event settings error:', err && err.message);
-  }
+  const settings = await readEventRegistrationSettings(db);
 
   // Synthèse des inscriptions actuelles
   let reservedSeats = 0;
@@ -69,14 +61,13 @@ export async function onRequestPut({ request, env }) {
 
   const cleaned = cleanEventRegistrationSettings(body);
   const jsonStr = JSON.stringify(cleaned);
-  const now = Math.floor(Date.now() / 1000);
-
   try {
     await db.prepare(`
-      INSERT INTO site_settings (key, value, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-    `).bind('event_registration', jsonStr, now).run();
+      INSERT INTO site_settings (key, value, updated_at, updated_by)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET
+        value = excluded.value, updated_at = excluded.updated_at, updated_by = excluded.updated_by
+    `).bind('event_registration', jsonStr, nowIso(), admin.id).run();
 
     await audit(db, admin.id, 'events.settings_update', request, 'settings:event_registration', {
       event_title: cleaned.event_title,

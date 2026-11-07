@@ -229,3 +229,25 @@ export function pageSettingForPath(path) {
   const m = /^\/(?:M-|T-)?([A-Za-z0-9-]+?)\.dc(?:\.html)?$/.exec(path);
   return m ? PAGE_BY_FILE[m[1]] || null : null;
 }
+
+// Date de mise à jour des réglages : toujours au format ISO, comme la migration 0003.
+export const nowIso = () => new Date().toISOString();
+
+// Réglages de l'événement ouvert aux inscriptions (une seule lecture, partagée par les routes).
+export async function readEventRegistrationSettings(db) {
+  try {
+    const row = await db.prepare("SELECT value FROM site_settings WHERE key = 'event_registration'").first();
+    if (row && row.value) return cleanEventRegistrationSettings(JSON.parse(row.value));
+  } catch (err) {
+    console.warn('read event_registration error:', err && err.message);
+  }
+  return { ...DEFAULT_SETTINGS.event_registration };
+}
+
+// Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
+// « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
+// (superadmin et responsable événements), qui la valide.
+export const GENERIC_KEYS = {
+  home: { roles: ['superadmin', 'editor'], clean: cleanHomeSettings },
+  pages: { roles: ['superadmin', 'editor'], clean: cleanPagesSettings },
+};

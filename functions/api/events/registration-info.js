@@ -1,21 +1,13 @@
 // GET /api/events/registration-info
 // Données publiques pour l'affichage de l'événement et des places disponibles.
 import { json, error } from '../../_lib/http.js';
-import { DEFAULT_SETTINGS, cleanEventRegistrationSettings } from '../../_lib/settings.js';
+import { readEventRegistrationSettings } from '../../_lib/settings.js';
 
 export async function onRequestGet({ env }) {
   const db = env.DB;
   if (!db) return error(503, 'no_db', 'Base de données non disponible.');
 
-  let settings = DEFAULT_SETTINGS.event_registration;
-  try {
-    const row = await db.prepare('SELECT value FROM site_settings WHERE key = ?').bind('event_registration').first();
-    if (row && row.value) {
-      settings = cleanEventRegistrationSettings(JSON.parse(row.value));
-    }
-  } catch (err) {
-    console.warn('read event_registration error:', err && err.message);
-  }
+  const settings = await readEventRegistrationSettings(db);
 
   let reservedSeats = 0;
   let registrationsCount = 0;

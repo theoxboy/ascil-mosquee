@@ -1,7 +1,9 @@
 // GET /api/admin/events/export
-// Exporte la liste des inscriptions en CSV compatible Excel / Google Sheets avec accents UTF-8.
+// Exporte en CSV (Excel / Google Sheets, accents UTF-8) les inscrits de l'événement en cours.
+// Données nominatives : réservé au superadmin et au responsable événements.
 import { requireRole } from '../../../_lib/guard.js';
 import { error } from '../../../_lib/http.js';
+import { readEventRegistrationSettings } from '../../../_lib/settings.js';
 
 function escapeCsv(val) {
   if (val == null) return '""';
@@ -10,18 +12,20 @@ function escapeCsv(val) {
 }
 
 export async function onRequestGet({ request, env }) {
-  const { admin, response } = await requireRole(env, request, ['superadmin', 'events', 'editor']);
+  const { admin, response } = await requireRole(env, request, ['superadmin', 'events']);
   if (response) return response;
 
   const db = env.DB;
   if (!db) return error(503, 'no_db', 'Base de données non disponible.');
 
   try {
+    const { event_slug: slug } = await readEventRegistrationSettings(db);
     const res = await db.prepare(`
       SELECT id, event_title, code, name, contact, attendees_count, is_vegetarian, status, notes, created_at
       FROM event_registrations
+      WHERE event_slug = ?
       ORDER BY id DESC
-    `).all();
+    `).bind(slug).all();
 
     const rows = res?.results || [];
 
@@ -56,7 +60,7 @@ export async function onRequestGet({ request, env }) {
     // Préfixe BOM UTF-8 (\uFEFF) pour qu'Excel ouvre le fichier avec les bons caractères
     const csvContent = '\uFEFF' + lines.join('\r\n');
     const today = new Date().toISOString().slice(0, 10);
-    const filename = `inscrits-evenements-${today}.csv`;
+    const filename = `inscrits-${slug.replace(/[^a-z0-9-]/gi, '')}-${today}.csv`;
 
     return new Response(csvContent, {
       status: 200,

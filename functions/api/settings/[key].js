@@ -6,6 +6,8 @@ import { DEFAULT_SETTINGS, cleanHomeSettings, cleanPagesSettings } from '../../_
 export async function onRequestGet({ env, params }) {
   const key = String(params.key || '').trim().toLowerCase();
   if (!key) return error(400, 'bad_key', 'Clé de réglage requise.');
+  // Lecture publique limitée aux réglages affichés sur le site.
+  if (!['home', 'pages'].includes(key)) return error(404, 'not_found', 'Aucun réglage trouvé pour cette clé.');
 
   let settings = null;
   let updatedAt = null;

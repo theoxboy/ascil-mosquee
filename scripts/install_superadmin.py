@@ -8,8 +8,18 @@ fluide grâce aux container queries), et on écrit :
   SA-Services, SA-Dons, SA-Evenements, SA-Ressources, SA-Contact (.dc.html)
   superadmin.html = point d'entrée (copie de SA-Connexion.dc.html)
 Puis on ajoute un lien discret « Espace administration » dans le pied de page du site.
+
+ATTENTION : régénérer les pages SA-* efface les branchements ajoutés ensuite par les scripts
+wire_*.py. Ce script les relance donc automatiquement, dans cet ordre obligatoire :
+  1. install_superadmin.py   (ce script : pages SA-* depuis la maquette)
+  2. wire_homepage.py        (accueil public + panneau Accueil + bandeau statistiques)
+  3. wire_events.py          (inscriptions publiques + panneau Événements)
+  4. wire_site.py            (Site entier → Pages publiées, Compte et sécurité + liens du site public)
+Option --sans-branchements : ne relance pas les étapes 2 à 4 (déconseillé).
+
+Usage : python3 scripts/install_superadmin.py /chemin/superadmin.html /chemin/ascil-mosquee
 """
-import base64, gzip, json, re, sys, zlib, pathlib
+import base64, gzip, json, re, subprocess, sys, zlib, pathlib
 
 SRC = pathlib.Path(sys.argv[1])
 ROOT = pathlib.Path(sys.argv[2])
@@ -385,3 +395,15 @@ for p in sorted(ROOT.glob('*.dc.html')) + [ROOT / 'index.html']:
     p.write_text(join(s, i, j, tpl), encoding='utf-8')
     n += 1
 print('pages du site reliées:', n)
+
+# 3. Rebrancher : sans cette étape, les pages SA-* régénérées perdraient la base de données.
+WIRE = ['wire_homepage.py', 'wire_events.py', 'wire_site.py']
+HERE = pathlib.Path(__file__).resolve().parent
+if '--sans-branchements' in sys.argv:
+    print('ATTENTION : branchements non relancés. Lancez ensuite, dans l’ordre :', ', '.join(WIRE))
+elif ROOT.resolve() != HERE.parent:
+    print('ATTENTION : dossier cible différent du dépôt ; lancez vous-même, dans l’ordre :', ', '.join(WIRE))
+else:
+    for w in WIRE:
+        subprocess.run([sys.executable, '-I', str(HERE / w)], check=True)
+    print('Branchements relancés :', ', '.join(WIRE))
