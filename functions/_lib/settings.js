@@ -104,6 +104,18 @@ export const DEFAULT_SETTINGS = {
   },
 };
 
+// Lien d'un bouton de l'accueil : « Page : … » (page du site), « /p/<lien> » (page créée) ou https://….
+// Toute autre valeur (ancienne page d'exemple, « Lien externe… » enregistré tel quel, javascript:…)
+// revient à la valeur par défaut.
+function homeLink(v, def) {
+  if (typeof v !== 'string') return def;
+  const t = v.trim();
+  if (/^Page : [^<>"]{1,60}$/.test(t)) return t;
+  if (/^\/p\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(t) && t.length <= 63) return t;
+  if (/^https?:\/\/[^\s<>"]{3,}$/i.test(t) && t.length <= 500) return t;
+  return def;
+}
+
 export function cleanHomeSettings(input) {
   if (!input || typeof input !== 'object') return DEFAULT_SETTINGS.home;
   const def = DEFAULT_SETTINGS.home;
@@ -122,8 +134,8 @@ export function cleanHomeSettings(input) {
       duration: input.chargement?.duration === 'rapide' ? 'rapide' : 'normale',
     },
     hero: {
-      h1: typeof input.hero?.h1 === 'string' ? input.hero.h1 : def.hero.h1,
-      h2: typeof input.hero?.h2 === 'string' ? input.hero.h2 : def.hero.h2,
+      h1: homeLink(input.hero?.h1, def.hero.h1),
+      h2: homeLink(input.hero?.h2, def.hero.h2),
     },
     priere: {
       fajr: typeof input.priere?.fajr === 'string' ? input.priere.fajr.trim() : def.priere.fajr,
@@ -135,24 +147,39 @@ export function cleanHomeSettings(input) {
       icha: typeof input.priere?.icha === 'string' ? input.priere.icha.trim() : def.priere.icha,
     },
     acces: {
-      cartes: Array.isArray(input.acces?.cartes) ? input.acces.cartes : def.acces.cartes,
+      cartes: Array.isArray(input.acces?.cartes)
+        ? input.acces.cartes.slice(0, def.acces.cartes.length).map((c, i) => ({
+          id: def.acces.cartes[i].id,
+          on: typeof c?.on === 'boolean' ? c.on : true,
+          lien: homeLink(c?.lien, def.acces.cartes[i].lien),
+        }))
+        : def.acces.cartes,
     },
     campagne: {
       objectif: typeof input.campagne?.objectif === 'number' ? Math.max(0, input.campagne.objectif) : (parseInt(input.campagne?.objectif, 10) || def.campagne.objectif),
       recolte: typeof input.campagne?.recolte === 'number' ? Math.max(0, input.campagne.recolte) : (parseInt(input.campagne?.recolte, 10) || 0),
-      btnInterac: typeof input.campagne?.btnInterac === 'string' ? input.campagne.btnInterac : def.campagne.btnInterac,
-      btnSuivre: typeof input.campagne?.btnSuivre === 'string' ? input.campagne.btnSuivre : def.campagne.btnSuivre,
+      btnInterac: homeLink(input.campagne?.btnInterac, def.campagne.btnInterac),
+      btnSuivre: homeLink(input.campagne?.btnSuivre, def.campagne.btnSuivre),
     },
     annonces: {
       max: [1, 2, 3].includes(input.annonces?.max) ? input.annonces.max : def.annonces.max,
-      btnTous: typeof input.annonces?.btnTous === 'string' ? input.annonces.btnTous : def.annonces.btnTous,
-      items: Array.isArray(input.annonces?.items) ? input.annonces.items : def.annonces.items,
+      btnTous: homeLink(input.annonces?.btnTous, def.annonces.btnTous),
+      items: Array.isArray(input.annonces?.items)
+        ? input.annonces.items.slice(0, 10).map((it, i) => ({
+          id: typeof it?.id === 'number' ? it.id : i,
+          date: typeof it?.date === 'string' ? it.date.slice(0, 40) : '',
+          titre: typeof it?.titre === 'string' ? it.titre.slice(0, 160) : '',
+          resume: typeof it?.resume === 'string' ? it.resume.slice(0, 400) : '',
+          lien: homeLink(it?.lien, 'Page : Événements'),
+          on: typeof it?.on === 'boolean' ? it.on : true,
+        }))
+        : def.annonces.items,
     },
     bienvenue: {
-      lien: typeof input.bienvenue?.lien === 'string' ? input.bienvenue.lien : def.bienvenue.lien,
+      lien: homeLink(input.bienvenue?.lien, def.bienvenue.lien),
     },
     invitation: {
-      lien: typeof input.invitation?.lien === 'string' ? input.invitation.lien : def.invitation.lien,
+      lien: homeLink(input.invitation?.lien, def.invitation.lien),
     },
     pied: {
       tcom: typeof input.pied?.tcom === 'string' ? input.pied.tcom.trim() : def.pied.tcom,
@@ -265,6 +292,8 @@ export function cleanAlertSettings(input) {
   const l = i.link && typeof i.link === 'object' ? i.link : {};
   if (l.type === 'page' && Object.prototype.hasOwnProperty.call(PAGE_FILES, l.page)) {
     out.link = { type: 'page', page: l.page };
+  } else if (l.type === 'custom' && typeof l.slug === 'string' && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(l.slug) && l.slug.length <= 60) {
+    out.link = { type: 'custom', slug: l.slug };
   } else if (l.type === 'url' && typeof l.url === 'string' && /^https?:\/\/[^\s]{3,}$/i.test(l.url.trim()) && l.url.length <= 500) {
     out.link = { type: 'url', url: l.url.trim() };
   }

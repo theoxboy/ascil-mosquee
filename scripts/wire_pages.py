@@ -7,6 +7,9 @@
    lien de la page, visibilité, mise en page, largeur, description. L'en-tête garde le statut,
    « Enregistrer », « Publier » / « Mettre à jour » et « Aperçu » (ouvre /p/<lien>).
    Les contenus d'exemple de la maquette (blocs, code, widgets, emplacements) sont retirés.
+3. SA-Panneau.dc.html (étape 5d) : les pages créées (publiées ou lien privé) sont proposées dans
+   les 9 sélecteurs de liens de l'accueil ; « Lien externe… » demande l'adresse ; la page
+   d'exemple « Inscriptions Ramadan 2027 » est retirée.
 
 Dans ces deux pages, le composant de la maquette est remplacé par un composant minimal qui ne
 gère que l'en-tête et les messages ; le contenu est piloté par un script autonome.
@@ -626,6 +629,98 @@ def wire_editor():
     print('SA-PageEditeur.dc.html : éditeur relié à la base')
 
 
+# ---------------------------------------------------------------- 3. Liens de l'accueil (étape 5d)
+# Panneau Accueil : 9 sélecteurs de liens. La maquette y proposait une page inventée et un
+# « Lien externe… » qui s'enregistrait tel quel (bouton cassé sur l'accueil public).
+HOME_LINK_FIELDS = r"""{ 'f-h1': ['hero', 'h1'], 'f-h2': ['hero', 'h2'], 'k-0': ['acces', 'cartes', 0, 'lien'],
+  'k-1': ['acces', 'cartes', 1, 'lien'], 'k-2': ['acces', 'cartes', 2, 'lien'], 'f-int': ['campagne', 'btnInterac'],
+  'f-sui': ['campagne', 'btnSuivre'], 'f-tous': ['annonces', 'btnTous'], 'a-l-0': ['annonces', 'items', 0, 'lien'],
+  'a-l-1': ['annonces', 'items', 1, 'lien'], 'a-l-2': ['annonces', 'items', 2, 'lien'], 'f-bv': ['bienvenue', 'lien'],
+  'f-inv': ['invitation', 'lien'] }"""
+
+HOME_LINKS_SCRIPT = r"""<script id="sa-home-links">
+(function () {
+  var FIELDS = __FIELDS__;
+  var EXT = 'Lien externe…';
+  var pages = [], settings = null, prev = {};
+  function get(obj, path) { return path.reduce(function (o, k) { return o == null ? o : o[k]; }, obj); }
+  function opt(sel, value, text) {
+    for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === value) return sel.options[i];
+    var o = document.createElement('option'); o.value = value; o.textContent = text;
+    var ext = null;
+    for (var j = 0; j < sel.options.length; j++) if (sel.options[j].text.trim() === EXT) ext = sel.options[j];
+    sel.insertBefore(o, ext);
+    return o;
+  }
+  function apply() {
+    Object.keys(FIELDS).forEach(function (id) {
+      var sel = document.getElementById(id);
+      if (!sel || sel.tagName !== 'SELECT') return;
+      pages.forEach(function (p) { opt(sel, p.url, 'Ma page : ' + p.title); });
+      var v = settings ? get(settings, FIELDS[id]) : null;
+      if (typeof v === 'string' && v) {
+        if (/^\/p\//.test(v)) opt(sel, v, 'Ma page : ' + v + ' (non publiée ou supprimée)');
+        else if (/^https?:\/\//i.test(v)) opt(sel, v, 'Lien externe : ' + v);
+        sel.value = v;
+      }
+      prev[id] = sel.value;
+    });
+  }
+  // « Lien externe… » : on demande l'adresse, au lieu d'enregistrer ce texte comme lien.
+  document.addEventListener('change', function (e) {
+    var sel = e.target;
+    if (!sel || sel.tagName !== 'SELECT' || !FIELDS[sel.id]) return;
+    if (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].text.trim() === EXT) {
+      var url = (window.prompt('Adresse du lien externe (doit commencer par https://)', 'https://') || '').trim();
+      if (/^https?:\/\/[^\s<>"]{3,}$/i.test(url)) {
+        opt(sel, url, 'Lien externe : ' + url);
+        sel.value = url;
+      } else {
+        sel.value = prev[sel.id] || sel.options[0].value;
+        if (url && url !== 'https://') window.alert('Adresse non valide : elle doit commencer par https:// . Le lien précédent est conservé.');
+      }
+      sel.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    prev[sel.id] = sel.value;
+  }, true);
+  var api = function (u) { return fetch(u, { credentials: 'same-origin' }).then(function (r) { return r.json().catch(function () { return { ok: false }; }); }); };
+  function start() {
+    Promise.all([api('/api/admin/pages'), api('/api/admin/settings/home')]).then(function (rs) {
+      pages = rs[0].ok ? rs[0].pages.filter(function (p) { return p.visibility !== 'draft'; }) : [];
+      settings = rs[1].ok ? rs[1].settings : null;
+      apply();
+      // Les cartes et annonces sont rendues par la page : on complète leurs listes si elles réapparaissent.
+      new MutationObserver(function () {
+        var missing = Object.keys(FIELDS).some(function (id) {
+          var s = document.getElementById(id);
+          return s && s.tagName === 'SELECT' && pages.some(function (p) {
+            for (var i = 0; i < s.options.length; i++) if (s.options[i].value === p.url) return false;
+            return true;
+          });
+        });
+        if (missing) apply();
+      }).observe(document.documentElement, { childList: true, subtree: true });
+    }, function () {});
+  }
+  if (document.getElementById('f-h1')) start();
+  else new MutationObserver(function (m, o) { if (document.getElementById('f-h1')) { o.disconnect(); start(); } })
+    .observe(document.documentElement, { childList: true, subtree: true });
+})();
+</script>
+"""
+
+
+def wire_home_links():
+    path = ROOT / 'SA-Panneau.dc.html'
+    s, i, j, tpl = load(path)
+    n = tpl.count('<option>Ma page : Inscriptions Ramadan 2027</option>')
+    tpl = tpl.replace('<option>Ma page : Inscriptions Ramadan 2027</option>', '')
+    tpl = inject_script(tpl, 'sa-home-links', HOME_LINKS_SCRIPT.replace('__FIELDS__', HOME_LINK_FIELDS))
+    save(path, s, i, j, tpl)
+    print(f'SA-Panneau.dc.html : liens de l’accueil reliés aux pages créées ({n} options d’exemple retirées)')
+
+
 if __name__ == '__main__':
     wire_list()
     wire_editor()
+    wire_home_links()

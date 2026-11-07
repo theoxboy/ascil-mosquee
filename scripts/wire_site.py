@@ -182,6 +182,7 @@ ALERT_SCRIPT = r"""<script id="ascil-alert-banner">
     msg.appendChild(document.createTextNode(a.message));
     row.appendChild(msg);
     var href = a.link && a.link.type === 'page' && FILES[a.link.page] ? FILES[a.link.page] + '.dc.html'
+      : a.link && a.link.type === 'custom' && /^[a-z0-9-]+$/.test(a.link.slug || '') ? '/p/' + a.link.slug
       : a.link && a.link.type === 'url' ? a.link.url : '';
     if (href) {
       var link = document.createElement('a');
@@ -797,9 +798,72 @@ def wire_season_panel():
     print('SA-Site.dc.html : mode du site et langues branchés sur la base')
 
 
+# ---------------------------------------------------------------- 8. Pages créées dans la bannière (étape 5d)
+ALERT_CUSTOM_PATCHES = [
+    # Lecture : une option « Ma page : … » porte data-custom-slug.
+    ("""    const found = this.alertLinks().find((x) => x[1] === label);
+    const key = found ? found[0] : '';""",
+     """    const opt = sel && sel.selectedIndex > -1 ? sel.options[sel.selectedIndex] : null;
+    const customSlug = opt ? opt.getAttribute('data-custom-slug') : null;
+    const found = this.alertLinks().find((x) => x[1] === label);
+    const key = customSlug ? '__custom' : found ? found[0] : '';"""),
+    ("      link: key === '__url' ? { type: 'url', url: v('alert-url').trim() } : key ? { type: 'page', page: key } : { type: 'none' },",
+     "      link: key === '__custom' ? { type: 'custom', slug: customSlug } : key === '__url' ? { type: 'url', url: v('alert-url').trim() } : key ? { type: 'page', page: key } : { type: 'none' },"),
+    # Écriture : sélectionner la page créée (et l'ajouter si elle n'est plus publiée).
+    ("""    if (sel) {
+      const label = (this.alertLinks().find((x) => x[0] === key) || this.alertLinks()[0])[1];
+      for (let i = 0; i < sel.options.length; i++) if (sel.options[i].text.trim() === label) sel.selectedIndex = i;
+    }""",
+     """    if (sel && a.link && a.link.type === 'custom') {
+      this.addCustomOption(sel, a.link.slug, 'Ma page : /p/' + a.link.slug + ' (non publiée ou supprimée)');
+      for (let i = 0; i < sel.options.length; i++) if (sel.options[i].getAttribute('data-custom-slug') === a.link.slug) sel.selectedIndex = i;
+    } else if (sel) {
+      const label = (this.alertLinks().find((x) => x[0] === key) || this.alertLinks()[0])[1];
+      for (let i = 0; i < sel.options.length; i++) if (sel.options[i].text.trim() === label) sel.selectedIndex = i;
+    }"""),
+    ("  showAlertUrl() {",
+     """  addCustomOption(sel, slug, text) {
+    for (let i = 0; i < sel.options.length; i++) if (sel.options[i].getAttribute('data-custom-slug') === slug) return;
+    const o = document.createElement('option');
+    o.textContent = text;
+    o.setAttribute('data-custom-slug', slug);
+    let ext = null;
+    for (let i = 0; i < sel.options.length; i++) if (sel.options[i].text.trim() === 'Lien externe…') ext = sel.options[i];
+    sel.insertBefore(o, ext);
+  }
+  loadCustomPages() {
+    fetch('/api/admin/pages', { credentials: 'same-origin' })
+      .then((r) => r.json().catch(() => ({ ok: false })))
+      .then((d) => {
+        const sel = document.getElementById('f5');
+        if (!d.ok || !sel) return;
+        d.pages.filter((p) => p.visibility !== 'draft').forEach((p) => this.addCustomOption(sel, p.slug, 'Ma page : ' + p.title));
+        if (this.alertBase) this.setAlertForm(this.alertBase);
+      })
+      .catch(() => {});
+  }
+  showAlertUrl() {"""),
+    ("    this.listenAlert();\n    this.loadAlert();\n", "    this.listenAlert();\n    this.loadAlert();\n    this.loadCustomPages();\n"),
+]
+
+
+def wire_alert_custom():
+    path = ROOT / 'SA-Site.dc.html'
+    s, i, j, tpl = load(path)
+    if 'loadCustomPages()' in tpl:
+        print('SA-Site.dc.html : pages créées déjà proposées dans la bannière')
+        return
+    for a, b in ALERT_CUSTOM_PATCHES:
+        assert tpl.count(a) == 1, a[:70]
+        tpl = tpl.replace(a, b)
+    save(path, s, i, j, tpl)
+    print('SA-Site.dc.html : pages créées proposées dans la bannière')
+
+
 if __name__ == '__main__':
     wire_panel()
     wire_alert_panel()
     wire_season_panel()
+    wire_alert_custom()
     wire_account()
     wire_public()

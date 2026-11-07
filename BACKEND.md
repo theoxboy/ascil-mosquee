@@ -18,8 +18,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | Site entier | « Mode du site » (clé `season`) : bandeau Ramadan / Aïd en haut de l'accueil pendant la période ; « Langues » (clé `languages`) : langues proposées dans le sélecteur | fait, à pousser |
 | 5a | Créer une page : base (`custom_pages`, `page_redirects`) et API (créer, lire, modifier, dupliquer, supprimer) | en ligne |
 | 5b | Créer une page : écrans « Mes pages » et éditeur (blocs Texte, Bouton, Tableau) | en ligne |
-| 5c | Créer une page : affichage public `/p/<lien>` (publiée, lien privé, brouillon pour les comptes connectés) | fait, à pousser |
-| 5d | Créer une page : pages proposées dans les sélecteurs de liens du panneau | à faire |
+| 5c | Créer une page : affichage public `/p/<lien>` (publiée, lien privé, brouillon pour les comptes connectés) | en ligne |
+| 5d | Créer une page : pages proposées dans les liens de la bannière d'alerte, des boutons de l'accueil et de l'éditeur | fait, à pousser |
 | 4 | Horaires, annonces, dons : API sur les tables existantes `prayer_times`, `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -58,6 +58,9 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES ('0006_dates_iso_et_limites.sq
 La route générique `/api/admin/settings/:key` n'accepte que les clés de `GENERIC_KEYS`
 (`functions/_lib/settings.js`), chacune avec ses rôles et sa validation : aucune clé arbitraire.
 La lecture publique `/api/settings/:key` est limitée à `PUBLIC_KEYS` (`home`, `pages`, `alert`, `season`, `languages`).
+
+Liens de l'accueil (`home`) : seuls « Page : … », `/p/<lien>` et `https://…` sont acceptés ; toute autre valeur
+revient à la valeur par défaut. La bannière accepte aussi un lien vers une page créée (`{ type: 'custom', slug }`).
 
 Limites connues : le mode du site ne change pas les couleurs du site (pas de variables de couleur),
 et les textes ne sont pas traduits : les langues ne règlent que ce que propose le sélecteur.
@@ -106,7 +109,8 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
 4. `scripts/wire_site.py` : tout Site entier (pages publiées, mode du site, langues, bannière d'alerte, compte et sécurité),
    et sur le site public : masquage des pages, bannière d'alerte, sélecteur de langues, bandeau de saison (accueil).
 
-5. `scripts/wire_pages.py` : Créer une page (« Mes pages » et l'éditeur `SA-PageEditeur.dc.html?id=<page>`).
+5. `scripts/wire_pages.py` : Créer une page (« Mes pages » et l'éditeur `SA-PageEditeur.dc.html?id=<page>`),
+   et les liens de l'accueil (pages créées proposées, « Lien externe… » qui demande l'adresse).
 6. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
    avec `value="…"` dans la maquette devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
    de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
