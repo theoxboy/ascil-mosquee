@@ -750,12 +750,14 @@ ACCOUNT_SCRIPT = r"""<script id="sa-site-account">
     'events.settings_update': 'Réglages de l’événement modifiés', 'events.registration_cancel': 'Inscription annulée',
     'settings.update': 'Réglages modifiés', 'pages.create': 'Page créée', 'pages.update': 'Page modifiée',
     'pages.duplicate': 'Page dupliquée', 'pages.delete': 'Page supprimée',
-    'prayer_times.update': 'Horaires du mois modifiés'
+    'prayer_times.update': 'Horaires du mois modifiés',
+    'forms.status': 'Statut d’une demande reçue changé', 'forms.delete': 'Demande reçue supprimée'
   };
   var TARGETS = {
     'settings:home': 'Accueil', 'settings:pages': 'Pages publiées', 'settings:event_registration': 'Événement',
     'settings:alert': 'Bannière d’alerte', 'settings:season': 'Mode du site', 'settings:languages': 'Langues',
-    'settings:horaires': 'Horaires'
+    'settings:horaires': 'Horaires', 'settings:khutba': 'Langue de la khutba', 'settings:rappel': 'Rappel de prière',
+    'settings:apropos': 'À propos', 'settings:campagne': 'Campagne en direct', 'settings:services': 'Services'
   };
   var PAGE_NAMES = {
     pg_accueil: 'Accueil', pg_horaires: 'Horaires du mois', pg_apropos: 'À propos', pg_services: 'Services',

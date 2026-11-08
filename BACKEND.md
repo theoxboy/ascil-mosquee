@@ -28,7 +28,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | H5 | Horaires : heures du jour sur les 58 pages publiques (barre « Prochaine prière », menu mobile, pied de page, carte « Prochaine prière » de l'accueil), sur toutes les heures remplies ; le script de l'accueil ne garde que l'affichage des puces et de la progression | en ligne |
 | H6 | Horaires : onglets « Langue de la khutba » (clé `khutba` : vendredis datés, langue, traduction, imam, nombre affiché, mode) et « Rappel de prière » (clé `rappel` : prières et délais proposés, délai par défaut, titre, son, vibration) ; pages N2-Khutba et N3-Rappel reliées (vraies notifications page ouverte, choix mémorisés sur l'appareil, fichier calendrier .ics du mois) | en ligne |
 | A | À propos : onglet « L’association » (clé `apropos` : présentation, valeurs, histoire datée, liens du projet, équipe avec photos réduites et accord écrit, chiffres et sources) et onglet « Campagne en direct » (clé `campagne` : donateurs, mise à jour automatique depuis `donations`, étapes, dons par semaine, derniers dons ; objectif et récolté dans `home.campagne`) ; pages APropos et N3-Campagne reliées, simulation retirée ; route publique `GET /api/campagne` | en ligne |
-| S1 | Services : onglet « Tous les services » (clé `services` : cartes ordonnées, affichées ou masquées, cartes libres ajoutées ou supprimées ; prières et Jumu'a avec les heures du tableau du mois ; Aïd avec le lieu commun `horaires.aid.lieu` et la Zakat al-Fitr ; cartes « Les autres services », équipements, bloc « Une question ? ») ; interrupteurs « Page publiée » des 6 onglets reliés à `pages` ; page Services (et M-/T-) reliée, mentions « à confirmer » retirées | fait, à pousser |
+| S1 | Services : onglet « Tous les services » (clé `services` : cartes ordonnées, affichées ou masquées, cartes libres ajoutées ou supprimées ; prières et Jumu'a avec les heures du tableau du mois ; Aïd avec le lieu commun `horaires.aid.lieu` et la Zakat al-Fitr ; cartes « Les autres services », équipements, bloc « Une question ? ») ; interrupteurs « Page publiée » des 6 onglets reliés à `pages` ; page Services (et M-/T-) reliée, mentions « à confirmer » retirées | en ligne |
+| S2 | Boîte de réception : table `form_messages` (migration 0009), envoi public `POST /api/forms` (champ piège, délai minimal de 3 s, 5 envois par connexion en 15 min), onglet « Demandes reçues » dans Contact (filtres, statut nouveau / lu / traité, répondre, suppression définitive) via `GET`/`PATCH`/`DELETE /api/admin/forms` ; le formulaire Contact envoie au site au lieu d'ouvrir le logiciel de courriel | fait, à pousser (après la migration 0009) |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -45,6 +46,7 @@ Les tables existantes ne sont jamais recréées : on les complète avec `ALTER T
 | `0006_dates_iso_et_limites.sql` | `site_settings.updated_at` remis au format ISO ; `rate_limits` (limite des inscriptions publiques) |
 | `0007_custom_pages.sql` | `custom_pages` (titre, lien unique, blocs JSON, visibilité, mise en page, largeur, description) ; `page_redirects` (ancienne adresse → page) |
 | `0008_prayer_times.sql` | complète `prayer_times` : colonne `lever`, index unique `ux_prayer_times_date` (une ligne par jour, date AAAA-MM-JJ) |
+| `0009_form_messages.sql` | nouvelle table `form_messages` (boîte de réception des formulaires publics : formulaire d'origine, nom, courriel ou téléphone, message, champs propres, statut) ; aucune table existante modifiée |
 
 Les migrations sont appliquées à la main dans la console D1. Après chaque application,
 enregistrer la ligne correspondante dans `d1_migrations`, sinon `wrangler d1 migrations apply --remote`
@@ -125,7 +127,7 @@ Les pages `SA-*` sont générées depuis la maquette, puis « branchées » sur 
 modifient les pages générées. Régénérer sans rebrancher efface les branchements.
 
 1. `scripts/install_superadmin.py /Users/mac/Documents/mosque/superadmin.html .` régénère les pages `SA-*`.
-   **Il relance lui-même les étapes 2 à 9**, sauf avec `--sans-branchements`.
+   **Il relance lui-même les étapes 2 à 10**, sauf avec `--sans-branchements`.
 2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
    Il remplace la logique du panneau par `scripts/panneau_component.js` (état unique : interrupteurs,
    ordre, cartes, annonces, heures) ; le script `#sa-panneau-sync` enregistre via `window.__saHome`.
@@ -144,12 +146,13 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
 8. `scripts/wire_apropos.py` : panneau `SA-APropos` (clés `apropos`, `campagne`, objectif et récolté de `home`)
    et pages publiques APropos et N3-Campagne (données de `/api/settings/apropos` et `/api/campagne`, relues chaque minute sur la campagne).
 9. `scripts/wire_services.py` : panneau `SA-Services` (clé `services`, lieu de l'Aïd dans `horaires`, pages publiées) et page publique Services
-10. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
+10. `scripts/wire_inbox.py` : onglet « Demandes reçues » de `SA-Contact` et formulaire de la page Contact
+11. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
    avec `value="…"` dans la maquette devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
    de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
-   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 9 s'appuient sur les attributs d'origine, d'où cet ordre.
+   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 10 s'appuient sur les attributs d'origine, d'où cet ordre.
 
-Les scripts 2 à 9 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
+Les scripts 2 à 10 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
 
 Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `--reset` pour un nouveau mot de passe).
