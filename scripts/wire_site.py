@@ -751,7 +751,9 @@ ACCOUNT_SCRIPT = r"""<script id="sa-site-account">
     'settings.update': 'Réglages modifiés', 'pages.create': 'Page créée', 'pages.update': 'Page modifiée',
     'pages.duplicate': 'Page dupliquée', 'pages.delete': 'Page supprimée',
     'prayer_times.update': 'Horaires du mois modifiés',
-    'forms.status': 'Statut d’une demande reçue changé', 'forms.delete': 'Demande reçue supprimée'
+    'forms.status': 'Statut d’une demande reçue changé', 'forms.delete': 'Demande reçue supprimée',
+    'dua.publier': 'Message du mur Dua publié', 'dua.refuser': 'Message du mur Dua refusé', 'dua.retirer': 'Message retiré du mur Dua',
+    'dua.modifier': 'Message du mur Dua corrigé', 'dua.delete': 'Message du mur Dua supprimé'
   };
   var TARGETS = {
     'settings:home': 'Accueil', 'settings:pages': 'Pages publiées', 'settings:event_registration': 'Événement',
@@ -760,7 +762,8 @@ ACCOUNT_SCRIPT = r"""<script id="sa-site-account">
     'settings:apropos': 'À propos', 'settings:campagne': 'Campagne en direct', 'settings:services': 'Services',
     'settings:cours': 'Cours', 'settings:mariages': 'Mariages', 'settings:funerailles': 'Funérailles', 'settings:aide': 'Aide alimentaire',
     'settings:femmes': 'Espace femmes', 'settings:dons': 'Faire un don', 'settings:merci': 'Bloc Merci (Faire un don)',
-    'settings:evenements': 'Événements', 'settings:calendrier': 'Calendrier du mois'
+    'settings:evenements': 'Événements', 'settings:calendrier': 'Calendrier du mois',
+    'settings:ressources': 'Ressources (nouveaux arrivants)', 'settings:dua': 'Règles du mur Dua et annonces'
   };
   var PAGE_NAMES = {
     pg_accueil: 'Accueil', pg_horaires: 'Horaires du mois', pg_apropos: 'À propos', pg_services: 'Services',

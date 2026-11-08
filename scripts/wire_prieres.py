@@ -292,8 +292,8 @@ LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
     'Services': ['services', 'horaires'], 'N2-Cours': ['cours'], 'N2-Mariages': ['mariages'],
     'N2-Funerailles': ['funerailles'], 'N2-AideAlimentaire': ['aide'], 'N2-EspaceFemmes': ['femmes'],
     'Dons': ['dons', 'merci', 'campagne', 'services'], 'Evenements': ['evenements'],
-    'N3-Calendrier': ['calendrier', 'evenements', 'cours'] }[page] || [];
-  var URLS = { campagne: '/api/campagne' };
+    'N3-Calendrier': ['calendrier', 'evenements', 'cours'], 'Ressources': ['ressources'], 'N3-Dua': ['dua'] }[page] || [];
+  var URLS = { campagne: '/api/campagne', dua: '/api/dua' };
   function getJ(u) {
     return fetch(u, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }

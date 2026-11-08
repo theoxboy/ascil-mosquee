@@ -997,6 +997,85 @@ export function torontoDate(now = new Date()) {
   }
 }
 
+// Ressources (clé ressources) : page « Nouveaux arrivants ». Un lien externe doit commencer par http(s)://,
+// sinon il est vidé et la carte s’affiche sans lien.
+const RES_LINK = { titre: ['s', 100], texte: ['s', 200], lien: ['s', 300], on: ['b'] };
+export const RESSOURCES_SCHEMA = {
+  intro: ['t', 300],
+  halal: {
+    on: ['b'], titre: ['s', 80], texte: ['t', 400], avert: ['b'],
+    items: ['list', 12, { nom: ['s', 80], adresse: ['s', 160], telephone: ['s', 30], certif: ['e', ['confirmer', 'certifie', 'non']], organisme: ['s', 80], on: ['b'] }],
+  },
+  mosquees: { on: ['b'], copier: ['b'], itineraire: ['b'], items: ['list', 12, { nom: ['s', 100], adresse: ['s', 160], distance: ['s', 30], on: ['b'] }] },
+  publics: { on: ['b'], items: ['list', 12, RES_LINK] },
+  reperes: { on: ['b'], items: ['list', 8, RES_LINK] },
+  installer: { on: ['b'], aide: ['b'], cours: ['b'], dua: ['b'] },
+  etudier: { on: ['b'], titre: ['s', 80], texte: ['t', 600] },
+};
+DEFAULT_SETTINGS.ressources = {
+  intro: 'Pour la première semaine d’une famille, d’un étudiant ou d’un travailleur qui s’installe dans la région.',
+  halal: {
+    on: true, titre: 'À Rivière-du-Loup', avert: true,
+    texte: 'Un seul établissement est indiqué, avec prudence. La certification se confirme directement auprès du restaurant.',
+    items: [{ nom: 'Le Méditerranéen (Halal)', adresse: '298 boul. Armand-Thériault', telephone: '(438) 527-8428', certif: 'confirmer', organisme: '', on: true }],
+  },
+  mosquees: {
+    on: true, copier: true, itineraire: true,
+    items: [
+      { nom: 'Centre Culturel Islamique de La Pocatière', adresse: '502-A, 4e Avenue Painchaud, La Pocatière', distance: '', on: true },
+      { nom: 'Centre Islamique de Rimouski', adresse: '111 rue Saint-Jean-Baptiste E, Rimouski', distance: '', on: true },
+      { nom: 'Centre Culturel Islamique de Québec', adresse: '2877 chemin Sainte-Foy, Québec', distance: '', on: true },
+      { nom: 'Centre Culturel AMMGL de Lévis', adresse: '39 rue Guenette, Lévis', distance: '', on: true },
+    ],
+  },
+  publics: {
+    on: true,
+    items: [
+      { titre: 'Accueil et Intégration Bas-Saint-Laurent (AIBSL)', texte: 'Accompagnement des nouveaux arrivants.', lien: '', on: true },
+      { titre: 'MRC de Rivière-du-Loup — immigration', texte: 'Les démarches locales.', lien: '', on: true },
+    ],
+  },
+  reperes: {
+    on: true,
+    items: [
+      { titre: 'Horaires astronomiques de la ville', texte: 'Référence personnelle, distincte des horaires de la mosquée.', lien: '', on: true },
+      { titre: 'Direction de la Qibla', texte: 'Environ 61,6° depuis le nord vrai.', lien: '', on: true },
+      { titre: 'Calendrier hégirien', texte: 'Dates du calendrier musulman.', lien: '', on: true },
+    ],
+  },
+  installer: { on: true, aide: true, cours: true, dua: true },
+  etudier: { on: true, titre: 'Étudier et scolariser', texte: 'Aucune école islamique n’existe dans le Bas-Saint-Laurent ; la plus proche se trouve à Québec.' },
+};
+const URL_RE = /^https?:\/\/[^\s<>"]+\.[^\s<>"]+$/i;
+export function cleanRessourcesSettings(input) {
+  const out = cleanWith(RESSOURCES_SCHEMA, input, DEFAULT_SETTINGS.ressources);
+  for (const x of out.publics.items.concat(out.reperes.items)) if (!URL_RE.test(x.lien)) x.lien = '';
+  return out;
+}
+
+// Mur « Dua et annonces » (clé dua) : règles du mur. Les messages sont dans la table dua_messages (migration 0010).
+export const DUA_SCHEMA = {
+  max: ['n', 80, 1000], delai: ['e', ['12 h', '24 h', '48 h']],
+  categories: ['list', 10, { titre: ['s', 30], on: ['b'] }],
+  ongletDua: ['b'], ongletAnn: ['b'], compteur: ['b'], anonyme: ['b'], pause: ['b'],
+  regles: ['list', 8, { titre: ['s', 160], on: ['b'] }],
+};
+DEFAULT_SETTINGS.dua = {
+  max: 280, delai: '24 h',
+  categories: ['Covoiturage', 'Logement', 'Emploi', 'Objets perdus'].map((titre) => ({ titre, on: true })),
+  ongletDua: true, ongletAnn: true, compteur: true, anonyme: true, pause: false,
+  regles: [
+    'Pas de publicité, pas de collecte d’argent privée.',
+    'Pas de détails médicaux ou personnels sur d’autres personnes.',
+    'Un message signalé est retiré le temps d’être relu.',
+  ].map((titre) => ({ titre, on: true })),
+};
+export function cleanDuaSettings(input) {
+  const out = cleanWith(DUA_SCHEMA, input, DEFAULT_SETTINGS.dua);
+  if (!out.ongletDua && !out.ongletAnn) out.ongletDua = true;
+  return out;
+}
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -1024,8 +1103,10 @@ export const GENERIC_KEYS = {
   // Le responsable des événements gère aussi la liste et le calendrier.
   evenements: { roles: ['superadmin', 'editor', 'events'], clean: cleanEvenementsSettings, maxBytes: 200000 },
   calendrier: { roles: ['superadmin', 'editor', 'events'], clean: cleanCalendrierSettings },
+  ressources: { roles: ['superadmin', 'editor'], clean: cleanRessourcesSettings },
+  dua: { roles: ['superadmin', 'editor'], clean: cleanDuaSettings },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
 export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos', 'services',
-  'cours', 'mariages', 'funerailles', 'aide', 'femmes', 'dons', 'merci', 'evenements', 'calendrier'];
+  'cours', 'mariages', 'funerailles', 'aide', 'femmes', 'dons', 'merci', 'evenements', 'calendrier', 'ressources', 'dua'];
