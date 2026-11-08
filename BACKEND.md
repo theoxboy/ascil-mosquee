@@ -29,7 +29,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | H6 | Horaires : onglets « Langue de la khutba » (clé `khutba` : vendredis datés, langue, traduction, imam, nombre affiché, mode) et « Rappel de prière » (clé `rappel` : prières et délais proposés, délai par défaut, titre, son, vibration) ; pages N2-Khutba et N3-Rappel reliées (vraies notifications page ouverte, choix mémorisés sur l'appareil, fichier calendrier .ics du mois) | en ligne |
 | A | À propos : onglet « L’association » (clé `apropos` : présentation, valeurs, histoire datée, liens du projet, équipe avec photos réduites et accord écrit, chiffres et sources) et onglet « Campagne en direct » (clé `campagne` : donateurs, mise à jour automatique depuis `donations`, étapes, dons par semaine, derniers dons ; objectif et récolté dans `home.campagne`) ; pages APropos et N3-Campagne reliées, simulation retirée ; route publique `GET /api/campagne` | en ligne |
 | S1 | Services : onglet « Tous les services » (clé `services` : cartes ordonnées, affichées ou masquées, cartes libres ajoutées ou supprimées ; prières et Jumu'a avec les heures du tableau du mois ; Aïd avec le lieu commun `horaires.aid.lieu` et la Zakat al-Fitr ; cartes « Les autres services », équipements, bloc « Une question ? ») ; interrupteurs « Page publiée » des 6 onglets reliés à `pages` ; page Services (et M-/T-) reliée, mentions « à confirmer » retirées | en ligne |
-| S2 | Boîte de réception : table `form_messages` (migration 0009), envoi public `POST /api/forms` (champ piège, délai minimal de 3 s, 5 envois par connexion en 15 min), onglet « Demandes reçues » dans Contact (filtres, statut nouveau / lu / traité, répondre, suppression définitive) via `GET`/`PATCH`/`DELETE /api/admin/forms` ; le formulaire Contact envoie au site au lieu d'ouvrir le logiciel de courriel | fait, à pousser (après la migration 0009) |
+| S2 | Boîte de réception : table `form_messages` (migration 0009), envoi public `POST /api/forms` (champ piège, délai minimal de 3 s, 5 envois par connexion en 15 min), onglet « Demandes reçues » dans Contact (filtres, statut nouveau / lu / traité, répondre, suppression définitive) via `GET`/`PATCH`/`DELETE /api/admin/forms` ; le formulaire Contact envoie au site au lieu d'ouvrir le logiciel de courriel | en ligne |
+| S3-S5 | Services : onglets « Cours » (clé `cours` : fiches des cours, inscriptions, liste d’attente, cours d’essai, tarifs calculés), « Mariages » (`mariages` : étapes, documents, formulaire), « Funérailles » (`funerailles` : téléphone ou courriel d’urgence, étapes, documents, prise en charge), « Aide alimentaire » (`aide` : formulaire, besoins du mois, dépôt, don Interac) et « Espace femmes » (`femmes` : horaires par jour sur 2 plages, fermeture exceptionnelle datée, plan d’accès réduit, infos pratiques, règles) ; 15 pages N2 (PC, M-, T-) reliées, mentions [À CONFIRMER] et [EXEMPLE À MODIFIER] retirées ; formulaires Cours, Mariages et Aide envoyés dans Contact → Demandes reçues | fait, à pousser |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -70,6 +71,7 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES ('0006_dates_iso_et_limites.sq
 | `rappel` | superadmin, editor | `PUT /api/admin/settings/rappel` | `GET /api/settings/rappel` (page Rappel de prière) |
 | `apropos` | superadmin, editor | `PUT /api/admin/settings/apropos` (corps jusqu’à 1 Mo : photos) | `GET /api/settings/apropos` (page À propos) |
 | `services` | superadmin, editor | `PUT /api/admin/settings/services` | `GET /api/settings/services` (page Services) |
+| `cours`, `mariages`, `funerailles`, `aide`, `femmes` | superadmin, editor | `PUT /api/admin/settings/<clé>` (`femmes` jusqu’à 400 Ko : plan d’accès) | `GET /api/settings/<clé>` (pages N2 correspondantes) ; nettoyées d’après `SERVICE_PAGE_SCHEMAS` |
 | `campagne` | superadmin, editor | `PUT /api/admin/settings/campagne` | `GET /api/campagne` (calculé : objectif et récolté de `home`, ou totaux de `donations` en mode automatique) |
 | `event_registration` | superadmin, events | `PUT /api/admin/events/settings` | `GET /api/events/registration-info` |
 
@@ -127,7 +129,7 @@ Les pages `SA-*` sont générées depuis la maquette, puis « branchées » sur 
 modifient les pages générées. Régénérer sans rebrancher efface les branchements.
 
 1. `scripts/install_superadmin.py /Users/mac/Documents/mosque/superadmin.html .` régénère les pages `SA-*`.
-   **Il relance lui-même les étapes 2 à 10**, sauf avec `--sans-branchements`.
+   **Il relance lui-même les étapes 2 à 11**, sauf avec `--sans-branchements`.
 2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
    Il remplace la logique du panneau par `scripts/panneau_component.js` (état unique : interrupteurs,
    ordre, cartes, annonces, heures) ; le script `#sa-panneau-sync` enregistre via `window.__saHome`.
@@ -146,13 +148,14 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
 8. `scripts/wire_apropos.py` : panneau `SA-APropos` (clés `apropos`, `campagne`, objectif et récolté de `home`)
    et pages publiques APropos et N3-Campagne (données de `/api/settings/apropos` et `/api/campagne`, relues chaque minute sur la campagne).
 9. `scripts/wire_services.py` : panneau `SA-Services` (clé `services`, lieu de l'Aïd dans `horaires`, pages publiées) et page publique Services
-10. `scripts/wire_inbox.py` : onglet « Demandes reçues » de `SA-Contact` et formulaire de la page Contact
-11. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
+10. `scripts/wire_service_pages.py` : onglets 2 à 6 de `SA-Services` (moteur commun construit d’après la description des champs) et les 15 pages N2 des services
+11. `scripts/wire_inbox.py` : onglet « Demandes reçues » de `SA-Contact` et formulaire de la page Contact
+12. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
    avec `value="…"` dans la maquette devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
    de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
-   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 10 s'appuient sur les attributs d'origine, d'où cet ordre.
+   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 11 s'appuient sur les attributs d'origine, d'où cet ordre.
 
-Les scripts 2 à 10 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
+Les scripts 2 à 11 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
 
 Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `--reset` pour un nouveau mot de passe).

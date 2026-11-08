@@ -669,6 +669,187 @@ export function cleanServicesSettings(input) {
   };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Pages des services (étapes S3 à S5) : Cours, Mariages, Funérailles, Aide alimentaire, Espace femmes.
+// Chaque clé est nettoyée d'après un schéma : ['s', max] une ligne, ['t', max] texte sur plusieurs
+// lignes, ['b'] oui/non, ['n', min, max] nombre entier, ['hm'] heure HH:MM, ['date'] AAAA-MM-JJ,
+// ['e', [valeurs]] choix, ['set', [valeurs]] plusieurs choix, ['img', max] image réduite,
+// ['list', max, {champs}] liste, ['fixed', n, {champs}] liste de longueur fixe, {…} objet.
+const HM_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const multi = (v, max) => (typeof v === 'string'
+  ? v.replace(/\r/g, '').split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, max)
+  : '');
+
+function cleanWith(spec, v, d) {
+  if (Array.isArray(spec)) {
+    const [t, a, b] = spec;
+    switch (t) {
+      case 's': return typeof v === 'string' ? oneLine(v, a) : d;
+      case 't': return typeof v === 'string' ? multi(v, a) : d;
+      case 'b': return boolOr(v, d);
+      case 'n': {
+        if (v === '' || v === null) return d;
+        const n = typeof v === 'number' ? v : Number(String(v).replace(',', '.'));
+        return Number.isFinite(n) ? Math.min(b, Math.max(a, Math.round(n))) : d;
+      }
+      case 'hm': return typeof v === 'string' && (v === '' || HM_RE.test(v)) ? v : d;
+      case 'date': return typeof v === 'string' && (v === '' || DATE_RE.test(v)) ? v : d;
+      case 'e': return a.includes(v) ? v : d;
+      case 'set': return Array.isArray(v) ? a.filter((x) => v.includes(x)) : d;
+      case 'img': return typeof v === 'string' && (v === '' || (v.length <= a && PHOTO_RE.test(v))) ? v : d;
+      case 'list': {
+        const tmpl = Array.isArray(d) && d.length ? d[0] : {};
+        const src = Array.isArray(v) ? v : d;
+        return src.filter((x) => x && typeof x === 'object').slice(0, a).map((x) => cleanWith(b, x, Array.isArray(v) ? itemDefault(b, tmpl) : x));
+      }
+      case 'fixed': {
+        const src = Array.isArray(v) ? v : [];
+        return d.map((dx, k) => cleanWith(b, src[k] && typeof src[k] === 'object' ? src[k] : dx, dx));
+      }
+      default: return d;
+    }
+  }
+  const o = v && typeof v === 'object' && !Array.isArray(v) ? v : {};
+  const out = {};
+  for (const k of Object.keys(spec)) out[k] = cleanWith(spec[k], o[k], d ? d[k] : undefined);
+  return out;
+}
+
+// Valeur par défaut d'un nouvel élément de liste : champs vides, interrupteurs comme le modèle.
+function itemDefault(spec, tmpl) {
+  const out = {};
+  for (const k of Object.keys(spec)) {
+    const t = Array.isArray(spec[k]) ? spec[k][0] : 'obj';
+    out[k] = t === 'b' ? (tmpl[k] !== undefined ? tmpl[k] : true) : t === 'set' ? [] : t === 'n' ? 0 : t === 'e' ? tmpl[k] : t === 'obj' ? itemDefault(spec[k], tmpl[k] || {}) : '';
+  }
+  return out;
+}
+
+const AGES = ['5-8', '9-12', '13-17', 'adulte'];
+const NIVEAUX = ['deb', 'int', 'av'];
+const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+const LIST_ITEM = { titre: ['s', 160], on: ['b'] };
+
+export const SERVICE_PAGE_SCHEMAS = {
+  cours: {
+    annee: ['s', 20], delai: ['e', ['24 h', '48 h', '1 semaine']], essai: ['b'], attente: ['b'], inscriptions: ['b'],
+    items: ['list', 30, {
+      titre: ['s', 80], matiere: ['e', ['coran', 'arabe']], ages: ['set', AGES], niveaux: ['set', NIVEAUX], jour: ['e', JOURS],
+      debut: ['hm'], fin: ['hm'], places: ['n', 0, 999], prix: ['n', 0, 10000], prof: ['s', 80], on: ['b'],
+    }],
+    infos: { on: ['b'], tarifs: ['t', 400], essai: ['t', 400], lieu: ['s', 80], lieuTexte: ['t', 400] },
+  },
+  mariages: {
+    duree: ['s', 40], delai: ['s', 40],
+    etapes: ['list', 10, { titre: ['s', 80], quand: ['s', 40], texte: ['t', 600], on: ['b'] }],
+    docs: { on: ['b'], items: ['list', 15, LIST_ITEM] },
+    form: { on: ['b'] },
+  },
+  funerailles: {
+    responsable: ['s', 80], telephone: ['s', 30], courriel: ['s', 120], h24: ['b'], rappel911: ['b'],
+    etapes: ['list', 10, { titre: ['s', 80], texte: ['t', 600], on: ['b'] }],
+    docs: { on: ['b'], items: ['list', 15, LIST_ITEM] },
+    charge: { on: ['b'], texte: ['t', 600] },
+  },
+  aide: {
+    form: { on: ['b'], besoins: ['list', 8, { titre: ['s', 40], on: ['b'] }], recup: ['b'], livraison: ['b'], delai: ['e', ['24 h', '48 h', '72 h']] },
+    manque: { on: ['b'], items: ['list', 15, { titre: ['s', 60], niveau: ['e', ['tres', 'demande', 'suffisant']], on: ['b'] }] },
+    depot: { on: ['b'], adresse: ['s', 120], quand: ['s', 120], note: ['t', 300] },
+    argent: { on: ['b'], courriel: ['s', 120], note: ['t', 300] },
+  },
+  femmes: {
+    jours: ['fixed', 7, { on: ['b'], de1: ['hm'], a1: ['hm'], de2: ['hm'], a2: ['hm'] }],
+    fermeture: ['date'], plan: ['img', 200000],
+    pratique: { on: ['b'], entree: ['s', 160], acces: ['s', 160], ablutions: ['s', 160], jumua: ['s', 160], enfants: ['s', 160], responsable: ['s', 160] },
+    regles: { on: ['b'], items: ['list', 15, LIST_ITEM] },
+  },
+};
+
+const docs = (...t) => t.map((titre) => ({ titre, on: true }));
+const fjour = (de1, a1, de2 = '', a2 = '') => ({ on: true, de1, a1, de2, a2 });
+DEFAULT_SETTINGS.cours = {
+  annee: '2026–2027', delai: '48 h', essai: true, attente: true, inscriptions: true,
+  items: [
+    { titre: 'Coran — Éveil', matiere: 'coran', ages: ['5-8'], niveaux: ['deb'], jour: 'Samedi', debut: '09:30', fin: '10:30', places: 4, prix: 25, prof: 'Enseignante : Sœur Amina' },
+    { titre: 'Coran — Lecture et tajwid', matiere: 'coran', ages: ['9-12'], niveaux: ['deb', 'int'], jour: 'Samedi', debut: '10:45', fin: '12:00', places: 6, prix: 30, prof: 'Enseignant : Frère Youssef' },
+    { titre: 'Coran — Mémorisation (hifz)', matiere: 'coran', ages: ['9-12', '13-17'], niveaux: ['av'], jour: 'Dimanche', debut: '10:00', fin: '12:00', places: 2, prix: 35, prof: 'Enseignant : Imam Karim' },
+    { titre: 'Arabe — Premiers pas', matiere: 'arabe', ages: ['5-8', '9-12'], niveaux: ['deb'], jour: 'Dimanche', debut: '13:00', fin: '14:30', places: 8, prix: 30, prof: 'Enseignante : Sœur Leïla' },
+    { titre: 'Arabe — Ados', matiere: 'arabe', ages: ['13-17'], niveaux: ['int', 'av'], jour: 'Mardi', debut: '18:30', fin: '20:00', places: 5, prix: 35, prof: 'Enseignant : Frère Samir' },
+    { titre: 'Coran — Adultes', matiere: 'coran', ages: ['adulte'], niveaux: ['deb', 'int', 'av'], jour: 'Jeudi', debut: '19:30', fin: '21:00', places: 7, prix: 40, prof: 'Enseignant : Imam Karim' },
+    { titre: 'Arabe — Adultes débutants', matiere: 'arabe', ages: ['adulte'], niveaux: ['deb'], jour: 'Mercredi', debut: '19:00', fin: '20:30', places: 0, prix: 40, prof: 'Enseignante : Sœur Leïla' },
+  ].map((x) => ({ ...x, on: true })),
+  infos: {
+    on: true,
+    tarifs: '−20 % dès le 2e enfant d’une même famille. Personne n’est refusé faute de moyens : parlez-nous-en en toute discrétion.',
+    essai: 'Venez 10 minutes avant ; un test de niveau rapide et bienveillant est proposé.',
+    lieu: '174 rue Lafontaine', lieuTexte: 'Salle de classe à l’étage ; les parents peuvent attendre dans la salle commune.',
+  },
+};
+DEFAULT_SETTINGS.mariages = {
+  duree: 'environ 6 semaines', delai: '3 jours ouvrables',
+  etapes: [
+    { titre: 'Premier contact', quand: 'Jour 1', texte: 'Remplissez la demande de rendez-vous ci-dessous. L’association vous répond sous 3 jours ouvrables avec une date de rencontre.', on: true },
+    { titre: 'Rencontre avec l’imam', quand: 'Semaine 1 à 2', texte: 'Un entretien de 45 minutes avec les deux futurs époux : intentions, conditions du contrat, mahr et questions pratiques.', on: true },
+    { titre: 'Documents', quand: 'Semaine 2 à 4', texte: 'Rassemblez les documents de la liste. Cochez-les au fur et à mesure : votre progression s’affiche.', on: true },
+    { titre: 'Cérémonie (nikah)', quand: 'Semaine 4 à 6', texte: 'Célébration à la mosquée, en présence du tuteur (wali) et de deux témoins. Prévoyez environ 45 minutes.', on: true },
+    { titre: 'Démarches civiles', quand: 'À coordonner', texte: 'Le mariage religieux et le mariage civil sont deux démarches distinctes. L’association vous indique comment les coordonner au Québec.', on: true },
+  ],
+  docs: {
+    on: true,
+    items: docs('Pièce d’identité avec photo des deux époux', 'Coordonnées de deux témoins musulmans', 'Accord du tuteur (wali) de l’épouse',
+      'Montant ou nature du mahr convenu', 'Certificat de divorce ou de décès du conjoint précédent, s’il y a lieu', 'Preuve des démarches civiles (si déjà faites)'),
+  },
+  form: { on: true },
+};
+DEFAULT_SETTINGS.funerailles = {
+  responsable: '', telephone: '', courriel: 'associationrdl.ascil@gmail.com', h24: true, rappel911: true,
+  etapes: [
+    { titre: 'Appelez l’association', texte: 'À tout moment, jour et nuit. Un bénévole vous rappelle en moins de 30 minutes et vous accompagne pour la suite.', on: true },
+    { titre: 'Obtenez le constat de décès', texte: 'Il est délivré par le médecin ou l’hôpital. Gardez-en une copie : il sera demandé pour toutes les démarches.', on: true },
+    { titre: 'Contactez l’entreprise funéraire', texte: 'L’association vous oriente vers une entreprise qui connaît les rites musulmans (toilette mortuaire, linceul, transport).', on: true },
+    { titre: 'Toilette mortuaire et prière de la janaza', texte: 'La toilette (ghusl) est faite par des bénévoles du même sexe. La prière de la janaza a lieu le plus tôt possible, idéalement dans les 24 à 48 heures.', on: true },
+    { titre: 'Inhumation', texte: 'Dans la section musulmane d’un cimetière de la région, ou rapatriement si la famille le souhaite. L’association vous aide dans les démarches.', on: true },
+  ],
+  docs: { on: true, items: docs('Constat de décès', 'Pièce d’identité du défunt', 'Carte d’assurance maladie', 'Coordonnées d’un membre de la famille') },
+  charge: { on: true, texte: 'Accompagnement de la famille, organisation de la toilette mortuaire et de la prière de la janaza, mise en relation avec l’entreprise funéraire.' },
+};
+DEFAULT_SETTINGS.aide = {
+  form: { on: true, besoins: docs('Épicerie', 'Produits halal', 'Produits pour bébé', 'Repas du Ramadan'), recup: true, livraison: true, delai: '48 h' },
+  manque: {
+    on: true,
+    items: [
+      { titre: 'Riz, pâtes, semoule', niveau: 'tres', on: true }, { titre: 'Huile et conserves', niveau: 'demande', on: true },
+      { titre: 'Lait et aliments pour bébé', niveau: 'demande', on: true }, { titre: 'Couches', niveau: 'demande', on: true },
+      { titre: 'Produits d’hygiène', niveau: 'tres', on: true },
+    ],
+  },
+  depot: { on: true, adresse: '174 rue Lafontaine', quand: 'Samedi et dimanche, 10 h – 14 h', note: 'Produits non périssables, non ouverts, non périmés.' },
+  argent: { on: true, courriel: 'associationrdl.ascil@gmail.com', note: 'Indiquez « aide alimentaire » dans le message.' },
+};
+DEFAULT_SETTINGS.femmes = {
+  jours: [fjour('17:00', '21:30'), fjour('17:00', '21:30'), fjour('17:00', '21:30'), fjour('17:00', '21:30'),
+    fjour('11:30', '14:00', '17:00', '21:30'), fjour('09:00', '21:30'), fjour('09:00', '21:30')],
+  fermeture: '', plan: '',
+  pratique: {
+    on: true, entree: 'Porte latérale, côté stationnement, avec sonnette.', acces: 'Rampe d’accès et espace de plain-pied.',
+    ablutions: 'Salle d’ablutions réservée aux femmes.', jumua: '30 places. Arrivez vers 12 h 15.',
+    enfants: 'Coin calme pour les enfants accompagnés.', responsable: 'associationrdl.ascil@gmail.com',
+  },
+  regles: {
+    on: true,
+    items: docs('Tenue couvrante ; des foulards sont prêtés à l’entrée.', 'Téléphones en silencieux pendant la prière.',
+      'Les enfants restent accompagnés.', 'Merci de ranger tapis et chaises après les cours.'),
+  },
+};
+
+const servicePageCleaner = (key) => (input) => cleanWith(SERVICE_PAGE_SCHEMAS[key], input, DEFAULT_SETTINGS[key]);
+export const cleanCoursSettings = servicePageCleaner('cours');
+export const cleanMariagesSettings = servicePageCleaner('mariages');
+export const cleanFuneraillesSettings = servicePageCleaner('funerailles');
+export const cleanAideSettings = servicePageCleaner('aide');
+export const cleanFemmesSettings = servicePageCleaner('femmes');
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -685,7 +866,14 @@ export const GENERIC_KEYS = {
   apropos: { roles: ['superadmin', 'editor'], clean: cleanAproposSettings, maxBytes: 1000000 },
   campagne: { roles: ['superadmin', 'editor'], clean: cleanCampagneSettings },
   services: { roles: ['superadmin', 'editor'], clean: cleanServicesSettings },
+  cours: { roles: ['superadmin', 'editor'], clean: cleanCoursSettings },
+  mariages: { roles: ['superadmin', 'editor'], clean: cleanMariagesSettings },
+  funerailles: { roles: ['superadmin', 'editor'], clean: cleanFuneraillesSettings },
+  aide: { roles: ['superadmin', 'editor'], clean: cleanAideSettings },
+  // Plan d'accès inclus (image réduite dans le panneau) : corps de requête plus grand.
+  femmes: { roles: ['superadmin', 'editor'], clean: cleanFemmesSettings, maxBytes: 400000 },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
-export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos', 'services'];
+export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos', 'services',
+  'cours', 'mariages', 'funerailles', 'aide', 'femmes'];

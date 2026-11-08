@@ -334,7 +334,8 @@ SYNC_SCRIPT = r'''<script id="sa-services-sync">
     return { items: items.map(cleanItem), autres: autres, equipements: eq, question: { on: b('sv_question'), lien: getVal('f5') } };
   }
   function sig() { return JSON.stringify([readSv(true), getVal('sv-aid-lieu') || aidLieu]); }
-  function checkDirty() { var c = comp(); if (c && baseSig) c.setExtDirty(sig() !== baseSig); }
+  function checkDirty() { var c = comp(); if (c && baseSig) c.setExtDirty(sig() !== baseSig || !!(window.__svx && window.__svx.dirty())); }
+  window.__svCheckDirty = checkDirty;
 
   function applySv(v, asBase) {
     if (asBase) svBase = clone(v);
@@ -435,6 +436,11 @@ SYNC_SCRIPT = r'''<script id="sa-services-sync">
         tasks.push(api('/api/admin/settings/pages', 'PUT', next).then(function (r) { if (r && r.ok && r.settings) pagesBase = r.settings; return r; }));
       }
     }
+    if (window.__svx) {
+      var xs = window.__svx.save();
+      if (xs === false) { saving = false; return; }
+      tasks = tasks.concat(xs);
+    }
     Promise.all(tasks).then(function (res) {
       saving = false;
       var failed = res.filter(function (r) { return !r || !r.ok; })[0];
@@ -443,6 +449,7 @@ SYNC_SCRIPT = r'''<script id="sa-services-sync">
       applySv(res[0].settings, true);
       var c = comp();
       if (c) c.commitKeys(__SP0_KEYS__.concat(Object.keys(PUB)));
+      if (window.__svx) window.__svx.after();
       setTimeout(function () { baseSig = sig(); checkDirty(); pageTags(); }, 0);
       flash('Services enregistrés. Le site est à jour.');
     }).catch(function () {
@@ -456,6 +463,7 @@ SYNC_SCRIPT = r'''<script id="sa-services-sync">
     applySv(svBase, false);
     var c = comp();
     if (c) c.revertBase();
+    if (window.__svx) window.__svx.undo();
     setTimeout(function () { checkDirty(); pageTags(); }, 0);
     flash('Changements annulés.');
   }
@@ -514,7 +522,7 @@ def wire_panel():
     old = json.loads(m.group(1))
     base = {}
     for k, v in old.items():
-        if re.match(r'^(srv2?_\d+|sv_lk|sv_fe)$', k) or k in SP0_DEFAULTS:
+        if not k.startswith('pub_') or k in SP0_DEFAULTS:
             continue
         base[k] = v
         if k == 'pub_services':

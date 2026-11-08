@@ -20,9 +20,10 @@ wire_*.py. Ce script les relance donc automatiquement, dans cet ordre obligatoir
   7. wire_prieres.py         (site public : heures de prière tirées de la base, page Horaires)
   8. wire_apropos.py         (panneau À propos + pages publiques À propos et Campagne en direct)
   9. wire_services.py        (panneau Services + page publique Services)
- 10. wire_inbox.py           (boîte de réception : Contact → Demandes reçues, formulaire Contact)
- 11. fix_inputs.py           (libère les champs figés par la maquette : TOUJOURS en dernier)
-Option --sans-branchements : ne relance pas les étapes 2 à 11 (déconseillé).
+ 10. wire_service_pages.py  (onglets Cours, Mariages, Funérailles, Aide alimentaire, Espace femmes + leurs pages)
+ 11. wire_inbox.py           (boîte de réception : Contact → Demandes reçues, formulaire Contact)
+ 12. fix_inputs.py           (libère les champs figés par la maquette : TOUJOURS en dernier)
+Option --sans-branchements : ne relance pas les étapes 2 à 12 (déconseillé).
 
 Usage : python3 scripts/install_superadmin.py /chemin/superadmin.html /chemin/ascil-mosquee
 """
@@ -404,7 +405,7 @@ for p in sorted(ROOT.glob('*.dc.html')) + [ROOT / 'index.html']:
 print('pages du site reliées:', n)
 
 # 3. Rebrancher : sans cette étape, les pages SA-* régénérées perdraient la base de données.
-WIRE = ['wire_homepage.py', 'wire_events.py', 'wire_site.py', 'wire_pages.py', 'wire_horaires.py', 'wire_prieres.py', 'wire_apropos.py', 'wire_services.py', 'wire_inbox.py', 'fix_inputs.py']
+WIRE = ['wire_homepage.py', 'wire_events.py', 'wire_site.py', 'wire_pages.py', 'wire_horaires.py', 'wire_prieres.py', 'wire_apropos.py', 'wire_services.py', 'wire_service_pages.py', 'wire_inbox.py', 'fix_inputs.py']
 HERE = pathlib.Path(__file__).resolve().parent
 if '--sans-branchements' in sys.argv:
     print('ATTENTION : branchements non relancés. Lancez ensuite, dans l’ordre :', ', '.join(WIRE))
