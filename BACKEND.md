@@ -18,7 +18,7 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | Site entier | « Bannière d'alerte » (clé `alert`) : bande en haut de toutes les pages publiques, avec message, lien, période, couleur, aperçu en direct et cohérence message vide / OFF | fait, à pousser |
 | Site entier | « Mode du site » (clé `season`) : bandeau Ramadan / Aïd en haut de l'accueil pendant la période ; « Langues » (clé `languages`, interrupteur Français verrouillé) | fait, à pousser |
 | 5a | Créer une page : base (`custom_pages`, `page_redirects`) et API (créer, lire, modifier, dupliquer, supprimer) | en ligne |
-| 5b | Créer une page : écrans « Mes pages » et éditeur (blocs Texte, Bouton, Tableau) | en ligne |
+| 5b | Créer une page : écrans « Mes pages » (création avec titre, lien et visibilité, Brouillon par défaut) et éditeur (blocs Texte, Bouton, Tableau complet, compteurs, sauvegarde haut/bas et suppression avec confirmation) | fait, à pousser |
 | 5c | Créer une page : affichage public `/p/<lien>` (publiée, lien privé, brouillon pour les comptes connectés) | en ligne |
 | 5d | Créer une page : pages proposées dans les liens de la bannière d'alerte, des boutons de l'accueil et de l'éditeur | en ligne |
 | H1 | Horaires : `prayer_times` complétée (lever, une ligne par jour) ; clé `horaires` (bloc Aujourd'hui, vendredi, Ramadan, Aïd, Qibla) | en ligne |
@@ -85,7 +85,7 @@ et les textes ne sont pas traduits : les langues ne règlent que ce que propose 
 - **Comptes** (`/api/admin/accounts`, superadmin) : liste, création avec mot de passe provisoire, modification, désactivation, réinitialisation.
 - **Journal** (`GET /api/admin/audit`, superadmin) : les dernières actions, affichées dans Site entier → Compte et sécurité.
 - **Pages créées** (`/api/admin/pages`, superadmin et éditeur) :
-  - `GET` liste, `POST { title, slug? }` crée un brouillon (lien tiré du titre et rendu unique) ;
+  - `GET` liste, `POST { title, slug?, visibility? }` crée une page (en brouillon par défaut ; lien tiré du titre et rendu unique s'il n'est pas fourni) ;
   - `GET/PUT/DELETE /api/admin/pages/:id` ; changer le lien crée une redirection depuis l'ancien ;
   - `POST /api/admin/pages/:id/duplicate` (copie en brouillon) ;
   - règles (lien, blocs Texte / Bouton / Tableau, limites) dans `functions/_lib/custom-pages.js`.

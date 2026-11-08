@@ -1,18 +1,20 @@
-"""Branche « Créer une page » (étape 5b) sur l'API /api/admin/pages.
+"""Branche « Créer une page » (étape 5b + correctifs Pièce 2) sur l'API /api/admin/pages.
 
-1. SA-Pages.dc.html (« Mes pages ») : formulaire « Nouvelle page » et vraie liste des pages,
-   avec Modifier, Voir, Copier le lien, Dupliquer, Supprimer (confirmation). Les onglets
-   « Widgets » et « Guide développeur » de la maquette, non fonctionnels, sont retirés.
-2. SA-PageEditeur.dc.html (éditeur, ?id=<page>) : titre, blocs Texte / Bouton / Tableau,
-   lien de la page, visibilité, mise en page, largeur, description. L'en-tête garde le statut,
-   « Enregistrer », « Publier » / « Mettre à jour » et « Aperçu » (ouvre /p/<lien>).
-   Les contenus d'exemple de la maquette (blocs, code, widgets, emplacements) sont retirés.
+1. SA-Pages.dc.html (« Mes pages ») : formulaire « Nouvelle page » (titre, adresse /p/<slug> avec
+   compteur X / 60, visibilité avec Brouillon par défaut) et vraie liste des pages, avec Modifier,
+   Voir, Copier le lien, Dupliquer, Supprimer (confirmation). L'en-tête global (« Tout est enregistré »,
+   « Annuler les changements », « Enregistrer ») suit l'état réel de chargement et du formulaire.
+2. SA-PageEditeur.dc.html (éditeur, ?id=<page>) : titre (compteur X / 120), blocs Texte / Bouton /
+   Tableau (+ Ligne, + Colonne, − Dernière ligne, − Dernière colonne, et suppression par ligne/colonne),
+   lien de la page (compteur X / 60), visibilité (Brouillon / Publiée / Lien privé), mise en page,
+   largeur, description (compteur X / 160), suppression de la page avec confirmation, et barre
+   d'enregistrement cohérente en haut ET en bas de page.
 3. SA-Panneau.dc.html (étape 5d) : les pages créées (publiées ou lien privé) sont proposées dans
-   les 9 sélecteurs de liens de l'accueil ; « Lien externe… » demande l'adresse ; la page
+   les 7 sélecteurs de liens de l'accueil ; « Lien externe… » demande l'adresse ; la page
    d'exemple « Inscriptions Ramadan 2027 » est retirée.
 
-Dans ces deux pages, le composant de la maquette est remplacé par un composant minimal qui ne
-gère que l'en-tête et les messages ; le contenu est piloté par un script autonome.
+Dans SA-Pages et SA-PageEditeur, le composant de la maquette est remplacé par un composant minimal qui
+gère l'en-tête et les messages ; le contenu attend que React ait monté #dc-root avant de s'initialiser.
 Ordre : après install_superadmin.py, avant fix_inputs.py (voir BACKEND.md). Idempotent.
 """
 import json, re, pathlib
@@ -64,7 +66,7 @@ ICON = {
     'dup': '<path d="M12 5v14"></path><path d="M5 12h14"></path>',
 }
 
-# Styles communs ajoutés aux deux pages (bouton danger, pastilles de statut, éditeur responsive).
+# Styles communs ajoutés aux deux pages (bouton danger, pastilles de statut, éditeur responsive, barre de bas de page).
 STYLE = '''<style id="sa-pages-style">
 .btn-danger{background:#B3261E;color:#fff;border-color:#B3261E}
 .btn-danger:hover{background:#8C1D18;border-color:#8C1D18}
@@ -86,11 +88,18 @@ STYLE = '''<style id="sa-pages-style">
 .pe-add{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .pe-table{overflow-x:auto;border:1px solid #E4D9C0;border-radius:12px;background:#fff;margin-top:10px}
 .pe-table table{border-collapse:collapse;min-width:100%}
-.pe-table td,.pe-table th{padding:6px;border-bottom:1px solid #F3EAD8}
+.pe-table td,.pe-table th{padding:6px;border-bottom:1px solid #F3EAD8;vertical-align:middle}
+.pe-table th{background:#FAF6EC}
 .pe-table .in{min-width:120px}
+.pe-col-h{display:flex;align-items:center;gap:4px}
+.pe-col-h .in{flex:1}
+.pe-mini-del{min-width:30px;height:30px;padding:0 6px;border-radius:8px;border:1px solid #E9B4AF;background:#fff;color:#B3261E;font-weight:700;cursor:pointer;line-height:1}
+.pe-mini-del:hover{background:#FBEAE8}
+.pe-mini-del:disabled{opacity:.35;cursor:not-allowed}
 .pe-slug{display:flex;align-items:center;gap:6px}
 .pe-slug span{color:#4F5E57;font-weight:600}
 .pe-slug .in{flex:1;min-width:0}
+.pe-bottom-bar{grid-column:1 / -1;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px 16px;padding:14px 18px;border:1px solid #E4D9C0;border-radius:14px;background:#fff}
 </style>
 '''
 
@@ -101,28 +110,52 @@ def svg(name):
 
 
 # ---------------------------------------------------------------- composant minimal
-# Ne gère que l'en-tête (statut, boutons) et les messages ; le contenu appelle window.__saPage.
+# Ne gère que l'en-tête (statut, boutons) et les messages ; window.__saPage n'est exposé qu'une fois
+# le composant réellement monté dans #dc-root (componentDidMount), pour éviter toute écriture dans <x-dc>.
 BRIDGE = """
 class Component extends DCLogic {
   constructor(props) {
     super(props);
     this.state = { loaded: false, dirty: false, saving: false, vis: 'draft', toast: '' };
-    window.__saPage = this;
   }
-  componentDidMount() { window.dispatchEvent(new Event('sa-page-ready')); }
-  componentWillUnmount() { clearTimeout(this.tt); if (window.__saPage === this) window.__saPage = null; }
-  flash(m) { this.setState({ toast: m }); clearTimeout(this.tt); this.tt = setTimeout(() => this.setState({ toast: '' }), 3200); }
+  componentDidMount() {
+    window.__saPage = this;
+    window.dispatchEvent(new Event('sa-page-ready'));
+  }
+  componentWillUnmount() {
+    clearTimeout(this.tt);
+    if (window.__saPage === this) window.__saPage = null;
+  }
+  flash(m) {
+    this.setState({ toast: m });
+    clearTimeout(this.tt);
+    this.tt = setTimeout(() => this.setState({ toast: '' }), 3200);
+  }
   renderVals() {
     const st = this.state;
-    const label = !st.loaded ? 'Chargement…' : st.vis === 'list' ? 'Tout est enregistré' : st.saving ? 'Enregistrement…' : st.dirty ? 'Changements non enregistrés'
-      : st.vis === 'published' ? 'Publiée · tout est enregistré' : st.vis === 'private' ? 'Lien privé · tout est enregistré' : 'Brouillon · tout est enregistré';
+    const isList = st.vis === 'list';
+    const label = !st.loaded ? 'Chargement…'
+      : st.saving ? 'Enregistrement…'
+      : st.dirty ? 'Changements non enregistrés'
+      : isList ? 'Tout est enregistré'
+      : st.vis === 'published' ? 'Publiée · tout est enregistré'
+      : st.vis === 'private' ? 'Lien privé · tout est enregistré'
+      : 'Brouillon · tout est enregistré';
+    const pubLabel = st.saving ? 'Enregistrement…'
+      : isList ? 'Enregistrer'
+      : st.vis === 'draft' ? 'Enregistrer le brouillon'
+      : st.vis === 'private' ? 'Mettre à jour (lien privé)'
+      : 'Mettre à jour';
     const call = (name, arg) => () => { if (typeof window[name] === 'function') window[name](arg); };
     return {
-      dot: st.dirty ? '#C49A4A' : '#7FB89F', statusTxt: label,
+      dot: !st.loaded || st.dirty || st.saving ? '#C49A4A' : '#7FB89F',
+      statusTxt: label,
       clean: !st.loaded || st.saving || !st.dirty,
-      save: call('saPageSave'), undo: call('saPageUndo'),
-      saveDraft: call('saPageSave'), publish: call('saPageSave', 'published'),
-      pubLabel: st.vis === 'published' ? 'Mettre à jour' : 'Publier',
+      save: call('saPageSave'),
+      undo: call('saPageUndo'),
+      saveDraft: call('saPageSave'),
+      publish: call('saPageSave'),
+      pubLabel: pubLabel,
       openPv: call('saPagePreview'),
       toast: st.toast
     };
@@ -134,27 +167,58 @@ class Component extends DCLogic {
 # ---------------------------------------------------------------- 1. Mes pages
 LIST_MAIN = '''
    <div><p class="eyebrow">Rubrique du menu</p><h1 class="serif ttl-page">Créer une page</h1>
-   <p style="margin:6px 0 0;color:#4F5E57;max-width:640px">Ajoutez une page complète sans toucher au code : texte, boutons, tableaux. Chaque page a son adresse, en brouillon tant que vous ne la publiez pas.</p></div>
+   <p style="margin:6px 0 0;color:#4F5E57;max-width:640px">Ajoutez une page complète sans toucher au code : texte, boutons, tableaux. Chaque page a son adresse, en brouillon par défaut tant que vous ne la publiez pas.</p></div>
    <section class="card" aria-labelledby="np-t"><div class="card-h"><span class="num" aria-hidden="true">1</span><div><h2 class="ttl" id="np-t">Nouvelle page</h2>
-   <p class="dsc">Elle démarre en brouillon, invisible du public. Vous la remplissez ensuite dans l’éditeur.</p></div></div>
-   <div class="card-b"><form id="np-form" novalidate style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-top:10px">
-   <div class="fld" style="flex:1 1 260px;min-width:0"><label class="lbl" for="np-title">Titre de la page</label>
-   <input class="in" id="np-title" type="text" maxlength="120" placeholder="Ex. Inscriptions Ramadan 2027" aria-describedby="np-msg"></div>
-   <button type="submit" class="btn btn-gold" id="np-btn" style="min-height:48px">Créer la page</button></form>
+   <p class="dsc">Elle démarre en brouillon par défaut (invisible du public). Vous pouvez choisir son lien et sa visibilité dès maintenant, puis la remplir dans l’éditeur.</p></div></div>
+   <div class="card-b"><form id="np-form" novalidate style="display:flex;flex-direction:column;gap:14px;margin-top:10px">
+    <div class="g2" style="align-items:start">
+     <div class="fld"><label class="lbl" for="np-title">Titre de la page</label>
+      <input class="in" id="np-title" type="text" maxlength="120" placeholder="Ex. Inscriptions Ramadan 2027" aria-describedby="np-title-hint np-msg">
+      <p class="hint" id="np-title-hint"><span id="np-title-n"></span> / 120 caractères.</p></div>
+     <div class="fld"><label class="lbl" for="np-slug">Adresse (lien de la page)</label>
+      <div class="pe-slug"><span aria-hidden="true">/p/</span><input class="in pg-mono" id="np-slug" type="text" maxlength="60" placeholder="ex. inscriptions-ramadan-2027" aria-describedby="np-slug-hint np-msg" autocomplete="off" spellcheck="false"></div>
+      <p class="hint" id="np-slug-hint"><span id="np-slug-n"></span> / 60 caractères · Lettres minuscules, chiffres et tirets (généré automatiquement depuis le titre si laissé tel quel).</p></div>
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:14px 24px;align-items:flex-end;justify-content:space-between">
+     <div class="fld" style="flex:1 1 280px"><span class="lbl" id="np-vis-l">Visibilité au départ</span>
+      <div class="seg" role="group" aria-labelledby="np-vis-l" style="flex-wrap:wrap;align-self:flex-start">
+       <button type="button" data-np-vis="draft" aria-pressed="true">Brouillon</button>
+       <button type="button" data-np-vis="published" aria-pressed="false">Publiée</button>
+       <button type="button" data-np-vis="private" aria-pressed="false">Lien privé</button></div>
+      <p class="hint" id="np-vis-hint"></p></div>
+     <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">
+      <button type="button" class="btn btn-line" id="np-reset" disabled style="min-height:48px">Annuler</button>
+      <button type="submit" class="btn btn-gold" id="np-btn" style="min-height:48px">Créer la page</button></div>
+    </div>
+   </form>
    <p id="np-msg" class="pg-err" role="alert" hidden style="margin-top:10px"></p></div></section>
    <section class="card" aria-labelledby="pl-t"><div class="card-h"><span class="num" aria-hidden="true">2</span><div><h2 class="ttl" id="pl-t">Pages créées</h2>
-   <p class="dsc" id="pl-count">Chargement…</p></div></div>
+   <p class="dsc" id="pl-count"></p></div></div>
    <div class="card-b"><ul class="pg-list" id="pl-list"></ul><p id="pl-msg" role="status" aria-live="polite" class="hint" style="margin:10px 0 0"></p></div></section>
 '''
 
 LIST_SCRIPT = r"""<script id="sa-pages-list">
 (function () {
   var VIS = { draft: 'Brouillon', published: 'Publiée', private: 'Lien privé' };
+  var VIS_HINT = {
+    draft: 'Recommandé : la nouvelle page démarre en brouillon, visible seulement dans le superadmin.',
+    published: 'La page sera publiée dès sa création à son adresse /p/…',
+    private: 'Accessible uniquement aux personnes qui ont le lien. Google ne l’indexe pas.'
+  };
   var ICON = __ICONS__;
   var pages = [];
+  var npVis = 'draft';
+  var slugTouched = false;
   function $(id) { return document.getElementById(id); }
   function bridge() { return window.__saPage; }
+  function setBridge(st) { var b = bridge(); if (b) b.setState(st); }
   function flash(m) { var b = bridge(); if (b) b.flash(m); else { var p = $('pl-msg'); if (p) p.textContent = m; } }
+  function slugify(text) {
+    return String(text || '')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase().replace(/['’]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+      .slice(0, 60).replace(/-+$/g, '');
+  }
   function api(url, opt) {
     return fetch(url, Object.assign({ credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } }, opt || {}))
       .then(function (r) { return r.json().catch(function () { return { ok: false }; }); });
@@ -174,15 +238,44 @@ LIST_SCRIPT = r"""<script id="sa-pages-list">
     b.innerHTML = ICON[name];
     return b;
   }
+  function setNpVis(v) {
+    npVis = VIS[v] ? v : 'draft';
+    document.querySelectorAll('[data-np-vis]').forEach(function (btn) {
+      btn.setAttribute('aria-pressed', String(btn.getAttribute('data-np-vis') === npVis));
+    });
+    if ($('np-vis-hint')) $('np-vis-hint').textContent = VIS_HINT[npVis];
+  }
+  function syncFormUi() {
+    var t = $('np-title'), s = $('np-slug'), rst = $('np-reset');
+    var tLen = t ? t.value.length : 0;
+    var sLen = s ? s.value.length : 0;
+    if ($('np-title-n')) $('np-title-n').textContent = String(tLen);
+    if ($('np-slug-n')) $('np-slug-n').textContent = String(sLen);
+    var dirty = (t && t.value.trim().length > 0) || (s && s.value.trim().length > 0) || npVis !== 'draft';
+    if (rst) rst.disabled = !dirty;
+    setBridge({ loaded: true, vis: 'list', dirty: !!dirty });
+  }
+  function resetForm(notify) {
+    var t = $('np-title'), s = $('np-slug'), msg = $('np-msg');
+    if (t) { t.value = ''; t.removeAttribute('aria-invalid'); }
+    if (s) { s.value = ''; s.removeAttribute('aria-invalid'); }
+    if (msg) msg.hidden = true;
+    slugTouched = false;
+    setNpVis('draft');
+    syncFormUi();
+    if (notify) flash('Formulaire réinitialisé.');
+  }
   function render() {
     var ul = $('pl-list'); if (!ul) return;
     ul.innerHTML = '';
     var n = pages.length;
-    $('pl-count').textContent = n ? n + (n > 1 ? ' pages' : ' page') + ' · le lien de chaque page se modifie dans son éditeur.' : 'Aucune page pour l’instant.';
+    if ($('pl-count')) {
+      $('pl-count').textContent = n ? n + (n > 1 ? ' pages' : ' page') + ' · le lien et la visibilité de chaque page se modifient dans son éditeur.' : 'Aucune page pour l’instant.';
+    }
     if (!n) {
       var li = el('li', { class: 'pg-item' });
       li.appendChild(el('p', { class: 'hint', style: 'margin:0' },
-        'Vos pages apparaîtront ici. Donnez un titre ci-dessus et cliquez sur « Créer la page » : elle démarre en brouillon, invisible du public.'));
+        'Vos pages apparaîtront ici. Donnez un titre ci-dessus et cliquez sur « Créer la page » : elle démarre en brouillon par défaut, invisible du public.'));
       ul.appendChild(li);
       return;
     }
@@ -233,34 +326,118 @@ LIST_SCRIPT = r"""<script id="sa-pages-list">
     });
   }
   function load() {
+    if ($('pl-count') && !pages.length) $('pl-count').textContent = 'Chargement des pages…';
     api('/api/admin/pages').then(function (r) {
-      if (!r.ok) { $('pl-count').textContent = r.message || 'Impossible de charger les pages. Rechargez la page.'; return; }
-      pages = r.pages; render();
-    }, function () { $('pl-count').textContent = 'Impossible de joindre le serveur. Rechargez la page.'; });
+      setBridge({ loaded: true, vis: 'list' });
+      if (!r.ok) {
+        if ($('pl-count')) $('pl-count').textContent = r.message || 'Impossible de charger les pages. Rechargez la page.';
+        return;
+      }
+      pages = r.pages || [];
+      render();
+    }, function () {
+      setBridge({ loaded: true, vis: 'list' });
+      if ($('pl-count')) $('pl-count').textContent = 'Impossible de joindre le serveur. Rechargez la page.';
+    });
   }
+  function submitNewPage() {
+    var t = $('np-title'), s = $('np-slug'), btn = $('np-btn'), msg = $('np-msg');
+    if (!t || !btn || btn.getAttribute('aria-busy') === 'true') return;
+    msg.hidden = true;
+    t.removeAttribute('aria-invalid');
+    if (s) s.removeAttribute('aria-invalid');
+    var title = t.value.trim();
+    if (title.length < 2) {
+      t.setAttribute('aria-invalid', 'true');
+      msg.textContent = 'Donnez un titre à la page (2 caractères minimum).';
+      msg.hidden = false;
+      t.focus();
+      return;
+    }
+    var rawSlug = s ? s.value.trim().toLowerCase() : '';
+    if (rawSlug && (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(rawSlug) || rawSlug.length < 2 || rawSlug.length > 60)) {
+      if (s) { s.setAttribute('aria-invalid', 'true'); s.focus(); }
+      msg.textContent = 'Le lien doit faire 2 à 60 caractères : lettres minuscules sans accent, chiffres et tirets (ex. ramadan-2027).';
+      msg.hidden = false;
+      return;
+    }
+    var payload = { title: title, visibility: npVis || 'draft' };
+    if (rawSlug) payload.slug = rawSlug;
+    btn.setAttribute('aria-busy', 'true');
+    btn.textContent = 'Création…';
+    setBridge({ saving: true });
+    api('/api/admin/pages', { method: 'POST', body: JSON.stringify(payload) }).then(function (r) {
+      setBridge({ saving: false });
+      if (r.ok) { location.href = 'SA-PageEditeur.dc.html?id=' + r.page.id; return; }
+      btn.removeAttribute('aria-busy');
+      btn.textContent = 'Créer la page';
+      if (r.code === 'slug_taken' && s) { s.setAttribute('aria-invalid', 'true'); s.focus(); }
+      msg.textContent = r.message || 'La création a échoué. Réessayez.';
+      msg.hidden = false;
+    }, function () {
+      setBridge({ saving: false });
+      btn.removeAttribute('aria-busy');
+      btn.textContent = 'Créer la page';
+      msg.textContent = 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.';
+      msg.hidden = false;
+    });
+  }
+  window.saPageSave = function () { submitNewPage(); };
+  window.saPageUndo = function () { resetForm(true); };
   document.addEventListener('submit', function (e) {
     if (!e.target || e.target.id !== 'np-form') return;
     e.preventDefault();
-    var t = $('np-title'), btn = $('np-btn'), msg = $('np-msg');
-    if (btn.getAttribute('aria-busy') === 'true') return;
-    msg.hidden = true; t.removeAttribute('aria-invalid');
-    if (t.value.trim().length < 2) {
-      t.setAttribute('aria-invalid', 'true'); msg.textContent = 'Donnez un titre à la page (2 caractères minimum).'; msg.hidden = false; t.focus(); return;
-    }
-    btn.setAttribute('aria-busy', 'true'); btn.textContent = 'Création…';
-    api('/api/admin/pages', { method: 'POST', body: JSON.stringify({ title: t.value.trim() }) }).then(function (r) {
-      if (r.ok) { location.href = 'SA-PageEditeur.dc.html?id=' + r.page.id; return; }
-      btn.removeAttribute('aria-busy'); btn.textContent = 'Créer la page';
-      msg.textContent = r.message || 'La création a échoué. Réessayez.'; msg.hidden = false;
-    }, function () {
-      btn.removeAttribute('aria-busy'); btn.textContent = 'Créer la page';
-      msg.textContent = 'Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.'; msg.hidden = false;
-    });
+    submitNewPage();
   });
-  function start() { var b = bridge(); if (b) b.setState({ loaded: true, vis: 'list' }); load(); }
-  if (document.getElementById('pl-list')) start();
-  else new MutationObserver(function (m, o) { if (document.getElementById('pl-list')) { o.disconnect(); start(); } })
-    .observe(document.documentElement, { childList: true, subtree: true });
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (!t) return;
+    if (t.id === 'np-title') {
+      t.removeAttribute('aria-invalid');
+      if ($('np-msg')) $('np-msg').hidden = true;
+      var s = $('np-slug');
+      if (s && !slugTouched) {
+        s.value = t.value.trim() ? slugify(t.value) : '';
+      }
+      syncFormUi();
+    } else if (t.id === 'np-slug') {
+      t.removeAttribute('aria-invalid');
+      if ($('np-msg')) $('np-msg').hidden = true;
+      slugTouched = t.value.trim().length > 0;
+      syncFormUi();
+    }
+  });
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest && e.target.closest('[data-np-vis],#np-reset');
+    if (!btn) return;
+    if (btn.hasAttribute('data-np-vis')) {
+      setNpVis(btn.getAttribute('data-np-vis'));
+      syncFormUi();
+    } else if (btn.id === 'np-reset') {
+      resetForm(true);
+    }
+  });
+  var started = false;
+  function start() {
+    setNpVis('draft');
+    syncFormUi();
+    load();
+  }
+  function tryStart() {
+    if (started || document.querySelector('x-dc') || !window.__saPage || !$('pl-list')) return;
+    started = true;
+    start();
+  }
+  window.addEventListener('sa-page-ready', tryStart);
+  tryStart();
+  if (!started) {
+    new MutationObserver(function (m, o) {
+      if (!document.querySelector('x-dc') && window.__saPage && $('pl-list')) {
+        o.disconnect();
+        tryStart();
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
 })();
 </script>
 """
@@ -287,7 +464,8 @@ EDITOR_MAIN = '''
    <div id="pe-root" class="pe-grid" hidden>
     <div style="display:flex;flex-direction:column;gap:18px;min-width:0">
      <div class="fld"><label class="lbl" for="pe-title">Titre de la page</label>
-     <input class="in" id="pe-title" type="text" maxlength="120" style="font-size:22px;font-weight:700;color:#0E4D3C;min-height:56px"></div>
+     <input class="in" id="pe-title" type="text" maxlength="120" aria-describedby="pe-title-hint" style="font-size:22px;font-weight:700;color:#0E4D3C;min-height:56px">
+     <p class="hint" id="pe-title-hint"><span id="pe-title-n"></span> / 120 caractères.</p></div>
      <div id="pe-blocks" style="display:flex;flex-direction:column;gap:14px"></div>
      <section class="card" aria-labelledby="pe-add-t"><div class="card-b">
       <h2 class="ttl" id="pe-add-t" style="margin:0">Ajouter un bloc</h2>
@@ -302,7 +480,7 @@ EDITOR_MAIN = '''
       <h2 class="ttl" id="pe-link-t" style="margin:0 0 8px">Lien de la page</h2>
       <div class="fld"><label class="lbl" for="pe-slug">Adresse</label>
       <div class="pe-slug"><span aria-hidden="true">/p/</span><input class="in pg-mono" id="pe-slug" type="text" maxlength="60" aria-describedby="pe-slug-hint pe-slug-err" autocomplete="off" spellcheck="false"></div>
-      <p class="hint" id="pe-slug-hint">Lettres minuscules, chiffres et tirets. Si vous la changez, l’ancienne adresse redirige vers la nouvelle.</p>
+      <p class="hint" id="pe-slug-hint"><span id="pe-slug-n"></span> / 60 caractères · Lettres minuscules, chiffres et tirets. Si vous la changez, l’ancienne adresse redirige vers la nouvelle.</p>
       <p class="pg-err" id="pe-slug-err" role="alert" hidden></p></div>
       <button type="button" class="btn btn-line" id="pe-copy" style="margin-top:8px">Copier le lien</button>
      </div></section>
@@ -321,14 +499,30 @@ EDITOR_MAIN = '''
       <p class="hint" id="pe-lay-hint"></p></div>
       <div class="fld"><label class="lbl" for="pe-width">Largeur du contenu</label>
       <select class="in" id="pe-width"><option value="normal">Normale (lecture)</option><option value="large">Large (tableaux)</option><option value="full">Pleine largeur</option></select></div>
+      <div style="margin-top:12px;padding-top:12px;border-top:1px solid #F3EAD8;display:flex;flex-direction:column;gap:8px">
+       <button type="button" class="btn btn-gold" id="pe-save-pub" disabled style="width:100%">Enregistrer le brouillon</button>
+       <button type="button" class="btn btn-line" id="pe-undo-pub" disabled style="width:100%">Annuler les changements</button>
+       <p class="hint" id="pe-pub-status" style="margin:0;text-align:center"></p>
+      </div>
      </div></section>
      <section class="card" aria-labelledby="pe-seo-t"><div class="card-b">
       <h2 class="ttl" id="pe-seo-t" style="margin:0 0 8px">Partage et Google</h2>
       <div class="fld"><label class="lbl" for="pe-desc">Description courte</label>
       <textarea class="in" id="pe-desc" rows="3" maxlength="160" aria-describedby="pe-desc-hint" style="min-height:84px;resize:vertical"></textarea>
-      <p class="hint" id="pe-desc-hint">Affichée par Google et sur Facebook. <span id="pe-desc-n">0</span> / 160 caractères.</p></div>
+      <p class="hint" id="pe-desc-hint">Affichée par Google et sur Facebook. <span id="pe-desc-n"></span> / 160 caractères.</p></div>
      </div></section>
     </aside>
+    <section class="pe-bottom-bar" id="pe-bottom-bar" aria-label="Actions de la page">
+     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+      <span id="pe-bottom-status" style="font-weight:700;color:#0E4D3C;font-size:14px"></span>
+      <button type="button" class="btn btn-line" id="pe-delete" style="color:#B3261E;border-color:#E9B4AF">Supprimer cette page</button>
+     </div>
+     <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px">
+      <button type="button" class="btn btn-line" id="pe-pv-bottom">Aperçu</button>
+      <button type="button" class="btn btn-line" id="pe-undo-bottom" disabled>Annuler les changements</button>
+      <button type="button" class="btn btn-gold" id="pe-save-bottom" disabled>Enregistrer le brouillon</button>
+     </div>
+    </section>
    </div>
 '''
 
@@ -336,12 +530,15 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
 (function () {
   var ICON = __ICONS__;
   var SITE_LINKS = __SITE_LINKS__;
-  var VIS_HINT = { draft: 'Visible seulement dans le superadmin.', published: 'Visible par tous à son adresse.',
-    private: 'Accessible seulement à qui a le lien. Google ne la voit pas.' };
+  var VIS_HINT = {
+    draft: 'Visible seulement dans le superadmin. Cliquez sur « Enregistrer le brouillon » pour garder la page en brouillon.',
+    published: 'Visible par tous à son adresse dès l’enregistrement.',
+    private: 'Accessible seulement à qui a le lien. Google ne la voit pas.'
+  };
   var LAY_HINT = { site: 'La page garde le menu, le logo et le pied de page du site.', blank: 'Sans menu ni pied de page : idéal pour un outil ou un tableau.' };
   var META = { texte: 'Texte', bouton: 'Bouton', tableau: 'Tableau' };
   var id = parseInt(new URLSearchParams(location.search).get('id'), 10);
-  var page = null, blocks = [], saved = '', customPages = [], vis = 'draft', lay = 'site';
+  var page = null, blocks = [], saved = '', customPages = [], vis = 'draft', lay = 'site', isSaving = false;
   function $(x) { return document.getElementById(x); }
   function bridge() { return window.__saPage; }
   function setBridge(st) { var b = bridge(); if (b) b.setState(st); }
@@ -366,12 +563,72 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
   var uid = 0;
   function nid(p) { uid += 1; return 'pe-' + p + '-' + uid; }
 
-  // ---------- état
-  function snapshot() {
-    return JSON.stringify({ title: $('pe-title').value.trim(), slug: $('pe-slug').value.trim().toLowerCase(), blocks: blocks,
-      visibility: vis, layout: lay, width: $('pe-width').value, description: $('pe-desc').value.trim() });
+  function normTable(b) {
+    if (!Array.isArray(b.colonnes) || !b.colonnes.length) b.colonnes = ['', ''];
+    b.colonnes = b.colonnes.slice(0, 8).map(function (c) { return typeof c === 'string' ? c : ''; });
+    var n = b.colonnes.length;
+    if (!Array.isArray(b.lignes) || !b.lignes.length) {
+      b.lignes = [b.colonnes.map(function () { return ''; })];
+    } else {
+      b.lignes = b.lignes.slice(0, 100).map(function (r) {
+        var row = Array.isArray(r) ? r.slice(0, n).map(function (c) { return typeof c === 'string' ? c : ''; }) : [];
+        while (row.length < n) row.push('');
+        return row;
+      });
+    }
+    return b;
   }
-  function dirtyCheck() { setBridge({ dirty: snapshot() !== saved }); }
+
+  // ---------- compteurs et état
+  function updateCounters() {
+    if ($('pe-title-n') && $('pe-title')) $('pe-title-n').textContent = String(($('pe-title').value || '').length);
+    if ($('pe-slug-n') && $('pe-slug')) $('pe-slug-n').textContent = String(($('pe-slug').value || '').length);
+    if ($('pe-desc-n') && $('pe-desc')) $('pe-desc-n').textContent = String(($('pe-desc').value || '').length);
+  }
+  function snapshot() {
+    if (!$('pe-title') || !$('pe-slug') || !$('pe-width') || !$('pe-desc')) return saved;
+    return JSON.stringify({
+      title: $('pe-title').value.trim(),
+      slug: $('pe-slug').value.trim().toLowerCase(),
+      blocks: blocks,
+      visibility: vis,
+      layout: lay,
+      width: $('pe-width').value,
+      description: $('pe-desc').value.trim()
+    });
+  }
+  function syncActionUi() {
+    var dirty = page ? snapshot() !== saved : false;
+    setBridge({ loaded: true, dirty: dirty, saving: isSaving, vis: vis });
+    var saveLbl = isSaving ? 'Enregistrement…'
+      : vis === 'draft' ? 'Enregistrer le brouillon'
+      : vis === 'private' ? 'Mettre à jour (lien privé)'
+      : 'Mettre à jour';
+    var statusTxt = isSaving ? 'Enregistrement…'
+      : dirty ? 'Changements non enregistrés'
+      : vis === 'published' ? 'Publiée · tout est enregistré'
+      : vis === 'private' ? 'Lien privé · tout est enregistré'
+      : 'Brouillon · tout est enregistré';
+    ['pe-save-bottom', 'pe-save-pub'].forEach(function (btnId) {
+      var btn = $(btnId);
+      if (btn) { btn.disabled = !page || isSaving || !dirty; btn.textContent = saveLbl; }
+    });
+    ['pe-undo-bottom', 'pe-undo-pub'].forEach(function (btnId) {
+      var btn = $(btnId);
+      if (btn) btn.disabled = !page || isSaving || !dirty;
+    });
+    if ($('pe-bottom-status')) {
+      $('pe-bottom-status').textContent = statusTxt;
+      $('pe-bottom-status').style.color = dirty ? '#7A5A1E' : '#0E4D3C';
+    }
+    if ($('pe-pub-status')) {
+      $('pe-pub-status').textContent = statusTxt + ' · boutons d’enregistrement disponibles ici, en haut et en bas de page.';
+    }
+  }
+  function dirtyCheck() {
+    updateCounters();
+    syncActionUi();
+  }
   window.addEventListener('beforeunload', function (e) { if (page && snapshot() !== saved) { e.preventDefault(); e.returnValue = ''; } });
 
   // ---------- liens des boutons
@@ -418,7 +675,10 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
     head.appendChild(del);
     body.appendChild(head);
 
-    var on = function (input, fn) { input.addEventListener('input', function () { fn(input.value); dirtyCheck(); }); input.addEventListener('change', function () { fn(input.value); dirtyCheck(); }); };
+    var on = function (input, fn) {
+      input.addEventListener('input', function () { fn(input.value); dirtyCheck(); });
+      input.addEventListener('change', function () { fn(input.value); dirtyCheck(); });
+    };
     if (b.type === 'texte') {
       var t1 = el('input', { class: 'in', type: 'text', id: nid('t'), maxlength: '200' }); t1.value = b.titre || '';
       on(t1, function (v) { b.titre = v; });
@@ -450,14 +710,37 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
       g.appendChild(field('Texte du bouton', bt)); g.appendChild(field('Lien', sel));
       body.appendChild(g); body.appendChild(urlField); body.appendChild(field('Style', st));
     } else if (b.type === 'tableau') {
+      normTable(b);
+      var dim = el('p', { class: 'hint', style: 'margin:6px 0 0' },
+        b.lignes.length + (b.lignes.length > 1 ? ' lignes' : ' ligne') + ' × ' +
+        b.colonnes.length + (b.colonnes.length > 1 ? ' colonnes' : ' colonne'));
+      body.appendChild(dim);
       var wrap = el('div', { class: 'pe-table', tabindex: '0', 'aria-label': 'Tableau du bloc ' + (i + 1) + ', défilable horizontalement' });
       var table = el('table'); var thead = el('thead'); var hr = el('tr');
       b.colonnes.forEach(function (c, ci) {
         var th = el('th', { scope: 'col' });
+        var ch = el('div', { class: 'pe-col-h' });
         var inp = el('input', { class: 'in', type: 'text', maxlength: '80', 'aria-label': 'Titre de la colonne ' + (ci + 1), placeholder: 'Colonne ' + (ci + 1) });
         inp.value = c; on(inp, function (v) { b.colonnes[ci] = v; });
-        th.appendChild(inp); hr.appendChild(th);
+        ch.appendChild(inp);
+        var rmCol = el('button', {
+          type: 'button',
+          class: 'pe-mini-del',
+          title: 'Retirer la colonne ' + (ci + 1),
+          'aria-label': 'Retirer la colonne ' + (ci + 1)
+        }, '−');
+        rmCol.disabled = b.colonnes.length <= 1;
+        rmCol.addEventListener('click', function () {
+          if (b.colonnes.length <= 1) return;
+          b.colonnes.splice(ci, 1);
+          b.lignes.forEach(function (r) { r.splice(ci, 1); });
+          render(); dirtyCheck();
+        });
+        ch.appendChild(rmCol);
+        th.appendChild(ch); hr.appendChild(th);
       });
+      var thAct = el('th', { scope: 'col', style: 'width:40px;text-align:center;color:#4F5E57;font-size:12px' }, 'Ligne');
+      hr.appendChild(thAct);
       thead.appendChild(hr); table.appendChild(thead);
       var tb = el('tbody');
       b.lignes.forEach(function (row, ri) {
@@ -468,25 +751,55 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
           inp.value = cell; on(inp, function (v) { b.lignes[ri][ci] = v; });
           td.appendChild(inp); tr.appendChild(td);
         });
+        var tdAct = el('td', { style: 'text-align:center;width:40px' });
+        var rmRow = el('button', {
+          type: 'button',
+          class: 'pe-mini-del',
+          title: 'Retirer la ligne ' + (ri + 1),
+          'aria-label': 'Retirer la ligne ' + (ri + 1)
+        }, '−');
+        rmRow.disabled = b.lignes.length <= 1;
+        rmRow.addEventListener('click', function () {
+          if (b.lignes.length <= 1) return;
+          b.lignes.splice(ri, 1);
+          render(); dirtyCheck();
+        });
+        tdAct.appendChild(rmRow);
+        tr.appendChild(tdAct);
         tb.appendChild(tr);
       });
       table.appendChild(tb); wrap.appendChild(table); body.appendChild(wrap);
       var tools = el('div', { class: 'pe-add' });
       var tool = function (label, enabled, fn) {
-        var x = el('button', { type: 'button', class: 'btn btn-line' }, label); x.disabled = !enabled;
-        x.addEventListener('click', function () { fn(); render(); dirtyCheck(); }); tools.appendChild(x);
+        var x = el('button', { type: 'button', class: 'btn btn-line' }, label);
+        x.disabled = !enabled;
+        x.addEventListener('click', function () { fn(); render(); dirtyCheck(); });
+        tools.appendChild(x);
       };
-      tool('+ Ligne', b.lignes.length < 100, function () { b.lignes.push(b.colonnes.map(function () { return ''; })); });
-      tool('+ Colonne', b.colonnes.length < 8, function () { b.colonnes.push(''); b.lignes.forEach(function (r) { r.push(''); }); });
-      tool('− Dernière ligne', b.lignes.length > 0, function () { b.lignes.pop(); });
-      tool('− Dernière colonne', b.colonnes.length > 1, function () { b.colonnes.pop(); b.lignes.forEach(function (r) { r.pop(); }); });
+      tool('+ Ligne', b.lignes.length < 100, function () {
+        b.lignes.push(b.colonnes.map(function () { return ''; }));
+      });
+      tool('+ Colonne', b.colonnes.length < 8, function () {
+        b.colonnes.push('');
+        b.lignes.forEach(function (r) { r.push(''); });
+      });
+      tool('− Dernière ligne', b.lignes.length > 1, function () {
+        if (b.lignes.length > 1) b.lignes.pop();
+      });
+      tool('− Dernière colonne', b.colonnes.length > 1, function () {
+        if (b.colonnes.length > 1) {
+          b.colonnes.pop();
+          b.lignes.forEach(function (r) { r.pop(); });
+        }
+      });
       body.appendChild(tools);
     }
     sec.appendChild(body);
     return sec;
   }
   function render() {
-    var box = $('pe-blocks'); box.innerHTML = '';
+    var box = $('pe-blocks'); if (!box) return;
+    box.innerHTML = '';
     if (!blocks.length) {
       var empty = el('section', { class: 'card' }); var b = el('div', { class: 'card-b' });
       b.appendChild(el('p', { style: 'margin:0;font-weight:700;color:#0E4D3C' }, 'Cette page est encore vide.'));
@@ -501,35 +814,52 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
   function fill(p) {
     page = p;
     blocks = JSON.parse(JSON.stringify(p.blocks || []));
-    vis = p.visibility; lay = p.layout;
-    $('pe-title').value = p.title; $('pe-slug').value = p.slug;
-    $('pe-width').value = p.width; $('pe-desc').value = p.description || '';
-    $('pe-desc-n').textContent = String(($('pe-desc').value || '').length);
-    setSeg('data-pe-vis', vis); setSeg('data-pe-lay', lay);
-    $('pe-vis-hint').textContent = VIS_HINT[vis]; $('pe-lay-hint').textContent = LAY_HINT[lay];
+    blocks.forEach(function (b) { if (b && b.type === 'tableau') normTable(b); });
+    vis = p.visibility || 'draft';
+    lay = p.layout || 'site';
+    $('pe-title').value = p.title || '';
+    $('pe-slug').value = p.slug || '';
+    $('pe-width').value = p.width || 'normal';
+    $('pe-desc').value = p.description || '';
+    setSeg('data-pe-vis', vis);
+    setSeg('data-pe-lay', lay);
+    $('pe-vis-hint').textContent = VIS_HINT[vis] || VIS_HINT.draft;
+    $('pe-lay-hint').textContent = LAY_HINT[lay] || LAY_HINT.site;
     $('pe-slug-err').hidden = true;
     render();
     saved = snapshot();
-    setBridge({ loaded: true, dirty: false, vis: vis });
+    updateCounters();
+    syncActionUi();
   }
 
-  // ---------- actions de l'en-tête
-  window.saPageSave = function (publish) {
-    var b = bridge();
-    if (!page || (b && b.state.saving)) return;
+  // ---------- actions d'enregistrement, d'annulation, d'aperçu et de suppression
+  window.saPageSave = function (forcedVis) {
+    if (!page || isSaving) return;
     var title = $('pe-title').value.trim(), slug = $('pe-slug').value.trim().toLowerCase();
     if (title.length < 2) { flash('Donnez un titre à la page (2 caractères minimum).'); $('pe-title').focus(); return; }
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length < 2 || slug.length > 60) {
-      var err = $('pe-slug-err'); err.textContent = 'Adresse invalide : 2 à 60 caractères, lettres minuscules sans accent, chiffres et tirets (ex. ramadan-2027).';
+      var err = $('pe-slug-err');
+      err.textContent = 'Adresse invalide : 2 à 60 caractères, lettres minuscules sans accent, chiffres et tirets (ex. ramadan-2027).';
       err.hidden = false; $('pe-slug').focus(); return;
     }
     var badUrl = blocks.some(function (x) { return x.type === 'bouton' && x.lien && x.lien.type === 'url' && !/^https?:\/\/\S{3,}$/i.test(x.lien.url); });
     if (badUrl) { flash('Un bouton a un lien externe invalide : il doit commencer par https://'); return; }
-    var body = { title: title, slug: slug, blocks: blocks, visibility: publish || vis, layout: lay, width: $('pe-width').value, description: $('pe-desc').value.trim() };
-    setBridge({ saving: true });
+    var targetVis = (typeof forcedVis === 'string' && VIS_HINT[forcedVis]) ? forcedVis : vis;
+    var body = {
+      title: title,
+      slug: slug,
+      blocks: blocks,
+      visibility: targetVis,
+      layout: lay,
+      width: $('pe-width').value,
+      description: $('pe-desc').value.trim()
+    };
+    isSaving = true;
+    syncActionUi();
     api('/api/admin/pages/' + id, { method: 'PUT', body: JSON.stringify(body) }).then(function (r) {
-      setBridge({ saving: false });
+      isSaving = false;
       if (!r.ok) {
+        syncActionUi();
         if (r.code === 'slug_taken') { var e2 = $('pe-slug-err'); e2.textContent = r.message; e2.hidden = false; $('pe-slug').focus(); }
         flash(r.message || 'L’enregistrement a échoué. Réessayez.');
         return;
@@ -538,17 +868,46 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
       flash(r.page.visibility === 'published' ? 'Page enregistrée et publiée à ' + r.page.url
         : r.page.visibility === 'private' ? 'Page enregistrée. Accessible à qui a le lien : ' + r.page.url
         : 'Brouillon enregistré. La page n’est pas visible du public.');
-    }, function () { setBridge({ saving: false }); flash('Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.'); });
+    }, function () {
+      isSaving = false;
+      syncActionUi();
+      flash('Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.');
+    });
+  };
+  window.saPageUndo = function () {
+    if (!page || isSaving) return;
+    fill(page);
+    flash('Changements annulés.');
   };
   window.saPagePreview = function () {
     if (!page) return;
     if (snapshot() !== saved) flash('L’aperçu montre la dernière version enregistrée. Enregistrez pour y voir vos changements.');
     window.open(page.url, '_blank', 'noopener');
   };
+  function deleteCurrentPage() {
+    if (!page || isSaving) return;
+    if (!window.confirm('Supprimer définitivement « ' + page.title + ' » ?\n\nSon adresse ' + page.url + ' ne fonctionnera plus. Cette action est irréversible.')) return;
+    isSaving = true;
+    syncActionUi();
+    api('/api/admin/pages/' + id, { method: 'DELETE' }).then(function (r) {
+      isSaving = false;
+      if (!r.ok) {
+        syncActionUi();
+        flash(r.message || 'La suppression a échoué. Réessayez.');
+        return;
+      }
+      saved = snapshot();
+      location.href = 'SA-Pages.dc.html';
+    }, function () {
+      isSaving = false;
+      syncActionUi();
+      flash('Impossible de joindre le serveur. Vérifiez votre connexion et réessayez.');
+    });
+  }
 
   // ---------- événements du formulaire
   document.addEventListener('click', function (e) {
-    var t = e.target.closest && e.target.closest('[data-pe-add],[data-pe-vis],[data-pe-lay],#pe-copy');
+    var t = e.target.closest && e.target.closest('[data-pe-add],[data-pe-vis],[data-pe-lay],#pe-copy,#pe-save-bottom,#pe-save-pub,#pe-undo-bottom,#pe-undo-pub,#pe-pv-bottom,#pe-delete');
     if (!t || !page) return;
     if (t.hasAttribute('data-pe-add')) {
       var k = t.getAttribute('data-pe-add');
@@ -557,46 +916,83 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
         : k === 'bouton' ? { type: 'bouton', texte: '', lien: { type: 'none' }, style: 'or' }
         : { type: 'tableau', colonnes: ['', ''], lignes: [['', ''], ['', '']] });
       render(); dirtyCheck();
-      flash('Bloc « ' + META[k] + ' » ajouté en bas de la page.');
+      flash('Bloc « ' + META[k] + ' » ajouté.');
       var cards = $('pe-blocks').querySelectorAll('section.card');
       var last = cards[cards.length - 1]; var f = last && last.querySelector('input,textarea'); if (f) f.focus();
     } else if (t.hasAttribute('data-pe-vis')) {
-      vis = t.getAttribute('data-pe-vis'); setSeg('data-pe-vis', vis); $('pe-vis-hint').textContent = VIS_HINT[vis]; dirtyCheck();
+      vis = t.getAttribute('data-pe-vis');
+      setSeg('data-pe-vis', vis);
+      $('pe-vis-hint').textContent = VIS_HINT[vis];
+      dirtyCheck();
     } else if (t.hasAttribute('data-pe-lay')) {
-      lay = t.getAttribute('data-pe-lay'); setSeg('data-pe-lay', lay); $('pe-lay-hint').textContent = LAY_HINT[lay]; dirtyCheck();
+      lay = t.getAttribute('data-pe-lay');
+      setSeg('data-pe-lay', lay);
+      $('pe-lay-hint').textContent = LAY_HINT[lay];
+      dirtyCheck();
     } else if (t.id === 'pe-copy') {
       var full = location.origin + page.url;
       (navigator.clipboard ? navigator.clipboard.writeText(full) : Promise.reject()).then(
         function () { t.textContent = 'Lien copié'; setTimeout(function () { t.textContent = 'Copier le lien'; }, 1800); },
         function () { flash('Copie impossible ici. Le lien est : ' + full); });
+    } else if (t.id === 'pe-save-bottom' || t.id === 'pe-save-pub') {
+      window.saPageSave();
+    } else if (t.id === 'pe-undo-bottom' || t.id === 'pe-undo-pub') {
+      window.saPageUndo();
+    } else if (t.id === 'pe-pv-bottom') {
+      window.saPagePreview();
+    } else if (t.id === 'pe-delete') {
+      deleteCurrentPage();
     }
   });
   document.addEventListener('input', function (e) {
     var t = e.target; if (!t || !page) return;
-    if (t.id === 'pe-desc') $('pe-desc-n').textContent = String(t.value.length);
     if (t.id === 'pe-slug') $('pe-slug-err').hidden = true;
     if (['pe-title', 'pe-slug', 'pe-desc'].indexOf(t.id) > -1) dirtyCheck();
   });
   document.addEventListener('change', function (e) { if (e.target && e.target.id === 'pe-width') dirtyCheck(); });
 
-  // ---------- chargement
+  // ---------- chargement (attend que #dc-root soit monté par React)
+  var started = false;
   function start() {
     var miss = $('pe-missing');
     if (!id) {
       miss.textContent = 'Aucune page choisie. Revenez à « Créer une page » et cliquez sur « Modifier » à côté d’une page.';
-      miss.hidden = false; setBridge({ loaded: true }); return;
+      miss.hidden = false;
+      setBridge({ loaded: true, dirty: false });
+      return;
     }
     Promise.all([api('/api/admin/pages/' + id), api('/api/admin/pages')]).then(function (rs) {
       var r = rs[0];
-      if (!r.ok) { miss.textContent = r.message || 'Impossible de charger cette page.'; miss.hidden = false; setBridge({ loaded: true }); return; }
+      if (!r.ok) {
+        miss.textContent = r.message || 'Impossible de charger cette page.';
+        miss.hidden = false;
+        setBridge({ loaded: true, dirty: false });
+        return;
+      }
       customPages = rs[1].ok ? rs[1].pages : [];
       $('pe-root').hidden = false;
       fill(r.page);
-    }, function () { miss.textContent = 'Impossible de joindre le serveur. Rechargez la page.'; miss.hidden = false; });
+    }, function () {
+      miss.textContent = 'Impossible de joindre le serveur. Rechargez la page.';
+      miss.hidden = false;
+      setBridge({ loaded: true, dirty: false });
+    });
   }
-  if (document.getElementById('pe-root')) start();
-  else new MutationObserver(function (m, o) { if (document.getElementById('pe-root')) { o.disconnect(); start(); } })
-    .observe(document.documentElement, { childList: true, subtree: true });
+  function tryStart() {
+    if (started || document.querySelector('x-dc') || !window.__saPage || !$('pe-root')) return;
+    started = true;
+    start();
+  }
+  window.addEventListener('sa-page-ready', tryStart);
+  tryStart();
+  if (!started) {
+    new MutationObserver(function (m, o) {
+      if (!document.querySelector('x-dc') && window.__saPage && $('pe-root')) {
+        o.disconnect();
+        tryStart();
+      }
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }
 })();
 </script>
 """
@@ -617,7 +1013,18 @@ def wire_editor():
     tpl = drop_side_sub(tpl)
     # Aperçu de la maquette (fenêtre avec contenu fictif) : remplacé par l'ouverture de /p/<lien>.
     tpl = re.sub(r'\s*<sc-if value="\{\{pv\}\}"[^>]*>.*?</sc-if>\s*(?=<sc-if value="\{\{toast\}\}")', '\n ', tpl, count=1, flags=re.S)
-    tpl = tpl.replace('<span class="hide-t">Enregistrer le&nbsp;</span>brouillon', 'Enregistrer')
+    # En-tête : Aperçu + Annuler les changements (désactivé si clean) + Enregistrer le brouillon / Mettre à jour (désactivé si clean).
+    hdr_pat = re.compile(
+        r'(<button type="button" class="btn btn-onDark" sc-camel-on-click="\{\{openPv\}\}">.*?</button>)\s*<button.*?(?=</header>)',
+        flags=re.S,
+    )
+    hdr_repl = (
+        r'\1\n'
+        r'  <button type="button" class="btn btn-onDark" disabled="{{clean}}" sc-camel-on-click="{{undo}}" style="gap:0">Annuler<span class="hide-t">&nbsp;les changements</span></button>\n'
+        r'  <button type="button" class="btn btn-gold" disabled="{{clean}}" sc-camel-on-click="{{save}}">{{pubLabel}}</button>\n '
+    )
+    tpl, n_hdr = hdr_pat.subn(hdr_repl, tpl, count=1)
+    assert n_hdr == 1, 'boutons d’en-tête de SA-PageEditeur introuvables'
     tpl = re.sub(r'<style id="sa-pages-style">.*?</style>\s*', '', tpl, flags=re.S)
     k = tpl.index('</head>')
     tpl = tpl[:k] + STYLE + tpl[k:]
@@ -701,8 +1108,8 @@ HOME_LINKS_SCRIPT = r"""<script id="sa-home-links">
       }).observe(document.documentElement, { childList: true, subtree: true });
     }, function () {});
   }
-  if (document.getElementById('f-h1')) start();
-  else new MutationObserver(function (m, o) { if (document.getElementById('f-h1')) { o.disconnect(); start(); } })
+  if (!document.querySelector('x-dc') && document.getElementById('f-h1')) start();
+  else new MutationObserver(function (m, o) { if (!document.querySelector('x-dc') && document.getElementById('f-h1')) { o.disconnect(); start(); } })
     .observe(document.documentElement, { childList: true, subtree: true });
 })();
 </script>

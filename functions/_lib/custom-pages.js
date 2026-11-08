@@ -68,11 +68,13 @@ export function cleanBlocks(input) {
       out.push({ type: 'bouton', texte: str(b.texte, 80), lien: cleanLink(b.lien), style: BUTTON_STYLES.includes(b.style) ? b.style : 'or' });
     } else if (b.type === 'tableau') {
       const colonnes = (Array.isArray(b.colonnes) ? b.colonnes : []).slice(0, 8).map((c) => str(c, 80));
-      const n = Math.max(1, colonnes.length);
+      const safeColonnes = colonnes.length ? colonnes : [''];
+      const n = safeColonnes.length;
       const lignes = (Array.isArray(b.lignes) ? b.lignes : []).slice(0, 100)
         .map((r) => (Array.isArray(r) ? r : []).slice(0, n).map((c) => str(c, 200)))
         .map((r) => r.concat(Array(n - r.length).fill('')));
-      out.push({ type: 'tableau', colonnes: colonnes.length ? colonnes : [''], lignes });
+      const safeLignes = lignes.length ? lignes : [Array(n).fill('')];
+      out.push({ type: 'tableau', colonnes: safeColonnes, lignes: safeLignes });
     }
   }
   return out;
