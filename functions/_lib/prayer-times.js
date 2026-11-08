@@ -16,7 +16,7 @@ export function cleanTime(v) {
   const t = v.trim();
   if (!t || t === '—' || t === '-' || t === '–') return '';
   if (HHMM_RE.test(t)) return t;
-  const m = /^(\d{1,2})\s*[:hH]\s*([0-5]\d)$/.exec(t);
+  const m = /^(\d{1,2})\s*[:hH]\s*([0-5]\d)(?::[0-5]\d)?$/.exec(t);
   if (!m) return null;
   const hh = Number(m[1]);
   if (hh < 0 || hh > 23) return null;
