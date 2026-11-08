@@ -290,7 +290,8 @@ LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
   var EXTRA = { 'Horaires': ['horaires', 'season'], 'N2-Khutba': ['khutba'], 'N3-Rappel': ['rappel'],
     'APropos': ['apropos', 'campagne'], 'N3-Campagne': ['campagne'],
     'Services': ['services', 'horaires'], 'N2-Cours': ['cours'], 'N2-Mariages': ['mariages'],
-    'N2-Funerailles': ['funerailles'], 'N2-AideAlimentaire': ['aide'], 'N2-EspaceFemmes': ['femmes'] }[page] || [];
+    'N2-Funerailles': ['funerailles'], 'N2-AideAlimentaire': ['aide'], 'N2-EspaceFemmes': ['femmes'],
+    'Dons': ['dons', 'merci', 'campagne', 'services'] }[page] || [];
   var URLS = { campagne: '/api/campagne' };
   function getJ(u) {
     return fetch(u, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });

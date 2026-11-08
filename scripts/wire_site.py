@@ -757,7 +757,9 @@ ACCOUNT_SCRIPT = r"""<script id="sa-site-account">
     'settings:home': 'Accueil', 'settings:pages': 'Pages publiées', 'settings:event_registration': 'Événement',
     'settings:alert': 'Bannière d’alerte', 'settings:season': 'Mode du site', 'settings:languages': 'Langues',
     'settings:horaires': 'Horaires', 'settings:khutba': 'Langue de la khutba', 'settings:rappel': 'Rappel de prière',
-    'settings:apropos': 'À propos', 'settings:campagne': 'Campagne en direct', 'settings:services': 'Services'
+    'settings:apropos': 'À propos', 'settings:campagne': 'Campagne en direct', 'settings:services': 'Services',
+    'settings:cours': 'Cours', 'settings:mariages': 'Mariages', 'settings:funerailles': 'Funérailles', 'settings:aide': 'Aide alimentaire',
+    'settings:femmes': 'Espace femmes', 'settings:dons': 'Faire un don', 'settings:merci': 'Bloc Merci (Faire un don)'
   };
   var PAGE_NAMES = {
     pg_accueil: 'Accueil', pg_horaires: 'Horaires du mois', pg_apropos: 'À propos', pg_services: 'Services',

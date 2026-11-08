@@ -850,6 +850,57 @@ export const cleanFuneraillesSettings = servicePageCleaner('funerailles');
 export const cleanAideSettings = servicePageCleaner('aide');
 export const cleanFemmesSettings = servicePageCleaner('femmes');
 
+// Faire un don (clés dons et merci). L’objectif et le montant récolté restent dans home.campagne ;
+// le montant de la zakat al-Fitr reste dans services (carte Aïd) : une seule source par valeur.
+const DON_LIENS = ['', 'contact', 'courriel'];
+export const DONS_SCHEMA = {
+  barre: ['b'], suivi: ['b'],
+  interac: {
+    on: ['b'], courriel: ['s', 120], m1: ['n', 0, 100000], m2: ['n', 0, 100000], m3: ['n', 0, 100000],
+    defaut: ['e', ['m1', 'm2', 'm3', 'aucun']], autre: ['b'], etapes: ['b'],
+  },
+  desjardins: { on: ['b'], institution: ['s', 10], transit: ['s', 10], compte: ['s', 20] },
+  autres: {
+    on: ['b'],
+    items: ['list', 8, { titre: ['s', 60], arabe: ['s', 40], texte: ['t', 400], fitr: ['b'], lien: ['e', DON_LIENS], lienTexte: ['s', 60], on: ['b'] }],
+  },
+  faq: { on: ['b'], items: ['list', 12, { titre: ['s', 160], texte: ['t', 1200], on: ['b'] }] },
+  recus: { statut: ['b'], numero: ['s', 30] },
+};
+DEFAULT_SETTINGS.dons = {
+  barre: true, suivi: true,
+  interac: { on: true, courriel: 'associationrdl.ascil@gmail.com', m1: 20, m2: 50, m3: 100, defaut: 'm2', autre: true, etapes: true },
+  desjardins: { on: true, institution: '', transit: '', compte: '' },
+  autres: {
+    on: true,
+    items: [
+      { titre: 'Sadaqa', arabe: 'صدقة', texte: 'Don libre, en tout temps, par Interac à la même adresse.', fitr: false, lien: '', lienTexte: '', on: true },
+      { titre: 'Zakat al-mal', arabe: 'زكاة المال', texte: 'L’aumône obligatoire sur les biens. Pour la verser par l’association, écrivez-nous.', fitr: false, lien: 'contact', lienTexte: 'Écrire à l’association', on: true },
+      { titre: 'Zakat al-Fitr', arabe: 'زكاة الفطر', texte: 'Montant mis à jour chaque Ramadan.', fitr: true, lien: '', lienTexte: '', on: true },
+    ],
+  },
+  faq: {
+    on: true,
+    items: [
+      { titre: 'Le don sert-il uniquement au bâtiment ?', texte: '', on: true },
+      { titre: 'Puis-je donner chaque mois ?', texte: '', on: true },
+      { titre: 'Puis-je donner anonymement ?', texte: '', on: true },
+      { titre: 'À qui écrire pour un reçu ou une question ?', texte: 'Écrivez à l’association depuis la page Contact. Elle vous répond à l’adresse indiquée.', on: true },
+    ],
+  },
+  recus: { statut: false, numero: '' },
+};
+export const MERCI_SCHEMA = {
+  on: ['b'], titre: ['s', 80], texte: ['t', 300], facebook: ['b'], whatsapp: ['b'],
+  suivre: ['b'], suivreLien: ['e', ['campagne', 'evenements', 'apropos', 'accueil']], suivreTexte: ['s', 40],
+};
+DEFAULT_SETTINGS.merci = {
+  on: true, titre: 'Merci pour votre générosité', texte: 'Partagez la campagne autour de vous et suivez l’avancement du projet.',
+  facebook: true, whatsapp: true, suivre: true, suivreLien: 'campagne', suivreTexte: 'Suivre le projet',
+};
+export const cleanDonsSettings = (input) => cleanWith(DONS_SCHEMA, input, DEFAULT_SETTINGS.dons);
+export const cleanMerciSettings = (input) => cleanWith(MERCI_SCHEMA, input, DEFAULT_SETTINGS.merci);
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -872,8 +923,10 @@ export const GENERIC_KEYS = {
   aide: { roles: ['superadmin', 'editor'], clean: cleanAideSettings },
   // Plan d'accès inclus (image réduite dans le panneau) : corps de requête plus grand.
   femmes: { roles: ['superadmin', 'editor'], clean: cleanFemmesSettings, maxBytes: 400000 },
+  dons: { roles: ['superadmin', 'editor'], clean: cleanDonsSettings },
+  merci: { roles: ['superadmin', 'editor'], clean: cleanMerciSettings },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
 export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos', 'services',
-  'cours', 'mariages', 'funerailles', 'aide', 'femmes'];
+  'cours', 'mariages', 'funerailles', 'aide', 'femmes', 'dons', 'merci'];
