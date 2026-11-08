@@ -21,8 +21,9 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | 5b | Créer une page : écrans « Mes pages » et éditeur (blocs Texte, Bouton, Tableau) | en ligne |
 | 5c | Créer une page : affichage public `/p/<lien>` (publiée, lien privé, brouillon pour les comptes connectés) | en ligne |
 | 5d | Créer une page : pages proposées dans les liens de la bannière d'alerte, des boutons de l'accueil et de l'éditeur | fait, à pousser |
-| H1 | Horaires : `prayer_times` complétée (lever, une ligne par jour) ; clé `horaires` (bloc Aujourd'hui, vendredi, Ramadan, Aïd, Qibla) | fait, à pousser |
-| H2-H5 | Horaires : API du tableau du mois, panneau, page publique, heures du jour sur tout le site | à faire |
+| H1 | Horaires : `prayer_times` complétée (lever, une ligne par jour) ; clé `horaires` (bloc Aujourd'hui, vendredi, Ramadan, Aïd, Qibla) | en ligne |
+| H2 | Horaires : API du tableau du mois (`GET`/`PUT /api/admin/prayer-times`) et API publique du mois et du jour (`GET /api/prayer-times`, repli sur les défauts Accueil) | fait, à pousser |
+| H3-H5 | Horaires : panneau, page publique, heures du jour sur tout le site | à faire |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -65,7 +66,8 @@ La route générique `/api/admin/settings/:key` n'accepte que les clés de `GENE
 La lecture publique `/api/settings/:key` est limitée à `PUBLIC_KEYS` (`home`, `pages`, `alert`, `season`, `languages`, `horaires`).
 
 Horaires : les heures sont dans `prayer_times` (une ligne par jour) ; une case vide prend la valeur par défaut de la carte
-« Prochaine prière » de l'Accueil (`home.priere`), puis « — ». Les dates du Ramadan viennent de la clé `season`.
+« Prochaine prière » de l'Accueil (`home.priere` : Fajr 06:30, Jumu'a 12:30, Icha 19:00), puis « — ». Les dates du Ramadan viennent de la clé `season`.
+Routes du tableau mensuel : `GET`/`PUT /api/admin/prayer-times` (ou `/:month`, superadmin + éditeur) et `GET /api/prayer-times` (ou `/today`, `/:month`, `/:date`, publique sans authentification).
 
 Liens de l'accueil (`home`) : seuls « Page : … », `/p/<lien>` et `https://…` sont acceptés ; toute autre valeur
 revient à la valeur par défaut. La bannière accepte aussi un lien vers une page créée (`{ type: 'custom', slug }`).
