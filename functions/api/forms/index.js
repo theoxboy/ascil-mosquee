@@ -8,6 +8,7 @@
 import { json, error, readJson } from '../../_lib/http.js';
 import { clientIp } from '../../_lib/auth.js';
 import { cleanFormMessage, MIN_FILL_MS, LIMIT, WINDOW_MS } from '../../_lib/forms.js';
+import { DEFAULT_SETTINGS, cleanContactSettings } from '../../_lib/settings.js';
 
 const BUCKET = 'forms.send';
 
@@ -45,6 +46,24 @@ export async function onRequestPost({ request, env }) {
   const checked = cleanFormMessage(body);
   if (!checked.value) return error(400, checked.code, checked.message);
   const v = checked.value;
+
+  // Formulaire Contact : longueur maximale et sujets réglés dans le panneau (Contact → Page Contact).
+  if (v.source === 'contact') {
+    let co = null;
+    try {
+      const row = await env.DB.prepare("SELECT value FROM site_settings WHERE key = 'contact'").first();
+      if (row && row.value) co = JSON.parse(row.value);
+    } catch (err) {
+      console.warn('contact settings read fallback:', err && err.message);
+    }
+    co = cleanContactSettings(co || DEFAULT_SETTINGS.contact);
+    const max = co.form.max;
+    if (v.message.length > max) {
+      return error(400, 'too_long', `Votre message dépasse ${max} caractères. Raccourcissez-le, puis envoyez-le à nouveau.`);
+    }
+    const sujets = co.form.sujets.filter((x) => x.on && x.titre).map((x) => x.titre);
+    if (v.sujet && sujets.length && !sujets.includes(v.sujet)) v.sujet = '';
+  }
 
   if (await rateLimited(env.DB, clientIp(request))) {
     return error(429, 'too_many', 'Trop de messages envoyés depuis cette connexion. Réessayez dans 15 minutes.', { 'Retry-After': '900' });

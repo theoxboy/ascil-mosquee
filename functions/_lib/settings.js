@@ -1076,6 +1076,79 @@ export function cleanDuaSettings(input) {
   return out;
 }
 
+// Page Contact (clé contact). Adresse, ville, courriel et Facebook viennent des coordonnées générales (home.general).
+export const CO_LIENS = ['', 'mariages', 'funerailles', 'dons', 'evenements', 'ressources', 'services', 'apropos'];
+export const CO_PAGES = ['accueil', 'horaires', 'apropos', 'services', 'dons', 'evenements', 'ressources'];
+const CO_LIGNE = { on: ['b'], texte: ['s', 120] };
+export const CONTACT_SCHEMA = {
+  carte: ['b'], lat: ['s', 20], lng: ['s', 20], codePostal: ['s', 10],
+  lignes: { stationnement: CO_LIGNE, fauteuil: CO_LIGNE, ablutions: CO_LIGNE },
+  etiquette: { on: ['b'], titre: ['s', 120], items: ['list', 8, { titre: ['s', 60], texte: ['t', 600], on: ['b'] }] },
+  ecrire: {
+    copier: ['b'], facebook: ['b'],
+    demandes: { on: ['b'], note: ['s', 200], items: ['list', 8, { texte: ['s', 120], lien: ['e', CO_LIENS], lienTexte: ['s', 60], on: ['b'] }] },
+  },
+  form: {
+    sujets: ['list', 10, { titre: ['s', 60], on: ['b'] }], max: ['n', 200, 3000],
+    apres: ['e', ['message', 'page', 'mapage']], page: ['e', CO_PAGES], mapage: ['s', 63],
+    merciTitre: ['s', 60], merciTexte: ['s', 300],
+  },
+};
+DEFAULT_SETTINGS.contact = {
+  carte: true, lat: '47.836047', lng: '-69.537465', codePostal: '',
+  lignes: {
+    stationnement: { on: true, texte: 'Stationnement dans les rues avoisinantes' },
+    fauteuil: { on: true, texte: 'Salle de prière accessible en fauteuil roulant' },
+    ablutions: { on: true, texte: 'Ablutions et toilettes sur place' },
+  },
+  etiquette: {
+    on: true, titre: 'Tous les visiteurs sont les bienvenus',
+    items: [
+      { titre: 'Tenue', texte: 'Une tenue couvrant les épaules et les genoux convient ; les femmes qui le souhaitent peuvent porter un foulard, sans obligation pour une simple visite.', on: true },
+      { titre: 'Chaussures et téléphone', texte: 'On retire ses chaussures à l’entrée de la salle de prière, et on éteint la sonnerie de son téléphone.', on: true },
+      { titre: 'Pendant la prière', texte: 'Pendant la prière, installez-vous simplement à l’arrière pour observer.', on: true },
+    ],
+  },
+  ecrire: {
+    copier: true, facebook: true,
+    demandes: {
+      on: true, note: 'À adresser par courriel à l’association.',
+      items: [
+        { texte: 'Visites de groupes et d’écoles', lien: '', lienTexte: '', on: true },
+        { texte: 'Questions des médias', lien: '', lienTexte: '', on: true },
+        { texte: 'Mariage', lien: 'mariages', lienTexte: 'voir le parcours', on: true },
+        { texte: 'Funérailles', lien: 'funerailles', lienTexte: 'qui appeler, quoi faire', on: true },
+      ],
+    },
+  },
+  form: {
+    sujets: ['Question générale', 'Dons', 'Événements', 'Nouveaux arrivants', 'Autre'].map((titre) => ({ titre, on: true })),
+    max: 1000, apres: 'message', page: 'accueil', mapage: '',
+    merciTitre: 'Message envoyé', merciTexte: 'Merci. L’association vous répondra à l’adresse indiquée.',
+  },
+};
+const coord = (v, lim) => {
+  const n = Number(String(v).replace(/\s/g, '').replace(',', '.').replace(/[−–]/g, '-'));
+  return Number.isFinite(n) && Math.abs(n) <= lim ? String(Math.round(n * 1e6) / 1e6) : '';
+};
+export function cleanContactSettings(input) {
+  const out = cleanWith(CONTACT_SCHEMA, input, DEFAULT_SETTINGS.contact);
+  out.lat = coord(out.lat, 90) || DEFAULT_SETTINGS.contact.lat;
+  out.lng = coord(out.lng, 180) || DEFAULT_SETTINGS.contact.lng;
+  if (!/^\/p\/[a-z0-9]+(?:-[a-z0-9]+)*$/.test(out.form.mapage)) out.form.mapage = '';
+  if (out.form.apres === 'mapage' && !out.form.mapage) out.form.apres = 'message';
+  return out;
+}
+
+// Page 404 (clé p404) : affichée pour toute adresse qui n’existe pas.
+export const P404_SCHEMA = { titre: ['s', 80], texte: ['t', 300], accueil: ['b'], horaires: ['b'], trouver: ['b'] };
+DEFAULT_SETTINGS.p404 = {
+  titre: 'Cette page n’existe pas',
+  texte: 'L’adresse a peut-être changé, ou la page a été retirée. Ces raccourcis vous ramènent au bon endroit.',
+  accueil: true, horaires: true, trouver: true,
+};
+export const cleanP404Settings = (input) => cleanWith(P404_SCHEMA, input, DEFAULT_SETTINGS.p404);
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -1105,8 +1178,10 @@ export const GENERIC_KEYS = {
   calendrier: { roles: ['superadmin', 'editor', 'events'], clean: cleanCalendrierSettings },
   ressources: { roles: ['superadmin', 'editor'], clean: cleanRessourcesSettings },
   dua: { roles: ['superadmin', 'editor'], clean: cleanDuaSettings },
+  contact: { roles: ['superadmin', 'editor'], clean: cleanContactSettings },
+  p404: { roles: ['superadmin', 'editor'], clean: cleanP404Settings },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
 export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos', 'services',
-  'cours', 'mariages', 'funerailles', 'aide', 'femmes', 'dons', 'merci', 'evenements', 'calendrier', 'ressources', 'dua'];
+  'cours', 'mariages', 'funerailles', 'aide', 'femmes', 'dons', 'merci', 'evenements', 'calendrier', 'ressources', 'dua', 'contact', 'p404'];

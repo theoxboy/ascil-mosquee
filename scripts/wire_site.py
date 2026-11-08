@@ -763,7 +763,8 @@ ACCOUNT_SCRIPT = r"""<script id="sa-site-account">
     'settings:cours': 'Cours', 'settings:mariages': 'Mariages', 'settings:funerailles': 'Funérailles', 'settings:aide': 'Aide alimentaire',
     'settings:femmes': 'Espace femmes', 'settings:dons': 'Faire un don', 'settings:merci': 'Bloc Merci (Faire un don)',
     'settings:evenements': 'Événements', 'settings:calendrier': 'Calendrier du mois',
-    'settings:ressources': 'Ressources (nouveaux arrivants)', 'settings:dua': 'Règles du mur Dua et annonces'
+    'settings:ressources': 'Ressources (nouveaux arrivants)', 'settings:dua': 'Règles du mur Dua et annonces',
+    'settings:contact': 'Page Contact', 'settings:p404': 'Page 404'
   };
   var PAGE_NAMES = {
     pg_accueil: 'Accueil', pg_horaires: 'Horaires du mois', pg_apropos: 'À propos', pg_services: 'Services',

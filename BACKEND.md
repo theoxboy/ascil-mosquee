@@ -33,7 +33,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | S3-S5 | Services : onglets « Cours » (clé `cours` : fiches des cours, inscriptions, liste d’attente, cours d’essai, tarifs calculés), « Mariages » (`mariages` : étapes, documents, formulaire), « Funérailles » (`funerailles` : téléphone ou courriel d’urgence, étapes, documents, prise en charge), « Aide alimentaire » (`aide` : formulaire, besoins du mois, dépôt, don Interac) et « Espace femmes » (`femmes` : horaires par jour sur 2 plages, fermeture exceptionnelle datée, plan d’accès réduit, infos pratiques, règles) ; 15 pages N2 (PC, M-, T-) reliées, mentions [À CONFIRMER] et [EXEMPLE À MODIFIER] retirées ; formulaires Cours, Mariages et Aide envoyés dans Contact → Demandes reçues | en ligne |
 | D | Faire un don : onglet « Page Dons » (clé `dons` : affichage de la campagne, Virement Interac avec montants proposés, Desjardins masqué tant que les 3 numéros manquent, autres formes de don, questions fréquentes, reçus fiscaux ; objectif et montant récolté écrits dans `home.campagne`, zakat al-Fitr reprise de la carte Aïd des Services) et onglet « Bloc Merci » (clé `merci` : bandeau en bas de la page Dons, partage Facebook et WhatsApp réels, bouton de suivi) ; 3 pages Dons (PC, M-, T-) reliées, mentions « À remplir » retirées | en ligne |
 | E | Événements : onglet « Annonces » (clé `evenements` : liste des événements avec fiche détaillée dépliable, inscription par formulaire ou par message, événement à la une automatique ou choisi, filtres par lieu, événements passés le lendemain de leur date, rendez-vous fixes, bloc « Aller plus loin », partage), onglet « Calendrier du mois » (clé `calendrier` : catégories, cours de la semaine, vue par défaut, fichier agenda .ics) et onglet « Inscription » relié à la liste ; onglet « Détail d’un événement » retiré ; « Dernières annonces » de l’accueil calculées depuis les événements (`GET /api/settings/home`) ; pages Événements et Calendrier (PC, M-, T-) reliées, mentions [EXEMPLE À MODIFIER] et « Alertes par courriel » retirées | en ligne |
-| R | Ressources : onglet « Nouveaux arrivants » (clé `ressources` : phrase d’accueil, Manger halal, mosquées et centres voisins avec copie d’adresse et itinéraire, services publics et repères personnels avec liens réels, cartes « Pour bien s’installer », Étudier et scolariser) et onglet « Dua et annonces » : mur réel, table `dua_messages` (migration 0010), envoi public `POST /api/dua` (champ piège, délai minimal de 3 s, 5 envois par connexion en 15 min), compteur « J’ai fait une dua » (une fois par connexion et par jour), signalement qui retire le message jusqu’à relecture, modération `GET/PATCH/DELETE /api/admin/dua` (superadmin, editor), règles du mur (clé `dua` : longueur, délai, catégories, onglets, compteur, signature anonyme, pause) ; pages Ressources et N3-Dua (PC, M-, T-) reliées, mentions [EXEMPLE À MODIFIER] et « prototype » retirées | à pousser (après la migration 0010) |
+| R | Ressources : onglet « Nouveaux arrivants » (clé `ressources` : phrase d’accueil, Manger halal, mosquées et centres voisins avec copie d’adresse et itinéraire, services publics et repères personnels avec liens réels, cartes « Pour bien s’installer », Étudier et scolariser) et onglet « Dua et annonces » : mur réel, table `dua_messages` (migration 0010), envoi public `POST /api/dua` (champ piège, délai minimal de 3 s, 5 envois par connexion en 15 min), compteur « J’ai fait une dua » (une fois par connexion et par jour), signalement qui retire le message jusqu’à relecture, modération `GET/PATCH/DELETE /api/admin/dua` (superadmin, editor), règles du mur (clé `dua` : longueur, délai, catégories, onglets, compteur, signature anonyme, pause) ; pages Ressources et N3-Dua (PC, M-, T-) reliées, mentions [EXEMPLE À MODIFIER] et « prototype » retirées | en ligne |
+| C | Contact : onglet « Page Contact » (clé `contact` : carte et coordonnées GPS, code postal, lignes pratiques modifiables, étiquette de visite en conseils, bouton Copier, lien Facebook des coordonnées générales, demandes particulières avec liens, sujets du formulaire, longueur maximale vérifiée aussi par `POST /api/forms`, page après envoi : remerciement, page du site ou une de mes pages) ; adresse, ville et courriel tirés de `home.general` ; onglet « Page 404 » (clé `p404` : titre, texte, raccourcis) et nouvelle page `404.html` servie par Cloudflare Pages pour toute adresse inconnue ; fausses options « Page : Merci » et « Ma page : Inscriptions Ramadan 2027 » retirées | à pousser |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -79,6 +80,7 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES ('0006_dates_iso_et_limites.sq
 | `dons`, `merci` | superadmin, editor | `PUT /api/admin/settings/<clé>` | `GET /api/settings/<clé>` (page Dons) ; nettoyées d’après `DONS_SCHEMA` et `MERCI_SCHEMA` |
 | `evenements`, `calendrier` | superadmin, editor, events | `PUT /api/admin/settings/<clé>` | `GET /api/settings/<clé>` (pages Événements et Calendrier, annonces de l’accueil) ; nettoyées d’après `EVENEMENTS_SCHEMA` et `CALENDRIER_SCHEMA` |
 | `ressources`, `dua` | superadmin, editor | `PUT /api/admin/settings/<clé>` | `GET /api/settings/<clé>` (page Ressources) et `GET /api/dua` (règles et messages publiés du mur) ; nettoyées d’après `RESSOURCES_SCHEMA` et `DUA_SCHEMA` |
+| `contact`, `p404` | superadmin, editor | `PUT /api/admin/settings/<clé>` | `GET /api/settings/<clé>` (page Contact, page 404) ; nettoyées d’après `CONTACT_SCHEMA` et `P404_SCHEMA` |
 | `campagne` | superadmin, editor | `PUT /api/admin/settings/campagne` | `GET /api/campagne` (calculé : objectif et récolté de `home`, ou totaux de `donations` en mode automatique) |
 | `event_registration` | superadmin, events | `PUT /api/admin/events/settings` | `GET /api/events/registration-info` |
 
@@ -136,7 +138,7 @@ Les pages `SA-*` sont générées depuis la maquette, puis « branchées » sur 
 modifient les pages générées. Régénérer sans rebrancher efface les branchements.
 
 1. `scripts/install_superadmin.py /Users/mac/Documents/mosque/superadmin.html .` régénère les pages `SA-*`.
-   **Il relance lui-même les étapes 2 à 14**, sauf avec `--sans-branchements`.
+   **Il relance lui-même les étapes 2 à 15**, sauf avec `--sans-branchements`.
 2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
    Il remplace la logique du panneau par `scripts/panneau_component.js` (état unique : interrupteurs,
    ordre, cartes, annonces, heures) ; le script `#sa-panneau-sync` enregistre via `window.__saHome`.
@@ -160,12 +162,13 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
 12. `scripts/wire_evenements.py` : panneau `SA-Evenements` (onglets Annonces, Calendrier, Inscription avec inscrits, export et annulation), renvoi « Dernières annonces » du panneau Accueil, pages Événements et N3-Calendrier
 13. `scripts/wire_ressources.py` : panneau `SA-Ressources` (onglets Nouveaux arrivants et Dua et annonces avec modération), pages Ressources et N3-Dua
 14. `scripts/wire_inbox.py` : onglet « Demandes reçues » de `SA-Contact` et formulaire de la page Contact
-15. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
+15. `scripts/wire_contact.py` : onglets « Page Contact » et « Page 404 » de `SA-Contact`, pages Contact et nouvelle page `404.html` (construite depuis Contact, liens absolus)
+16. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
    avec `value="…"` dans la maquette devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
    de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
-   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 14 s'appuient sur les attributs d'origine, d'où cet ordre.
+   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 15 s'appuient sur les attributs d'origine, d'où cet ordre.
 
-Les scripts 2 à 14 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
+Les scripts 2 à 15 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
 
 Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `--reset` pour un nouveau mot de passe).
