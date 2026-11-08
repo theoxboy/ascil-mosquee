@@ -287,7 +287,9 @@ LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
   var P = window.__ascilPrayer = window.__ascilPrayer || {};
   var page = (location.pathname.split('/').pop() || '').replace(/^(M-|T-)/, '').replace(/\.dc(\.html)?$/, '');
   var isHoraires = page === 'Horaires';
-  var EXTRA = { 'Horaires': ['horaires', 'season'], 'N2-Khutba': ['khutba'], 'N3-Rappel': ['rappel'] }[page] || [];
+  var EXTRA = { 'Horaires': ['horaires', 'season'], 'N2-Khutba': ['khutba'], 'N3-Rappel': ['rappel'],
+    'APropos': ['apropos', 'campagne'], 'N3-Campagne': ['campagne'] }[page] || [];
+  var URLS = { campagne: '/api/campagne' };
   function getJ(u) {
     return fetch(u, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }
@@ -349,7 +351,7 @@ LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
     el.innerHTML = html;
     el.setAttribute('data-done', '1');
   }
-  Promise.all([getJ('/api/prayer-times')].concat(EXTRA.map(function (k) { return getJ('/api/settings/' + k); }))).then(function (r) {
+  Promise.all([getJ('/api/prayer-times')].concat(EXTRA.map(function (k) { return getJ(URLS[k] || '/api/settings/' + k); }))).then(function (r) {
     var pt = r[0];
     if (pt && pt.ok) {
       P.today = pt.today || pt.day;
@@ -360,8 +362,16 @@ LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
     } else {
       P.failed = true;
     }
-    EXTRA.forEach(function (k, i) { if (r[i + 1] && r[i + 1].ok) P[k] = r[i + 1].settings; });
+    EXTRA.forEach(function (k, i) { if (r[i + 1] && r[i + 1].ok) P[k] = URLS[k] ? r[i + 1] : r[i + 1].settings; });
     try { window.dispatchEvent(new Event('ascil:prayer')); } catch (e) {}
+    // Campagne en direct : montants relus chaque minute.
+    if (page === 'N3-Campagne') {
+      setInterval(function () {
+        getJ('/api/campagne').then(function (c) {
+          if (c && c.ok) { P.campagne = c; try { window.dispatchEvent(new Event('ascil:prayer')); } catch (e) {} }
+        });
+      }, 60000);
+    }
     if (isHoraires) {
       html = monthHtml();
       renderMonth();

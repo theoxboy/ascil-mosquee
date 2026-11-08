@@ -455,6 +455,161 @@ export function cleanRappelSettings(input) {
   };
 }
 
+// À propos → L’association (clé apropos). Les blocs reprennent le contenu d’origine de la page publique.
+// Une étape d’histoire sans date reste masquée ; l’équipe n’est publiée qu’avec l’accord écrit et un nom.
+const PHOTO_RE = /^data:image\/(?:jpeg|png|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+export const PHOTO_MAX = 100000;
+DEFAULT_SETTINGS.apropos = {
+  presentation: {
+    on: true,
+    texte: 'L’ASCIL rassemble les musulmanes et les musulmans de Rivière-du-Loup et des environs. Elle tient un lieu de prière au 174 rue Lafontaine, organise la prière du vendredi, les prières de l’Aïd et des activités de solidarité, et accueille les nouveaux arrivants dans la région.',
+  },
+  valeurs: {
+    on: true,
+    items: [
+      { titre: 'Prier ensemble', texte: 'Les cinq prières quotidiennes et la prière du vendredi (Jumu’a).', on: true },
+      { titre: 'Se soutenir', texte: 'Accueil, solidarité et événements caritatifs, comme l’activité avec Soleil des Orphelins d’avril 2026.', on: true },
+      { titre: 'S’ancrer ici', texte: 'Une communauté du Bas-Saint-Laurent, membre de la Table de concertation des organisations musulmanes du Québec (TCOM).', on: true },
+    ],
+  },
+  histoire: {
+    on: true,
+    items: [
+      { date: '', titre: 'Fondation de l’association', on: true },
+      { date: '', titre: 'Installation au 174 rue Lafontaine', on: true },
+      { date: '2026-10-01', titre: 'Lancement du projet de nouveau lieu', on: true },
+    ],
+  },
+  projet: { on: true, btnSoutenir: 'Page : Faire un don', btnSuivre: 'Page : Campagne en direct' },
+  equipe: {
+    on: false,
+    accord: false,
+    items: [
+      { nom: '', role: 'Président', photo: '', on: true },
+      { nom: '', role: 'Imam', photo: '', on: true },
+      { nom: '', role: 'Membre du conseil', photo: '', on: true },
+    ],
+  },
+  chiffres: {
+    on: true,
+    items: [
+      { valeur: '≈ 1 100', libelle: 'abonnés à la page Facebook de l’ASCIL', source: 'page Facebook de l’ASCIL', on: true },
+      { valeur: '≈ 45', libelle: 'pays d’origine des personnes immigrantes de la région', source: 'données de la MRC de Rivière-du-Loup', on: true },
+      { valeur: '2e', libelle: 'le Maghreb, région d’origine la mieux représentée après la France', source: 'données de la MRC de Rivière-du-Loup', on: true },
+    ],
+  },
+};
+
+const oneLine = (v, max) => (typeof v === 'string' ? v.replace(/\s+/g, ' ').trim().slice(0, max) : '');
+const boolOr = (v, d) => (typeof v === 'boolean' ? v : d);
+function listOf(v, def, max, fn) {
+  return (Array.isArray(v) ? v : def).filter((x) => x && typeof x === 'object').slice(0, max).map(fn);
+}
+
+export function cleanAproposSettings(input) {
+  const def = DEFAULT_SETTINGS.apropos;
+  const i = input && typeof input === 'object' ? input : {};
+  const part = (k) => (i[k] && typeof i[k] === 'object' ? i[k] : {});
+  const pres = part('presentation'), val = part('valeurs'), hist = part('histoire');
+  const proj = part('projet'), eq = part('equipe'), chif = part('chiffres');
+  const texte = typeof pres.texte === 'string'
+    ? pres.texte.replace(/\r/g, '').split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim().slice(0, 1500)
+    : def.presentation.texte;
+  return {
+    presentation: { on: boolOr(pres.on, def.presentation.on), texte },
+    valeurs: {
+      on: boolOr(val.on, def.valeurs.on),
+      items: listOf(val.items, def.valeurs.items, 6, (x) => ({ titre: oneLine(x.titre, 80), texte: oneLine(x.texte, 300), on: boolOr(x.on, true) })),
+    },
+    histoire: {
+      on: boolOr(hist.on, def.histoire.on),
+      items: listOf(hist.items, def.histoire.items, 12, (x) => ({
+        date: typeof x.date === 'string' && ISO_DAY.test(x.date) ? x.date : '',
+        titre: oneLine(x.titre, 120),
+        on: boolOr(x.on, true),
+      })),
+    },
+    projet: {
+      on: boolOr(proj.on, def.projet.on),
+      btnSoutenir: homeLink(proj.btnSoutenir, def.projet.btnSoutenir),
+      btnSuivre: homeLink(proj.btnSuivre, def.projet.btnSuivre),
+    },
+    equipe: {
+      on: boolOr(eq.on, def.equipe.on),
+      accord: boolOr(eq.accord, def.equipe.accord),
+      items: listOf(eq.items, def.equipe.items, 8, (x) => ({
+        nom: oneLine(x.nom, 80),
+        role: oneLine(x.role, 80),
+        photo: typeof x.photo === 'string' && x.photo.length <= PHOTO_MAX && PHOTO_RE.test(x.photo) ? x.photo : '',
+        on: boolOr(x.on, true),
+      })),
+    },
+    chiffres: {
+      on: boolOr(chif.on, def.chiffres.on),
+      items: listOf(chif.items, def.chiffres.items, 6, (x) => ({
+        valeur: oneLine(x.valeur, 20), libelle: oneLine(x.libelle, 160), source: oneLine(x.source, 120), on: boolOr(x.on, true),
+      })),
+    },
+  };
+}
+
+// À propos → Campagne en direct (clé campagne). L’objectif et le montant récolté restent dans
+// home.campagne (communs à l’accueil) ; en mode automatique, récolté, donateurs, semaines et
+// derniers dons sont calculés à partir de la table donations (functions/_lib/campagne.js).
+export const CAMPAGNE_NOMS = ['prenom', 'initiales', 'anonyme'];
+DEFAULT_SETTINGS.campagne = {
+  donateurs: 0,
+  auto: false,
+  etapes: {
+    on: true,
+    items: [
+      { seuil: 25, libelle: 'Promesse d’achat signée', on: true },
+      { seuil: 50, libelle: 'Inspection et financement', on: true },
+      { seuil: 75, libelle: 'Passage chez le notaire', on: true },
+      { seuil: 100, libelle: 'Clés du nouveau lieu', on: true },
+    ],
+  },
+  semaines: { on: true, nombre: 8, valeurs: [] },
+  derniers: { on: true, nombre: 5, nom: 'prenom', montant: true },
+};
+
+// « 12 500 », « 12 500 $ » ou 12500 -> 12500 ; null si ce n'est pas un montant.
+export function wholeAmount(v, max) {
+  const n = typeof v === 'number' ? v : Number(String(v == null ? '' : v).replace(/[\s  $]/g, '').replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0) return null;
+  return Math.min(Math.round(n), max);
+}
+
+export function cleanCampagneSettings(input) {
+  const def = DEFAULT_SETTINGS.campagne;
+  const i = input && typeof input === 'object' ? input : {};
+  const et = i.etapes && typeof i.etapes === 'object' ? i.etapes : {};
+  const se = i.semaines && typeof i.semaines === 'object' ? i.semaines : {};
+  const de = i.derniers && typeof i.derniers === 'object' ? i.derniers : {};
+  const nombre = Number(se.nombre), dn = Number(de.nombre);
+  return {
+    donateurs: wholeAmount(i.donateurs, 1000000) ?? def.donateurs,
+    auto: boolOr(i.auto, def.auto),
+    etapes: {
+      on: boolOr(et.on, def.etapes.on),
+      items: listOf(et.items, def.etapes.items, 8, (x) => ({
+        seuil: Math.max(0, Math.min(100, wholeAmount(x.seuil, 100) ?? 0)), libelle: oneLine(x.libelle, 120), on: boolOr(x.on, true),
+      })).sort((a, b) => a.seuil - b.seuil),
+    },
+    semaines: {
+      on: boolOr(se.on, def.semaines.on),
+      nombre: [4, 8, 12].includes(nombre) ? nombre : def.semaines.nombre,
+      valeurs: (Array.isArray(se.valeurs) ? se.valeurs : def.semaines.valeurs).slice(0, 12).map((v) => wholeAmount(v, 100000000) ?? 0),
+    },
+    derniers: {
+      on: boolOr(de.on, def.derniers.on),
+      nombre: [3, 5, 10].includes(dn) ? dn : def.derniers.nombre,
+      nom: CAMPAGNE_NOMS.includes(de.nom) ? de.nom : def.derniers.nom,
+      montant: boolOr(de.montant, def.derniers.montant),
+    },
+  };
+}
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -467,7 +622,10 @@ export const GENERIC_KEYS = {
   horaires: { roles: ['superadmin', 'editor'], clean: cleanHorairesSettings },
   khutba: { roles: ['superadmin', 'editor'], clean: cleanKhutbaSettings },
   rappel: { roles: ['superadmin', 'editor'], clean: cleanRappelSettings },
+  // Photos de l’équipe incluses (réduites dans le panneau) : corps de requête plus grand.
+  apropos: { roles: ['superadmin', 'editor'], clean: cleanAproposSettings, maxBytes: 1000000 },
+  campagne: { roles: ['superadmin', 'editor'], clean: cleanCampagneSettings },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
-export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel'];
+export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos'];

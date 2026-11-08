@@ -3,6 +3,7 @@
 import { requireRole } from '../../_lib/guard.js';
 import { json, error } from '../../_lib/http.js';
 import { DEFAULT_SETTINGS, cleanHomeSettings, readEventRegistrationSettings } from '../../_lib/settings.js';
+import { autoTotals } from '../../_lib/campagne.js';
 
 export async function onRequestGet({ request, env }) {
   const { admin, response } = await requireRole(env, request, ['superadmin', 'editor', 'events']);
@@ -55,6 +56,8 @@ export async function onRequestGet({ request, env }) {
       campagne.recolte = s.campagne.recolte;
     }
   } catch {}
+  const auto = await autoTotals(db);
+  if (auto) campagne.recolte = auto.recolte;
   campagne.pct = Math.min(100, Math.round((campagne.recolte / (campagne.objectif || 1)) * 100));
 
   try {

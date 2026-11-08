@@ -40,7 +40,7 @@ export async function onRequestPut({ request, env, params }) {
   const { admin, response } = await requireRole(env, request, conf.roles);
   if (response) return response;
 
-  const body = await readJson(request);
+  const body = await readJson(request, conf.maxBytes);
   if (!body || typeof body !== 'object' || Array.isArray(body)) {
     return error(400, 'bad_json', 'Données illisibles. Rechargez la page et réessayez.');
   }

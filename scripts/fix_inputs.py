@@ -7,7 +7,8 @@ Les pages bundlées sont rendues par React. Un <input value="…"> écrit en dur
 Ce script remplace, dans toutes les pages bundlées :
   value="…"   -> sc-camel-default-value="…"   (React : defaultValue, valeur de départ libre)
   checked     -> sc-camel-default-checked="true"
-Les valeurs liées à l'état ({{ … }}) et les boutons, cases cachées, etc. ne sont pas touchés.
+Les valeurs liées à l'état ({{ … }}) et les boutons, cases cachées, etc. ne sont pas touchés,
+ni le contenu des balises <script>.
 
 Dernière étape obligatoire après install_superadmin.py et les scripts wire_*.py
 (qui s'appuient sur les attributs value d'origine). Idempotent.
@@ -30,6 +31,14 @@ def fix_tag(tag):
     return re.sub(r'(\s)value="((?:(?!\{\{)[^"])*)"', r'\1sc-camel-default-value="\2"', tag)
 
 
+# Le contenu des <script> n'est jamais touché : les panneaux y construisent des champs en HTML
+# (innerHTML), où seul value="…" donne une valeur de départ (sc-camel-default-value y serait ignoré).
+def fix_outside_scripts(tpl):
+    parts = re.split(r'(<script\b[^>]*>.*?</script>)', tpl, flags=re.S)
+    return ''.join(p if k % 2 else re.sub(r'<input\b[^>]*>', lambda m: fix_tag(m.group(0)), p)
+                   for k, p in enumerate(parts))
+
+
 def main():
     changed = 0
     for path in sorted(ROOT.glob('*.html')):
@@ -41,7 +50,7 @@ def main():
         tpl = json.loads(s[i:j])
         if '<x-dc' not in tpl:
             continue
-        new = re.sub(r'<input\b[^>]*>', lambda m: fix_tag(m.group(0)), tpl)
+        new = fix_outside_scripts(tpl)
         if new == tpl:
             continue
         enc = json.dumps(new).replace('</', '<\\u002F')

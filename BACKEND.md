@@ -26,7 +26,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | H3 | Horaires : panneau `SA-Horaires` (« Horaires du mois », tableau mensuel éditable, copie sur tout le mois, collage Excel, réglages `horaires`, dates Ramadan depuis `season`, Jumu'a depuis le tableau mensuel) | en ligne |
 | H4 | Horaires : page publique (et M-/T-) reliée à la base : heures du jour, tableau du mois avec « Aujourd'hui » sur le vrai jour, carte du vendredi, Ramadan (dates du Mode du site, Suhoor, Iftar, Tarawih), Aïd, Qibla, réglages du bloc Aujourd'hui ; bouton PDF retiré (`scripts/wire_prieres.py`) | en ligne |
 | H5 | Horaires : heures du jour sur les 58 pages publiques (barre « Prochaine prière », menu mobile, pied de page, carte « Prochaine prière » de l'accueil), sur toutes les heures remplies ; le script de l'accueil ne garde que l'affichage des puces et de la progression | en ligne |
-| H6 | Horaires : onglets « Langue de la khutba » (clé `khutba` : vendredis datés, langue, traduction, imam, nombre affiché, mode) et « Rappel de prière » (clé `rappel` : prières et délais proposés, délai par défaut, titre, son, vibration) ; pages N2-Khutba et N3-Rappel reliées (vraies notifications page ouverte, choix mémorisés sur l'appareil, fichier calendrier .ics du mois) | fait, à pousser |
+| H6 | Horaires : onglets « Langue de la khutba » (clé `khutba` : vendredis datés, langue, traduction, imam, nombre affiché, mode) et « Rappel de prière » (clé `rappel` : prières et délais proposés, délai par défaut, titre, son, vibration) ; pages N2-Khutba et N3-Rappel reliées (vraies notifications page ouverte, choix mémorisés sur l'appareil, fichier calendrier .ics du mois) | en ligne |
+| A | À propos : onglet « L’association » (clé `apropos` : présentation, valeurs, histoire datée, liens du projet, équipe avec photos réduites et accord écrit, chiffres et sources) et onglet « Campagne en direct » (clé `campagne` : donateurs, mise à jour automatique depuis `donations`, étapes, dons par semaine, derniers dons ; objectif et récolté dans `home.campagne`) ; pages APropos et N3-Campagne reliées, simulation retirée ; route publique `GET /api/campagne` | fait, à pousser |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -64,11 +65,14 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES ('0006_dates_iso_et_limites.sq
 | `horaires` | superadmin, editor | `PUT /api/admin/settings/horaires` | `GET /api/settings/horaires` (page Horaires) |
 | `khutba` | superadmin, editor | `PUT /api/admin/settings/khutba` | `GET /api/settings/khutba` (page Langue de la khutba) |
 | `rappel` | superadmin, editor | `PUT /api/admin/settings/rappel` | `GET /api/settings/rappel` (page Rappel de prière) |
+| `apropos` | superadmin, editor | `PUT /api/admin/settings/apropos` (corps jusqu’à 1 Mo : photos) | `GET /api/settings/apropos` (page À propos) |
+| `campagne` | superadmin, editor | `PUT /api/admin/settings/campagne` | `GET /api/campagne` (calculé : objectif et récolté de `home`, ou totaux de `donations` en mode automatique) |
 | `event_registration` | superadmin, events | `PUT /api/admin/events/settings` | `GET /api/events/registration-info` |
 
 La route générique `/api/admin/settings/:key` n'accepte que les clés de `GENERIC_KEYS`
 (`functions/_lib/settings.js`), chacune avec ses rôles et sa validation : aucune clé arbitraire.
-La lecture publique `/api/settings/:key` est limitée à `PUBLIC_KEYS` (`home`, `pages`, `alert`, `season`, `languages`, `horaires`, `khutba`, `rappel`).
+La lecture publique `/api/settings/:key` est limitée à `PUBLIC_KEYS` (`home`, `pages`, `alert`, `season`, `languages`, `horaires`, `khutba`, `rappel`, `apropos`).
+En mode automatique de la campagne, `GET /api/settings/home` et le tableau de bord renvoient le montant récolté calculé depuis `donations` (tous les dons de la table).
 
 Horaires : les heures sont dans `prayer_times` (une ligne par jour) ; une case vide prend la valeur par défaut de la carte
 « Prochaine prière » de l'Accueil (`home.priere` : Fajr 06:30, Jumu'a 12:30, Icha 19:00), puis « — ». Les dates du Ramadan viennent de la clé `season`.
@@ -135,12 +139,14 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
 7. `scripts/wire_prieres.py` : les 58 pages publiques, heures de prière tirées de la base (`GET /api/prayer-times`) ; page Horaires :
    tableau du mois, cartes et réglages `horaires`. Le script `#ascil-prayer-live` range les données dans `window.__ascilPrayer`
    et prévient la page (événement `ascil:prayer`).
-8. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
+8. `scripts/wire_apropos.py` : panneau `SA-APropos` (clés `apropos`, `campagne`, objectif et récolté de `home`)
+   et pages publiques APropos et N3-Campagne (données de `/api/settings/apropos` et `/api/campagne`, relues chaque minute sur la campagne).
+9. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
    avec `value="…"` dans la maquette devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
    de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
-   `defaultChecked`). Les scripts 2 à 7 s'appuient sur les attributs d'origine, d'où cet ordre.
+   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 8 s'appuient sur les attributs d'origine, d'où cet ordre.
 
-Les scripts 2 à 7 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
+Les scripts 2 à 8 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
 
 Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `--reset` pour un nouveau mot de passe).

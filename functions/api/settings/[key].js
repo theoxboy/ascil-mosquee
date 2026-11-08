@@ -2,6 +2,7 @@
 // Renvoie les réglages publics actifs pour la clé donnée (ex. "home").
 import { json, error } from '../../_lib/http.js';
 import { DEFAULT_SETTINGS, GENERIC_KEYS, PUBLIC_KEYS } from '../../_lib/settings.js';
+import { autoTotals } from '../../_lib/campagne.js';
 
 export async function onRequestGet({ env, params }) {
   const key = String(params.key || '').trim().toLowerCase();
@@ -34,6 +35,12 @@ export async function onRequestGet({ env, params }) {
   }
 
   settings = GENERIC_KEYS[key].clean(settings);
+
+  // Campagne en mode automatique : le montant récolté de l'accueil vient de la table donations.
+  if (key === 'home') {
+    const auto = await autoTotals(env.DB);
+    if (auto) settings = { ...settings, campagne: { ...settings.campagne, recolte: auto.recolte } };
+  }
 
   return json(
     { ok: true, key, settings, updatedAt },
