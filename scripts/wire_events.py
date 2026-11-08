@@ -13,7 +13,7 @@
 
 2. Panneau d'administration :
    - SA-Evenements.dc.html
-   -> Script #sa-evenements-sync :
+   -> Relié désormais par wire_evenements.py (ancien script #sa-evenements-sync ci-dessous, plus installé) :
       - Charge et sauvegarde les réglages de jauge et dates via GET/PUT /api/admin/events/settings
       - Affiche le résumé en direct et la liste complète des inscrits via GET /api/admin/events/registrations
       - Permet l'annulation d'une inscription via DELETE /api/admin/events/registrations?id=...
@@ -683,9 +683,7 @@ def update_file(path, script_tag, script_id):
     print(f"Modifié avec succès : {path.name} (script #{script_id})")
 
 def main():
-    # 1. Panneau superadmin / responsable événements
-    panneau = ROOT / 'SA-Evenements.dc.html'
-    update_file(panneau, ADMIN_EVENEMENTS_SYNC_SCRIPT, 'sa-evenements-sync')
+    # 1. Le panneau SA-Evenements est relié par wire_evenements.py (inscrits, export, réglages compris).
 
     # 2. Pages d'inscription publiques
     for name in ['N3-Inscription.dc.html', 'M-N3-Inscription.dc.html', 'T-N3-Inscription.dc.html']:

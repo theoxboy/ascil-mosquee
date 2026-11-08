@@ -1,7 +1,7 @@
 // GET /api/settings/:key
 // Renvoie les réglages publics actifs pour la clé donnée (ex. "home").
 import { json, error } from '../../_lib/http.js';
-import { DEFAULT_SETTINGS, GENERIC_KEYS, PUBLIC_KEYS } from '../../_lib/settings.js';
+import { DEFAULT_SETTINGS, GENERIC_KEYS, PUBLIC_KEYS, evenementsAnnonces, torontoDate } from '../../_lib/settings.js';
 import { autoTotals } from '../../_lib/campagne.js';
 
 export async function onRequestGet({ env, params }) {
@@ -40,6 +40,18 @@ export async function onRequestGet({ env, params }) {
   if (key === 'home') {
     const auto = await autoTotals(env.DB);
     if (auto) settings = { ...settings, campagne: { ...settings.campagne, recolte: auto.recolte } };
+    // « Dernières annonces » : tirées de la liste des événements (une seule source).
+    let ev = null;
+    if (env.DB) {
+      try {
+        const row = await env.DB.prepare("SELECT value FROM site_settings WHERE key = 'evenements'").first();
+        if (row && row.value) ev = JSON.parse(row.value);
+      } catch (e) {
+        console.warn('evenements read fallback:', e && e.message);
+      }
+    }
+    ev = GENERIC_KEYS.evenements.clean(ev || DEFAULT_SETTINGS.evenements);
+    settings = { ...settings, annonces: { ...settings.annonces, items: evenementsAnnonces(ev, torontoDate()) } };
   }
 
   return json(

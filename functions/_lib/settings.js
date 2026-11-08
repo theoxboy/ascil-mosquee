@@ -901,6 +901,102 @@ DEFAULT_SETTINGS.merci = {
 export const cleanDonsSettings = (input) => cleanWith(DONS_SCHEMA, input, DEFAULT_SETTINGS.dons);
 export const cleanMerciSettings = (input) => cleanWith(MERCI_SCHEMA, input, DEFAULT_SETTINGS.merci);
 
+// Événements (clé evenements) : une seule liste pour la page Événements, le calendrier du mois et
+// les « Dernières annonces » de l’accueil. Un événement sans date est « en cours » et ne passe jamais.
+export const EV_LIEUX = ['mosquee', 'salle', 'campagne', 'autre'];
+export const EV_CATEGORIES = ['comm', 'priere', 'cours', 'collecte'];
+export const EV_LIENS = ['', 'dons', 'campagne', 'horaires', 'services', 'cours', 'inscription', 'calendrier', 'contact', 'ressources'];
+export const EVENEMENTS_SCHEMA = {
+  une: { on: ['b'], choix: ['s', 40], bouton: ['e', ['details', 'inscrire', 'aucun']] },
+  items: ['list', 40, {
+    id: ['s', 40], titre: ['s', 120], date: ['date'], debut: ['hm'], fin: ['hm'],
+    lieu: ['e', EV_LIEUX], lieuTexte: ['s', 120], categorie: ['e', EV_CATEGORIES], resume: ['t', 400],
+    lien: ['e', EV_LIENS], lienTexte: ['s', 40], inscription: ['e', ['non', 'formulaire', 'contact']],
+    partenaire: ['s', 120], description: ['t', 2000], public: ['s', 160], places: ['n', 0, 100000],
+    itineraire: ['b'], on: ['b'],
+  }],
+  filtres: ['b'],
+  passes: { on: ['b'], nombre: ['n', 0, 40] },
+  fixes: { on: ['b'], items: ['list', 8, { titre: ['s', 60], texte: ['t', 300], on: ['b'] }] },
+  outils: { on: ['b'], calendrier: ['b'], inscription: ['b'], dua: ['b'] },
+  partage: ['b'],
+};
+const ev = (o) => ({
+  id: '', titre: '', date: '', debut: '', fin: '', lieu: 'mosquee', lieuTexte: '', categorie: 'comm', resume: '', lien: '', lienTexte: '',
+  inscription: 'non', partenaire: '', description: '', public: '', places: 0, itineraire: true, on: true, ...o,
+});
+DEFAULT_SETTINGS.evenements = {
+  une: { on: true, choix: 'auto', bouton: 'details' },
+  items: [
+    ev({ id: 'iftar-2027', titre: 'Iftar communautaire', date: '2027-02-20', debut: '17:15', lieuTexte: 'Mosquée — 174 rue Lafontaine',
+      resume: 'Repas de rupture du jeûne ouvert à tous : familles, voisins, étudiants. Gratuit, dons bienvenus.', inscription: 'formulaire', places: 120 }),
+    ev({ id: 'campagne-nouveau-lieu', titre: 'Lancement de la campagne nouveau lieu', lieu: 'campagne', lieuTexte: 'Campagne de l’ASCIL',
+      resume: 'Objectif 350 000 $ pour acquérir et transformer un bâtiment en mosquée.', lien: 'dons', lienTexte: 'Voir la page Dons', itineraire: false }),
+    ev({ id: 'aid-adha-1447', titre: 'Aïd al-Adha 1447', date: '2026-05-27', lieu: 'salle', lieuTexte: 'Salle louée — 15 rue Frontenac', categorie: 'priere',
+      resume: 'Prière de l’Aïd selon l’annonce TCOM, dans une salle plus grande.' }),
+    ev({ id: 'parrainage-2026', titre: 'Journée de parrainage d’orphelins', date: '2026-04-25', debut: '13:45', fin: '15:45',
+      lieuTexte: 'Mosquée — 174 rue Lafontaine', resume: 'Avec l’organisme Soleil des Orphelins.', partenaire: 'Soleil des Orphelins', inscription: 'contact' }),
+    ev({ id: 'aid-fitr-1446', titre: 'Aïd al-Fitr 1446', date: '2025-03-30', lieu: 'salle', lieuTexte: 'Salle louée — 15 rue Frontenac', categorie: 'priere',
+      resume: 'Zakat al-Fitr : 15 $ par personne.' }),
+  ],
+  filtres: true,
+  passes: { on: true, nombre: 3 },
+  fixes: {
+    on: true,
+    items: [
+      { titre: 'Ramadan', texte: 'Dates selon l’annonce TCOM ; horaires du Suhoor et de l’Iftar sur la page Horaires.', on: true },
+      { titre: 'Aïd al-Fitr', texte: 'Prière au 15 rue Frontenac ; zakat al-Fitr à verser avant.', on: true },
+      { titre: 'Aïd al-Adha', texte: 'Prière au 15 rue Frontenac, salle louée, pas à la mosquée.', on: true },
+      { titre: 'Vendredis', texte: 'Jumu’a au 174 rue Lafontaine, toute l’année. Heure du jour sur la page Horaires.', on: true },
+    ],
+  },
+  outils: { on: true, calendrier: true, inscription: true, dua: true },
+  partage: true,
+};
+// Calendrier du mois (clé calendrier).
+export const CALENDRIER_SCHEMA = {
+  categories: { comm: ['b'], priere: ['b'], cours: ['b'], collecte: ['b'] },
+  evenements: ['b'], cours: ['b'], agenda: ['b'], vue: ['e', ['mois', 'liste']],
+};
+DEFAULT_SETTINGS.calendrier = {
+  categories: { comm: true, priere: true, cours: true, collecte: true },
+  evenements: true, cours: true, agenda: true, vue: 'mois',
+};
+export function cleanEvenementsSettings(input) {
+  const out = cleanWith(EVENEMENTS_SCHEMA, input, DEFAULT_SETTINGS.evenements);
+  // Identifiant stable et unique : sert à la fiche, à l’événement à la une et aux inscriptions.
+  const seen = new Set();
+  out.items.forEach((x, i) => {
+    let id = String(x.id || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'ev-' + (i + 1);
+    while (seen.has(id)) id = (id + '-' + (i + 1)).slice(-40);
+    seen.add(id);
+    x.id = id;
+  });
+  if (out.une.choix !== 'auto' && !seen.has(out.une.choix)) out.une.choix = 'auto';
+  return out;
+}
+export const cleanCalendrierSettings = (input) => cleanWith(CALENDRIER_SCHEMA, input, DEFAULT_SETTINGS.calendrier);
+
+// « Dernières annonces » de l’accueil : les événements à venir, puis en cours, puis les plus récents passés.
+const MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+export function evenementsAnnonces(evSettings, today) {
+  const items = (evSettings.items || []).filter((x) => x.on && x.titre);
+  const label = (d) => (d ? parseInt(d.slice(8, 10), 10) + ' ' + MOIS_COURTS[parseInt(d.slice(5, 7), 10) - 1] + ' ' + d.slice(0, 4) : 'En cours');
+  const up = items.filter((x) => x.date && x.date >= today).sort((a, b) => (a.date + a.debut).localeCompare(b.date + b.debut));
+  const ongoing = items.filter((x) => !x.date);
+  const past = items.filter((x) => x.date && x.date < today).sort((a, b) => b.date.localeCompare(a.date));
+  return up.concat(ongoing, past).slice(0, 10).map((x, i) => ({
+    id: i, date: label(x.date), titre: x.titre, resume: x.resume, lien: 'Page : Événements', on: true,
+  }));
+}
+export function torontoDate(now = new Date()) {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(now);
+  } catch {
+    return now.toISOString().slice(0, 10);
+  }
+}
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -925,8 +1021,11 @@ export const GENERIC_KEYS = {
   femmes: { roles: ['superadmin', 'editor'], clean: cleanFemmesSettings, maxBytes: 400000 },
   dons: { roles: ['superadmin', 'editor'], clean: cleanDonsSettings },
   merci: { roles: ['superadmin', 'editor'], clean: cleanMerciSettings },
+  // Le responsable des événements gère aussi la liste et le calendrier.
+  evenements: { roles: ['superadmin', 'editor', 'events'], clean: cleanEvenementsSettings, maxBytes: 200000 },
+  calendrier: { roles: ['superadmin', 'editor', 'events'], clean: cleanCalendrierSettings },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
 export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos', 'services',
-  'cours', 'mariages', 'funerailles', 'aide', 'femmes', 'dons', 'merci'];
+  'cours', 'mariages', 'funerailles', 'aide', 'femmes', 'dons', 'merci', 'evenements', 'calendrier'];
