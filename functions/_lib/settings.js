@@ -299,6 +299,8 @@ export function cleanAlertSettings(input) {
   }
   // Période à l'envers : on garde le début, on efface la fin plutôt que de ne jamais afficher.
   if (out.from && out.to && out.to < out.from) out.to = '';
+  // Une bannière sans message ne peut pas être affichée : cohérence garantie entre message vide et « Afficher ».
+  if (!out.message) out.on = false;
   return out;
 }
 

@@ -57,7 +57,10 @@ export async function onRequestPut({ request, env, params }) {
   await env.DB.batch(stmts);
 
   await audit(env.DB, admin.id, 'pages.update', request, `page:${current.id}`, {
-    fields: cols, ...(slugChanged ? { oldSlug: current.slug, newSlug: values.slug } : {}),
+    title: values.title ?? current.title,
+    slug: values.slug ?? current.slug,
+    fields: cols,
+    ...(slugChanged ? { oldSlug: current.slug, newSlug: values.slug } : {}),
   });
   const row = await env.DB.prepare(`${SELECT_PAGE} WHERE p.id = ?`).bind(current.id).first();
   return json({ ok: true, page: rowToPage(row) });

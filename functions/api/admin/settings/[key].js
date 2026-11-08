@@ -46,6 +46,18 @@ export async function onRequestPut({ request, env, params }) {
   }
 
   const cleaned = conf.clean(body);
+  let details = null;
+  if (key === 'pages') {
+    const prevRow = await env.DB.prepare("SELECT value FROM site_settings WHERE key = 'pages'").first();
+    let prev = null;
+    try { prev = prevRow && prevRow.value ? JSON.parse(prevRow.value) : null; } catch { prev = null; }
+    const before = conf.clean(prev || DEFAULT_SETTINGS.pages);
+    const published = [], hidden = [];
+    for (const k of Object.keys(cleaned)) {
+      if (cleaned[k] !== before[k]) (cleaned[k] ? published : hidden).push(k);
+    }
+    if (published.length || hidden.length) details = { published, hidden };
+  }
   const now = nowIso();
   await env.DB.prepare(`
     INSERT INTO site_settings (key, value, updated_at, updated_by)
@@ -56,6 +68,6 @@ export async function onRequestPut({ request, env, params }) {
       updated_by = excluded.updated_by
   `).bind(key, JSON.stringify(cleaned), now, admin.id).run();
 
-  await audit(env.DB, admin.id, 'settings.update', request, `settings:${key}`);
+  await audit(env.DB, admin.id, 'settings.update', request, `settings:${key}`, details);
   return json({ ok: true, key, settings: cleaned, updatedAt: now });
 }

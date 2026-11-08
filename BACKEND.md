@@ -14,16 +14,16 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | Accueil | Panneau Accueil fiabilisé : vraie logique (`scripts/panneau_component.js`), heures et annonces modifiables, rubriques du menu, ordres, nombre d'annonces, menu « … » (exporter, importer, valeurs d'origine) ; accueil public : durée de chargement, date hégirienne, ordre des cartes | fait, à pousser |
 | 2b | Statistiques réelles (`page_views`, `/api/admin/stats`) et bandeau du panneau Accueil | en ligne |
 | 2c | Inscriptions aux événements (`event_registrations`, clé `event_registration`), panneau Événements, export CSV | en ligne |
-| Site entier | « Pages publiées » (clé `pages`) ; « Compte et sécurité » avec les vraies données de session | en ligne |
-| Site entier | « Bannière d'alerte » (clé `alert`) : bande en haut de toutes les pages publiques, avec message, lien, période et couleur | en ligne |
-| Site entier | « Mode du site » (clé `season`) : bandeau Ramadan / Aïd en haut de l'accueil pendant la période ; « Langues » (clé `languages`) : langues proposées dans le sélecteur | fait, à pousser |
+| Site entier | « Pages publiées » (clé `pages`, pastilles d'état réel pour niveaux 1/2/3, interrupteur Accueil verrouillé) ; « Compte et sécurité » avec les vraies données de session et journal détaillé (nom des pages modifiées) | fait, à pousser |
+| Site entier | « Bannière d'alerte » (clé `alert`) : bande en haut de toutes les pages publiques, avec message, lien, période, couleur, aperçu en direct et cohérence message vide / OFF | fait, à pousser |
+| Site entier | « Mode du site » (clé `season`) : bandeau Ramadan / Aïd en haut de l'accueil pendant la période ; « Langues » (clé `languages`, interrupteur Français verrouillé) | fait, à pousser |
 | 5a | Créer une page : base (`custom_pages`, `page_redirects`) et API (créer, lire, modifier, dupliquer, supprimer) | en ligne |
 | 5b | Créer une page : écrans « Mes pages » et éditeur (blocs Texte, Bouton, Tableau) | en ligne |
 | 5c | Créer une page : affichage public `/p/<lien>` (publiée, lien privé, brouillon pour les comptes connectés) | en ligne |
-| 5d | Créer une page : pages proposées dans les liens de la bannière d'alerte, des boutons de l'accueil et de l'éditeur | fait, à pousser |
+| 5d | Créer une page : pages proposées dans les liens de la bannière d'alerte, des boutons de l'accueil et de l'éditeur | en ligne |
 | H1 | Horaires : `prayer_times` complétée (lever, une ligne par jour) ; clé `horaires` (bloc Aujourd'hui, vendredi, Ramadan, Aïd, Qibla) | en ligne |
 | H2 | Horaires : API du tableau du mois (`GET`/`PUT /api/admin/prayer-times`) et API publique du mois et du jour (`GET /api/prayer-times`, repli sur les défauts Accueil) | en ligne |
-| H3 | Horaires : panneau `SA-Horaires` (« Horaires du mois », tableau mensuel éditable, copie sur tout le mois, collage Excel, réglages `horaires`, dates Ramadan depuis `season`, Jumu'a depuis le tableau mensuel) | fait, à pousser |
+| H3 | Horaires : panneau `SA-Horaires` (« Horaires du mois », tableau mensuel éditable, copie sur tout le mois, collage Excel, réglages `horaires`, dates Ramadan depuis `season`, Jumu'a depuis le tableau mensuel) | en ligne |
 | H4-H5 | Horaires : page publique, heures du jour sur tout le site | à faire |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 

@@ -25,7 +25,12 @@ export async function onRequestPost({ request, env, params }) {
     ).bind(slug, title, src.blocks, src.layout, src.width, src.description, now, now, admin.id, admin.id),
   ]);
   const id = res[1].meta.last_row_id;
-  await audit(env.DB, admin.id, 'pages.duplicate', request, `page:${id}`, { from: src.id, slug });
+  await audit(env.DB, admin.id, 'pages.duplicate', request, `page:${id}`, {
+    from: src.id,
+    fromTitle: src.title,
+    title,
+    slug,
+  });
 
   const row = await env.DB.prepare(`${SELECT_PAGE} WHERE p.id = ?`).bind(id).first();
   return json({ ok: true, page: rowToPage(row) }, 201);

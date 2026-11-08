@@ -9,8 +9,11 @@ export async function onRequestGet({ request, env }) {
   const limit = Math.min(100, Math.max(1, parseInt(new URL(request.url).searchParams.get('limit'), 10) || 20));
   const { results } = await env.DB.prepare(
     `SELECT l.id, l.action, l.target, l.details, l.created_at AS createdAt,
-            COALESCE(a.username, '—') AS username
-       FROM audit_log l LEFT JOIN admins a ON a.id = l.admin_id
+            COALESCE(a.username, '—') AS username,
+            p.title AS pageTitle, p.slug AS pageSlug
+       FROM audit_log l
+       LEFT JOIN admins a ON a.id = l.admin_id
+       LEFT JOIN custom_pages p ON l.target = ('page:' || p.id)
       ORDER BY l.id DESC LIMIT ?`
   ).bind(limit).all();
   return json({
@@ -18,7 +21,16 @@ export async function onRequestGet({ request, env }) {
     entries: results.map((r) => {
       let details = null;
       try { details = r.details ? JSON.parse(r.details) : null; } catch { details = null; }
-      return { ...r, details };
+      return {
+        id: r.id,
+        action: r.action,
+        target: r.target,
+        details,
+        createdAt: r.createdAt,
+        username: r.username,
+        ...(r.pageTitle ? { pageTitle: r.pageTitle } : {}),
+        ...(r.pageSlug ? { pageSlug: r.pageSlug } : {}),
+      };
     }),
   });
 }
