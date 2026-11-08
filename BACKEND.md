@@ -21,7 +21,9 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | 5b | Créer une page : écrans « Mes pages » et éditeur (blocs Texte, Bouton, Tableau) | en ligne |
 | 5c | Créer une page : affichage public `/p/<lien>` (publiée, lien privé, brouillon pour les comptes connectés) | en ligne |
 | 5d | Créer une page : pages proposées dans les liens de la bannière d'alerte, des boutons de l'accueil et de l'éditeur | fait, à pousser |
-| 4 | Horaires, annonces, dons : API sur les tables existantes `prayer_times`, `announcements`, `donations`, `events` | à faire |
+| H1 | Horaires : `prayer_times` complétée (lever, une ligne par jour) ; clé `horaires` (bloc Aujourd'hui, vendredi, Ramadan, Aïd, Qibla) | fait, à pousser |
+| H2-H5 | Horaires : API du tableau du mois, panneau, page publique, heures du jour sur tout le site | à faire |
+| 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
 
@@ -36,6 +38,7 @@ Les tables existantes ne sont jamais recréées : on les complète avec `ALTER T
 | `0005_event_registrations.sql` | `event_registrations` + clé `event_registration` |
 | `0006_dates_iso_et_limites.sql` | `site_settings.updated_at` remis au format ISO ; `rate_limits` (limite des inscriptions publiques) |
 | `0007_custom_pages.sql` | `custom_pages` (titre, lien unique, blocs JSON, visibilité, mise en page, largeur, description) ; `page_redirects` (ancienne adresse → page) |
+| `0008_prayer_times.sql` | complète `prayer_times` : colonne `lever`, index unique `ux_prayer_times_date` (une ligne par jour, date AAAA-MM-JJ) |
 
 Les migrations sont appliquées à la main dans la console D1. Après chaque application,
 enregistrer la ligne correspondante dans `d1_migrations`, sinon `wrangler d1 migrations apply --remote`
@@ -54,11 +57,15 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES ('0006_dates_iso_et_limites.sq
 | `alert` | superadmin, editor | `PUT /api/admin/settings/alert` | `GET /api/settings/alert` |
 | `season` | superadmin, editor | `PUT /api/admin/settings/season` | `GET /api/settings/season` (accueil) |
 | `languages` | superadmin, editor | `PUT /api/admin/settings/languages` | `GET /api/settings/languages` |
+| `horaires` | superadmin, editor | `PUT /api/admin/settings/horaires` | `GET /api/settings/horaires` (page Horaires) |
 | `event_registration` | superadmin, events | `PUT /api/admin/events/settings` | `GET /api/events/registration-info` |
 
 La route générique `/api/admin/settings/:key` n'accepte que les clés de `GENERIC_KEYS`
 (`functions/_lib/settings.js`), chacune avec ses rôles et sa validation : aucune clé arbitraire.
-La lecture publique `/api/settings/:key` est limitée à `PUBLIC_KEYS` (`home`, `pages`, `alert`, `season`, `languages`).
+La lecture publique `/api/settings/:key` est limitée à `PUBLIC_KEYS` (`home`, `pages`, `alert`, `season`, `languages`, `horaires`).
+
+Horaires : les heures sont dans `prayer_times` (une ligne par jour) ; une case vide prend la valeur par défaut de la carte
+« Prochaine prière » de l'Accueil (`home.priere`), puis « — ». Les dates du Ramadan viennent de la clé `season`.
 
 Liens de l'accueil (`home`) : seuls « Page : … », `/p/<lien>` et `https://…` sont acceptés ; toute autre valeur
 revient à la valeur par défaut. La bannière accepte aussi un lien vers une page créée (`{ type: 'custom', slug }`).

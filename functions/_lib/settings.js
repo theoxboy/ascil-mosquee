@@ -334,6 +334,54 @@ export function cleanLanguagesSettings(input) {
   };
 }
 
+// « Horaires » : réglages de la page publique Horaires (les heures elles-mêmes sont dans la table
+// prayer_times, une ligne par jour). Les dates du Ramadan viennent de « Site entier → Mode du site »
+// (clé season) ; l'heure de Jumu'a vient du tableau du mois. Valeurs par défaut = page actuelle.
+DEFAULT_SETTINGS.horaires = {
+  aujourdhui: { on: true, compte: true, hijri: true, lienRappel: true, lienKhutba: true },
+  mois: { vendredis: true },
+  vendredi: { on: true, avance: 15, conseil: true },
+  ramadan: { on: true, suhoor: true, iftar: true, tarawih: false, tarawihHeure: '' },
+  aid: {
+    on: true, lieu: 'Salle louée — 15 rue Frontenac',
+    itineraire: 'https://maps.google.com/?q=15+rue+Frontenac+Riviere-du-Loup',
+    fitrDate: '', fitrHeure: '', adhaDate: '', adhaHeure: '',
+  },
+  qibla: { on: true, degres: '61,6', repere: '' },
+};
+const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+export function cleanHorairesSettings(input) {
+  const def = DEFAULT_SETTINGS.horaires;
+  const i = input && typeof input === 'object' ? input : {};
+  const bool = (sec, k) => (typeof i[sec]?.[k] === 'boolean' ? i[sec][k] : def[sec][k]);
+  const text = (sec, k, max) => (typeof i[sec]?.[k] === 'string' ? i[sec][k].replace(/\s+/g, ' ').trim().slice(0, max) : def[sec][k]);
+  const day = (sec, k) => (typeof i[sec]?.[k] === 'string' && ISO_DAY.test(i[sec][k]) ? i[sec][k] : '');
+  const time = (sec, k) => (typeof i[sec]?.[k] === 'string' && HHMM.test(i[sec][k]) ? i[sec][k] : '');
+  const avance = Number(i.vendredi?.avance);
+  const deg = typeof i.qibla?.degres === 'string' ? i.qibla.degres.trim().replace('.', ',') : def.qibla.degres;
+  const degNum = Number(deg.replace(',', '.'));
+  const url = typeof i.aid?.itineraire === 'string' ? i.aid.itineraire.trim() : def.aid.itineraire;
+  return {
+    aujourdhui: { on: bool('aujourdhui', 'on'), compte: bool('aujourdhui', 'compte'), hijri: bool('aujourdhui', 'hijri'),
+      lienRappel: bool('aujourdhui', 'lienRappel'), lienKhutba: bool('aujourdhui', 'lienKhutba') },
+    mois: { vendredis: bool('mois', 'vendredis') },
+    vendredi: { on: bool('vendredi', 'on'),
+      avance: Number.isInteger(avance) && avance >= 0 && avance <= 120 ? avance : def.vendredi.avance,
+      conseil: bool('vendredi', 'conseil') },
+    ramadan: { on: bool('ramadan', 'on'), suhoor: bool('ramadan', 'suhoor'), iftar: bool('ramadan', 'iftar'),
+      tarawih: bool('ramadan', 'tarawih'), tarawihHeure: time('ramadan', 'tarawihHeure') },
+    aid: {
+      on: bool('aid', 'on'), lieu: text('aid', 'lieu', 120),
+      itineraire: /^https?:\/\/[^\s<>"]{3,}$/i.test(url) && url.length <= 500 ? url : (url ? def.aid.itineraire : ''),
+      fitrDate: day('aid', 'fitrDate'), fitrHeure: time('aid', 'fitrHeure'),
+      adhaDate: day('aid', 'adhaDate'), adhaHeure: time('aid', 'adhaHeure'),
+    },
+    qibla: { on: bool('qibla', 'on'), degres: Number.isFinite(degNum) && degNum >= 0 && degNum < 360 ? deg : def.qibla.degres,
+      repere: text('qibla', 'repere', 160) },
+  };
+}
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -343,7 +391,8 @@ export const GENERIC_KEYS = {
   alert: { roles: ['superadmin', 'editor'], clean: cleanAlertSettings },
   season: { roles: ['superadmin', 'editor'], clean: cleanSeasonSettings },
   languages: { roles: ['superadmin', 'editor'], clean: cleanLanguagesSettings },
+  horaires: { roles: ['superadmin', 'editor'], clean: cleanHorairesSettings },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
-export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages'];
+export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires'];
