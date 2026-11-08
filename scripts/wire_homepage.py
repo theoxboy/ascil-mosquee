@@ -295,115 +295,16 @@ PUBLIC_HOME_SYNC_SCRIPT = r'''<script id="ascil-home-sync">
     return String(str || '').replace(/"/g, '&quot;');
   }
 
+  // Les heures du jour viennent de la base (tableau du mois, repli sur les heures de ces réglages) :
+  // la page les affiche elle-même (scripts/wire_prieres.py). Ici, seulement les puces et la progression.
   function updatePrayerDisplay(p, on) {
-    var tz = 'America/Toronto';
-    var d = new Date();
-    var parts = [];
-    try {
-      parts = new Intl.DateTimeFormat('en-US', { timeZone: tz, hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' }).formatToParts(d);
-    } catch (e) {}
-    var g = function(t) { var x = parts.find(function(q) { return q.type === t; }); return x ? x.value : ''; };
-    var mins = (parseInt(g('hour'), 10) % 24) * 60 + parseInt(g('minute'), 10);
-    var isFri = g('weekday') === 'Fri';
-
-    function parseMins(str) {
-      if (!str || !str.includes(':')) return null;
-      var bits = str.trim().split(':');
-      var h = parseInt(bits[0], 10), m = parseInt(bits[1], 10);
-      if (isNaN(h) || isNaN(m)) return null;
-      return h * 60 + m;
-    }
-
-    var list = [];
-    if (p.fajr) list.push({ n: 'Fajr', t: parseMins(p.fajr), val: p.fajr });
-    if (isFri && p.jumua) list.push({ n: 'Jumu’a', t: parseMins(p.jumua), val: p.jumua });
-    else if (!isFri && p.dohr) list.push({ n: 'Dohr', t: parseMins(p.dohr), val: p.dohr });
-    if (p.asr) list.push({ n: 'Asr', t: parseMins(p.asr), val: p.asr });
-    if (p.maghreb) list.push({ n: 'Maghreb', t: parseMins(p.maghreb), val: p.maghreb });
-    if (p.icha) list.push({ n: 'Icha', t: parseMins(p.icha), val: p.icha });
-
-    var known = list.filter(function(x) { return x.t !== null; });
-    if (!known.length) return;
-
-    var next = known.find(function(x) { return x.t > mins; });
-    var tomorrow = false;
-    if (!next) {
-      next = known[0];
-      tomorrow = true;
-    }
-
-    var diff = next.t - mins + (tomorrow ? 1440 : 0);
-    var hh = Math.floor(diff / 60), mm = diff % 60;
-    var countdown = 'dans ' + (hh ? hh + ' h ' + String(mm).padStart(2, '0') : mm + ' min');
-
-    var topNext = document.querySelector('header.hdr .tnum strong');
-    var topCountdown = document.querySelector('header.hdr .tnum span.hide-m:last-child');
-    if (topNext) {
-      topNext.innerHTML = escHtml(next.n) + '<span class="hide-m"> — ' + (tomorrow ? 'demain' : 'aujourd’hui') + '</span>&nbsp;' + escHtml(next.val);
-    }
-    if (topCountdown) {
-      topCountdown.textContent = '· ' + countdown;
-    }
-
     var ppTitle = document.getElementById('pp-title');
-    if (ppTitle) {
-      var ppWrap = ppTitle.closest('.pad-m');
-      if (ppWrap) {
-        var ppName = ppWrap.querySelector('.serif');
-        if (ppName) ppName.textContent = next.n;
-        var ppTime = ppWrap.querySelector('.big-m');
-        if (ppTime) ppTime.textContent = next.val;
-        var ppCd = ppWrap.querySelector('.tnum p:last-child');
-        if (ppCd) {
-          var live = ppCd.querySelector('.live');
-          ppCd.innerHTML = '';
-          if (live) ppCd.appendChild(live);
-          ppCd.appendChild(document.createTextNode(countdown));
-        }
-        var selInfo = ppWrap.querySelector('div.stack-m p[aria-live="polite"]');
-        if (selInfo) {
-          selInfo.innerHTML = '<strong>' + escHtml(next.n) + '</strong> — ' + escHtml(next.val) + ', ' + countdown;
-        }
-
-        var chips = ppWrap.querySelectorAll('.g5 button.chip');
-        var chipValues = [
-          { n: 'Fajr', v: p.fajr },
-          { n: isFri ? 'Jumu’a' : 'Dohr', v: isFri ? p.jumua : p.dohr },
-          { n: 'Asr', v: p.asr },
-          { n: 'Maghreb', v: p.maghreb },
-          { n: 'Icha', v: p.icha }
-        ];
-        chips.forEach(function(chip, idx) {
-          if (chipValues[idx]) {
-            var timeSpan = chip.querySelector('span:last-child');
-            if (timeSpan) timeSpan.textContent = chipValues[idx].v || '—';
-          }
-        });
-
-        var g5 = ppWrap.querySelector('.g5');
-        if (g5 && on.puces === false) g5.style.display = 'none';
-        else if (g5) g5.style.display = '';
-
-        var prog = ppWrap.querySelector('.prog');
-        if (prog && on.progression === false) prog.style.display = 'none';
-        else if (prog) prog.style.display = '';
-      }
-    }
-
-    var footHor = document.querySelector('footer .g4 > div:first-child > p.tnum');
-    if (footHor) {
-      footHor.textContent = 'Fajr ' + (p.fajr || '—') + ' — Jumu’a ' + (p.jumua || '12:30') + ' — Icha ' + (p.icha || '—');
-    }
-
-    var mobDrawer = document.querySelector('.menu-in .tnum');
-    if (mobDrawer) {
-      var cells = mobDrawer.querySelectorAll('div > div:last-child');
-      if (cells.length >= 3) {
-        cells[0].textContent = p.fajr || '—';
-        cells[1].textContent = isFri ? (p.jumua || '12:30') : (p.dohr || '—');
-        cells[2].textContent = p.icha || '—';
-      }
-    }
+    var ppWrap = ppTitle && ppTitle.closest('.pad-m');
+    if (!ppWrap) return;
+    var g5 = ppWrap.querySelector('.g5');
+    if (g5) g5.style.display = on.puces === false ? 'none' : '';
+    var prog = ppWrap.querySelector('.prog');
+    if (prog) prog.style.display = on.progression === false ? 'none' : '';
   }
 
   function applySettings(s) {

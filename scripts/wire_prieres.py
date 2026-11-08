@@ -1,9 +1,14 @@
-"""Branche les heures de prière du site public sur la base (étape H4).
+"""Branche les heures de prière du site public sur la base (étapes H4 et H5).
 
 Source unique : le tableau du mois (table prayer_times, API publique GET /api/prayer-times),
 avec repli sur les heures de la carte « Prochaine prière » de l'Accueil quand une case est vide.
 
-Pages Horaires.dc.html, M-Horaires.dc.html, T-Horaires.dc.html :
+Toutes les pages publiques (*.dc.html hors SA-*, et index.html) - étape H5 :
+- barre du haut « Prochaine prière », menu mobile « Aujourd'hui », pied de page, et sur l'accueil
+  la carte « Prochaine prière » (heure, compte à rebours, progression, puces) : heures du jour
+  tirées de la base, sur toutes les heures remplies (Fajr, Dohr ou Jumu'a, Asr, Maghreb, Icha).
+
+Pages Horaires.dc.html, M-Horaires.dc.html, T-Horaires.dc.html - étape H4 :
 1. Logique de la page : les heures du jour (barre du haut « Prochaine prière », tableau
    « Aujourd'hui », compte à rebours, menu mobile, pied de page) viennent de la base.
    Le script #ascil-prayer-live charge les données, les range dans window.__ascilPrayer et
@@ -25,7 +30,11 @@ import json, pathlib, re
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 OPEN = '<script type="__bundler/template">'
 MARK = '/*ascil-prayer*/'
-PAGES = ['Horaires.dc.html', 'M-Horaires.dc.html', 'T-Horaires.dc.html']
+HORAIRES = {'Horaires.dc.html', 'M-Horaires.dc.html', 'T-Horaires.dc.html'}
+
+
+def public_pages():
+    return sorted(p.name for p in ROOT.glob('*.dc.html') if not p.name.startswith('SA-')) + ['index.html']
 
 
 def load(path):
@@ -176,16 +185,25 @@ MONTH_PLACEHOLDER = ('<div id="ascil-month"><p class="muted" style="margin:0;pad
                      'Chargement des horaires du mois…</p></div>')
 
 
-def patch_markup(tpl):
-    if 'id="ascil-month"' in tpl:
-        return tpl
+MENU_FAJR = '<div style="font-size:13px">Fajr</div><div style="font-size:22px;font-weight:700;color:#fff">06:30</div>'
 
-    # Menu mobile et pied de page : heures du jour.
+
+def patch_common(tpl):
+    """Menu mobile et pied de page : heures du jour (toutes les pages)."""
+    if MENU_FAJR not in tpl and '{{fajrTime}}' in tpl:
+        return tpl
     tpl = rep(tpl, '<div style="font-size:13px">Fajr</div><div style="font-size:22px;font-weight:700;color:#fff">06:30</div>',
               '<div style="font-size:13px">Fajr</div><div style="font-size:22px;font-weight:700;color:#fff">{{fajrTime}}</div>')
     tpl = rep(tpl, '<div style="font-size:13px">Icha</div><div style="font-size:22px;font-weight:700;color:#fff">19:00</div>',
               '<div style="font-size:13px">Icha</div><div style="font-size:22px;font-weight:700;color:#fff">{{ichaTime}}</div>')
     tpl = rep(tpl, 'Fajr 06:30 — Jumu’a 12:30 — Icha 19:00', 'Fajr {{fajrTime}} — Jumu’a {{jumuaTime}} — Icha {{ichaTime}}')
+    return tpl
+
+
+def patch_markup(tpl):
+    """Page Horaires : bloc Aujourd'hui, vendredi, mois complet, Ramadan, Aïd, Qibla."""
+    if 'id="ascil-month"' in tpl:
+        return tpl
 
     # Bloc « Aujourd'hui » : date hégirienne, compte à rebours, liens, affichage du bloc.
     h = '<p class="muted" style="margin:4px 0 0">{{hijri}}</p>'
@@ -356,14 +374,17 @@ def wire(name):
     path = ROOT / name
     s, i, j, tpl = load(path)
     tpl = patch_logic(tpl)
-    tpl = patch_markup(tpl)
+    tpl = patch_common(tpl)
+    if name in HORAIRES:
+        tpl = patch_markup(tpl)
     tpl = re.sub(r'<script id="ascil-prayer-live">.*?</script>\s*', '', tpl, flags=re.S)
     k = tpl.rindex('</body>')
     tpl = tpl[:k] + LIVE_SCRIPT + tpl[k:]
     save(path, s, i, j, tpl)
-    print(name, ': heures de prière reliées à la base')
 
 
 if __name__ == '__main__':
-    for p in PAGES:
+    pages = public_pages()
+    for p in pages:
         wire(p)
+    print(len(pages), 'pages publiques : heures de prière reliées à la base (dont la page Horaires complète)')

@@ -24,8 +24,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | H1 | Horaires : `prayer_times` complétée (lever, une ligne par jour) ; clé `horaires` (bloc Aujourd'hui, vendredi, Ramadan, Aïd, Qibla) | en ligne |
 | H2 | Horaires : API du tableau du mois (`GET`/`PUT /api/admin/prayer-times`) et API publique du mois et du jour (`GET /api/prayer-times`, repli sur les défauts Accueil) | en ligne |
 | H3 | Horaires : panneau `SA-Horaires` (« Horaires du mois », tableau mensuel éditable, copie sur tout le mois, collage Excel, réglages `horaires`, dates Ramadan depuis `season`, Jumu'a depuis le tableau mensuel) | en ligne |
-| H4 | Horaires : page publique (et M-/T-) reliée à la base : heures du jour, tableau du mois avec « Aujourd'hui » sur le vrai jour, carte du vendredi, Ramadan (dates du Mode du site, Suhoor, Iftar, Tarawih), Aïd, Qibla, réglages du bloc Aujourd'hui ; bouton PDF retiré (`scripts/wire_prieres.py`) | fait, à pousser |
-| H5 | Horaires : heures du jour sur tout le site (barre du haut, pied de page, menu mobile, accueil) | à faire |
+| H4 | Horaires : page publique (et M-/T-) reliée à la base : heures du jour, tableau du mois avec « Aujourd'hui » sur le vrai jour, carte du vendredi, Ramadan (dates du Mode du site, Suhoor, Iftar, Tarawih), Aïd, Qibla, réglages du bloc Aujourd'hui ; bouton PDF retiré (`scripts/wire_prieres.py`) | en ligne |
+| H5 | Horaires : heures du jour sur les 58 pages publiques (barre « Prochaine prière », menu mobile, pied de page, carte « Prochaine prière » de l'accueil), sur toutes les heures remplies ; le script de l'accueil ne garde que l'affichage des puces et de la progression | fait, à pousser |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -129,7 +129,7 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
 6. `scripts/wire_horaires.py` : panneau `SA-Horaires` (« Horaires du mois » : choix du mois courant + 2 suivants,
    tableau mensuel éditable relié à `/api/admin/prayer-times/:month`, « Copier une heure sur tout le mois »,
    « Coller depuis Excel », réglages reliés à `horaires`, dates Ramadan lues depuis `season`, Jumu'a lu/écrit dans le tableau mensuel).
-7. `scripts/wire_prieres.py` : site public, heures de prière tirées de la base (`GET /api/prayer-times`) ; page Horaires :
+7. `scripts/wire_prieres.py` : les 58 pages publiques, heures de prière tirées de la base (`GET /api/prayer-times`) ; page Horaires :
    tableau du mois, cartes et réglages `horaires`. Le script `#ascil-prayer-live` range les données dans `window.__ascilPrayer`
    et prévient la page (événement `ascil:prayer`).
 8. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
