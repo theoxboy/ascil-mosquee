@@ -24,7 +24,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | H1 | Horaires : `prayer_times` complétée (lever, une ligne par jour) ; clé `horaires` (bloc Aujourd'hui, vendredi, Ramadan, Aïd, Qibla) | en ligne |
 | H2 | Horaires : API du tableau du mois (`GET`/`PUT /api/admin/prayer-times`) et API publique du mois et du jour (`GET /api/prayer-times`, repli sur les défauts Accueil) | en ligne |
 | H3 | Horaires : panneau `SA-Horaires` (« Horaires du mois », tableau mensuel éditable, copie sur tout le mois, collage Excel, réglages `horaires`, dates Ramadan depuis `season`, Jumu'a depuis le tableau mensuel) | en ligne |
-| H4-H5 | Horaires : page publique, heures du jour sur tout le site | à faire |
+| H4 | Horaires : page publique (et M-/T-) reliée à la base : heures du jour, tableau du mois avec « Aujourd'hui » sur le vrai jour, carte du vendredi, Ramadan (dates du Mode du site, Suhoor, Iftar, Tarawih), Aïd, Qibla, réglages du bloc Aujourd'hui ; bouton PDF retiré (`scripts/wire_prieres.py`) | fait, à pousser |
+| H5 | Horaires : heures du jour sur tout le site (barre du haut, pied de page, menu mobile, accueil) | à faire |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -115,7 +116,7 @@ Les pages `SA-*` sont générées depuis la maquette, puis « branchées » sur 
 modifient les pages générées. Régénérer sans rebrancher efface les branchements.
 
 1. `scripts/install_superadmin.py /Users/mac/Documents/mosque/superadmin.html .` régénère les pages `SA-*`.
-   **Il relance lui-même les étapes 2 à 6**, sauf avec `--sans-branchements`.
+   **Il relance lui-même les étapes 2 à 8**, sauf avec `--sans-branchements`.
 2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
    Il remplace la logique du panneau par `scripts/panneau_component.js` (état unique : interrupteurs,
    ordre, cartes, annonces, heures) ; le script `#sa-panneau-sync` enregistre via `window.__saHome`.
@@ -128,12 +129,15 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
 6. `scripts/wire_horaires.py` : panneau `SA-Horaires` (« Horaires du mois » : choix du mois courant + 2 suivants,
    tableau mensuel éditable relié à `/api/admin/prayer-times/:month`, « Copier une heure sur tout le mois »,
    « Coller depuis Excel », réglages reliés à `horaires`, dates Ramadan lues depuis `season`, Jumu'a lu/écrit dans le tableau mensuel).
-7. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
+7. `scripts/wire_prieres.py` : site public, heures de prière tirées de la base (`GET /api/prayer-times`) ; page Horaires :
+   tableau du mois, cartes et réglages `horaires`. Le script `#ascil-prayer-live` range les données dans `window.__ascilPrayer`
+   et prévient la page (événement `ascil:prayer`).
+8. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
    avec `value="…"` dans la maquette devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
    de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
-   `defaultChecked`). Les scripts 2 à 6 s'appuient sur les attributs d'origine, d'où cet ordre.
+   `defaultChecked`). Les scripts 2 à 7 s'appuient sur les attributs d'origine, d'où cet ordre.
 
-Les scripts 2 à 6 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
+Les scripts 2 à 7 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
 
 Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `--reset` pour un nouveau mot de passe).
