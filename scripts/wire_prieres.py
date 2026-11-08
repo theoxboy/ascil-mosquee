@@ -1,4 +1,4 @@
-"""Branche les heures de prière du site public sur la base (étapes H4 et H5).
+"""Branche les heures de prière du site public sur la base (étapes H4, H5 et H6).
 
 Source unique : le tableau du mois (table prayer_times, API publique GET /api/prayer-times),
 avec repli sur les heures de la carte « Prochaine prière » de l'Accueil quand une case est vide.
@@ -21,6 +21,12 @@ Pages Horaires.dc.html, M-Horaires.dc.html, T-Horaires.dc.html - étape H4 :
    (affichage, heure du prochain vendredi, minutes d'avance, conseil de stationnement),
    Ramadan (dates du « Mode du site », Suhoor, Iftar, Tarawih), Aïd (dates, heures, lieu,
    itinéraire), Qibla (degrés, repère).
+
+Pages N2-Khutba (et M-/T-) - étape H6 : vendredis à venir (clé khutba : langue, traduction,
+imam, nombre affiché, mode de traduction) et heure de Jumu'a du tableau du mois.
+Pages N3-Rappel (et M-/T-) - étape H6 : prières et délais proposés (clé rappel), heures du jour
+tirées de la base, vraies notifications du navigateur (page ouverte), choix mémorisés sur
+l'appareil du visiteur, fichier calendrier .ics des rappels du mois (page fermée).
 
 Idempotent : la logique et le balisage ne sont modifiés qu'une fois (repère ascil-prayer),
 le script #ascil-prayer-live est remplacé à chaque passage.
@@ -279,7 +285,9 @@ def patch_markup(tpl):
 LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
 (function () {
   var P = window.__ascilPrayer = window.__ascilPrayer || {};
-  var isHoraires = /(^|\/)(M-|T-)?Horaires\.dc(\.html)?$/.test(location.pathname);
+  var page = (location.pathname.split('/').pop() || '').replace(/^(M-|T-)/, '').replace(/\.dc(\.html)?$/, '');
+  var isHoraires = page === 'Horaires';
+  var EXTRA = { 'Horaires': ['horaires', 'season'], 'N2-Khutba': ['khutba'], 'N3-Rappel': ['rappel'] }[page] || [];
   function getJ(u) {
     return fetch(u, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }
@@ -341,11 +349,7 @@ LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
     el.innerHTML = html;
     el.setAttribute('data-done', '1');
   }
-  Promise.all([
-    getJ('/api/prayer-times'),
-    isHoraires ? getJ('/api/settings/horaires') : null,
-    isHoraires ? getJ('/api/settings/season') : null
-  ]).then(function (r) {
+  Promise.all([getJ('/api/prayer-times')].concat(EXTRA.map(function (k) { return getJ('/api/settings/' + k); }))).then(function (r) {
     var pt = r[0];
     if (pt && pt.ok) {
       P.today = pt.today || pt.day;
@@ -356,8 +360,7 @@ LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
     } else {
       P.failed = true;
     }
-    if (r[1] && r[1].ok) P.horaires = r[1].settings;
-    if (r[2] && r[2].ok) P.season = r[2].settings;
+    EXTRA.forEach(function (k, i) { if (r[i + 1] && r[i + 1].ok) P[k] = r[i + 1].settings; });
     try { window.dispatchEvent(new Event('ascil:prayer')); } catch (e) {}
     if (isHoraires) {
       html = monthHtml();
@@ -370,6 +373,210 @@ LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
 '''
 
 
+# ---------------------------------------------------------------------------
+# 4. Pages « Langue de la khutba » et « Rappel de prière » (étape H6)
+# ---------------------------------------------------------------------------
+
+KHUTBA = {'N2-Khutba.dc.html', 'M-N2-Khutba.dc.html', 'T-N2-Khutba.dc.html'}
+RAPPEL = {'N3-Rappel.dc.html', 'M-N3-Rappel.dc.html', 'T-N3-Rappel.dc.html'}
+
+KHUTBA_XVALS = r"""
+  xvals() {
+    /*ascil-khutba*/
+    const PT = (typeof window !== 'undefined' && window.__ascilPrayer) || {};
+    const KS = PT.khutba || null, st = this.state;
+    let today = PT.date || '';
+    if (!today) { try { today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); } catch (e) {} }
+    const fd = (iso) => { try { return new Intl.DateTimeFormat('fr-CA', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(iso + 'T12:00:00Z')); } catch (e) { return iso; } };
+    const list = KS ? (KS.vendredis || []).filter((v) => v.on && v.date >= today).slice(0, KS.nombre || 4) : [];
+    const kw = Math.min(st.kw || 0, Math.max(0, list.length - 1));
+    const cur = list[kw] || null;
+    const days = Array.isArray(PT.days) ? PT.days : [], defs = PT.defaults || {};
+    const row = cur ? days.find((d) => d.date === cur.date) : null;
+    const jum = (row && row.jumuha) || defs.jumuha || (PT.today && PT.today.jumuha) || '12:30';
+    const add = cur && today ? Math.round((Date.parse(cur.date) - Date.parse(today)) / 864e5) : 0;
+    const hasT = (v) => !!(v && v.traduction && v.traduction !== 'Aucune');
+    const mode = KS && KS.mode ? KS.mode : '';
+    const note = mode ? 'Traduction prévue : ' + mode.charAt(0).toLowerCase() + mode.slice(1) + '. Le programme peut changer : revenez voir cette page avant chaque vendredi.' : '';
+    return {
+      kwLabel: !cur ? 'Programme' : (add === 0 ? 'Aujourd\u2019hui' : (add <= 6 ? 'Ce vendredi' : (add <= 13 ? 'Vendredi prochain' : 'Dans ' + Math.round(add / 7) + ' semaines'))),
+      kwDate: cur ? fd(cur.date) : (KS ? 'à venir' : 'chargement…'),
+      kMain: cur ? cur.langue : (KS ? 'À venir' : '…'),
+      kTrad: hasT(cur) ? cur.traduction : '', kHasTrad: hasT(cur),
+      kMode: cur ? (hasT(cur) ? mode : 'Sans traduction') : (KS ? 'Le programme des prochains vendredis sera publié ici.' : ''),
+      kHasCur: !!cur, kJum: jum, kImam: cur && cur.imam ? cur.imam : '', kHasImam: !!(cur && cur.imam),
+      kPrev: () => this.setState({ kw: Math.max(0, kw - 1) }),
+      kNext: () => this.setState({ kw: Math.min(Math.max(0, list.length - 1), kw + 1) }),
+      kWeeks: list.map((v, o) => ({ date: fd(v.date), main: v.langue, trad: hasT(v) ? 'Traduction : ' + v.traduction : 'Sans traduction',
+        pressed: String(o === kw), bd: o === kw ? '#C49A4A' : '#E4D9C0', pick: () => this.setState({ kw: o }) })),
+      kHasWeeks: list.length > 0, kNote: note, kHasNote: !!note,
+    };
+  }
+"""
+
+RAPPEL_XVALS = r"""
+  xvals() {
+    /*ascil-rappel*/
+    const st = this.state;
+    const PT = (typeof window !== 'undefined' && window.__ascilPrayer) || {};
+    const RS = PT.rappel || { prieres: { fajr: true, dohr: false, jumua: true, asr: false, maghreb: false, icha: true }, delais: [5, 10, 15, 30, 60], defaut: 15, titre: 'Prière dans {délai}', son: true, vibration: true };
+    const PD = PT.today || {}, defs = PT.defaults || {};
+    const N = typeof window !== 'undefined' ? window.Notification : null;
+    const persist = (patch) => this.setState(patch, () => { try { localStorage.setItem('ascil-rappel', JSON.stringify({ rp: this.state.rp, rdl: this.state.rdl, ron: this.state.ron })); } catch (e) {} });
+    if (!this.rLoaded && PT.rappel) {
+      this.rLoaded = true;
+      let sv = null;
+      try { sv = JSON.parse(localStorage.getItem('ascil-rappel') || 'null'); } catch (e) {}
+      const okD = (d) => d === 0 || RS.delais.indexOf(d) > -1;
+      setTimeout(() => this.setState({
+        rp: sv && sv.rp ? sv.rp : { Fajr: true, Dohr: true, 'Jumu\u2019a': true, Asr: true, Maghreb: true, Icha: true },
+        rdl: sv && okD(sv.rdl) ? sv.rdl : RS.defaut,
+        ron: !!(sv && sv.ron && N && N.permission === 'granted'),
+      }), 0);
+    }
+    let secs = 0, isFri = false;
+    try { const p = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Toronto', weekday: 'short', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(st.now2));
+      const g = (t) => +((p.find((x) => x.type === t) || {}).value || 0); secs = (g('hour') % 24) * 3600 + g('minute') * 60 + g('second');
+      isFri = (p.find((x) => x.type === 'weekday') || {}).value === 'Fri'; } catch (e) {}
+    const okT = (v) => typeof v === 'string' && /^\d\d:\d\d$/.test(v);
+    const toM = (v) => parseInt(v.slice(0, 2), 10) * 60 + parseInt(v.slice(3), 10);
+    const ALL = [['Fajr', 'fajr', 'fajr'], ['Dohr', 'dohr', 'dohr'], ['Jumu\u2019a', 'jumua', 'jumuha'], ['Asr', 'asr', 'asr'], ['Maghreb', 'maghreb', 'maghreb'], ['Icha', 'icha', 'isha']];
+    const offered = ALL.filter((p) => RS.prieres[p[1]]).map((p) => ({ n: p[0], col: p[2], time: okT(PD[p[2]]) ? PD[p[2]] : '' }));
+    const valid = (p) => p.n === 'Jumu\u2019a' ? isFri : !(isFri && p.n === 'Dohr');
+    const active = offered.filter((p) => st.rp[p.n] && p.time && valid(p));
+    const list = active.map((p) => ({ n: p.n, time: p.time, at: (toM(p.time) - st.rdl) * 60 }));
+    let nx = list.filter((x) => x.at > secs).sort((a, b) => a.at - b.at)[0], add = 0;
+    if (!nx && list.length) { nx = list.slice().sort((a, b) => a.at - b.at)[0]; add = 86400; }
+    const left = nx ? nx.at + add - secs : 0, hh = Math.floor(left / 3600), mm = Math.floor(left % 3600 / 60), ss = left % 60;
+    const dLabel = (d) => d === 60 ? '1 h' : d + ' min';
+    const title = (p) => st.rdl ? String(RS.titre || 'Prière dans {délai}').split('{délai}').join(dLabel(st.rdl)) : p.n + ' : c\u2019est l\u2019heure de la prière';
+    if (st.ron && nx && N && N.permission === 'granted') {
+      const key = nx.n + '|' + (nx.at + add) + '|' + Math.floor(st.now2 / 864e5);
+      if (this.rKey !== key) {
+        clearTimeout(this.rTimer); this.rKey = key;
+        const target = nx, ms = left * 1000;
+        if (ms > 0 && ms < 2147483647) this.rTimer = setTimeout(() => {
+          const son = document.getElementById('rp-son'), vib = document.getElementById('rp-vib');
+          const wantVib = RS.vibration && (!vib || vib.checked);
+          try { new N(title(target), { body: target.n + ' à ' + target.time + ' · 174 rue Lafontaine, Rivière-du-Loup', tag: 'ascil-' + target.n, silent: !(RS.son && (!son || son.checked)) }); } catch (e) {}
+          try { if (wantVib && navigator.vibrate) navigator.vibrate([200, 100, 200]); } catch (e) {}
+          this.rKey = ''; this.setState({ now2: Date.now() });
+        }, ms);
+      }
+    } else if (this.rTimer) { clearTimeout(this.rTimer); this.rTimer = null; this.rKey = ''; }
+    const span = 6 * 3600;
+    const perm = N ? N.permission : 'unsupported';
+    const ics = () => {
+      const days = (PT.days || []).filter((d) => d.date >= (PT.date || ''));
+      const toUtc = (ds, hm) => { const y = +ds.slice(0, 4), mo = +ds.slice(5, 7), d = +ds.slice(8, 10), h = +hm.slice(0, 2), mi = +hm.slice(3, 5);
+        const want = Date.UTC(y, mo - 1, d, h, mi); let guess = want;
+        for (let k = 0; k < 2; k++) { const q = {}; new Intl.DateTimeFormat('en-US', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(guess)).forEach((x) => { q[x.type] = x.value; });
+          guess += want - Date.UTC(+q.year, +q.month - 1, +q.day, +q.hour % 24, +q.minute); }
+        return new Date(guess); };
+      const stamp = (dt) => dt.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+      const now = stamp(new Date()), L = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ASCIL//Rappels de priere//FR', 'CALSCALE:GREGORIAN'];
+      let n = 0;
+      days.forEach((d) => {
+        const fri = new Date(d.date + 'T12:00:00Z').getUTCDay() === 5;
+        offered.forEach((p) => {
+          if (!st.rp[p.n] || (p.n === 'Jumu\u2019a' ? !fri : (fri && p.n === 'Dohr'))) return;
+          const t = d[p.col] || defs[p.col] || (p.col === 'isha' ? defs.icha : '') || '';
+          if (!okT(t)) return;
+          const st0 = toUtc(d.date, t);
+          L.push('BEGIN:VEVENT', 'UID:' + d.date + '-' + p.col + '@ascil-mosquee', 'DTSTAMP:' + now, 'DTSTART:' + stamp(st0),
+            'DTEND:' + stamp(new Date(st0.getTime() + 15 * 60000)), 'SUMMARY:' + p.n.replace('\u2019', "'") + ' - ASCIL',
+            'LOCATION:174 rue Lafontaine\\, Riviere-du-Loup', 'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + p.n.replace('\u2019', "'"),
+            'TRIGGER:-PT' + (st.rdl || 0) + 'M', 'END:VALARM', 'END:VEVENT');
+          n++;
+        });
+      });
+      L.push('END:VCALENDAR');
+      if (!n) { this.setState({ rIcsMsg: 'Aucune heure à ajouter pour les prières choisies ce mois-ci.' }); return; }
+      try {
+        const url = URL.createObjectURL(new Blob([L.join('\r\n') + '\r\n'], { type: 'text/calendar;charset=utf-8' }));
+        const a = document.createElement('a'); a.href = url; a.download = 'rappels-ascil-' + (PT.month || 'mois') + '.ics';
+        document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 4000);
+        this.setState({ rIcsMsg: n + ' rappel' + (n > 1 ? 's' : '') + ' prêts : ouvrez le fichier téléchargé pour les ajouter à votre calendrier.' });
+      } catch (e) { this.setState({ rIcsMsg: 'Le téléchargement a échoué. Réessayez.' }); }
+    };
+    return {
+      rPrayers: offered.map((p) => ({ n: p.n, t: p.time || 'heure à venir', pressed: String(!!st.rp[p.n]), bg: st.rp[p.n] ? '#0E4D3C' : '#fff', fg: st.rp[p.n] ? '#fff' : '#0E4D3C',
+        toggle: () => persist({ rp: Object.assign({}, st.rp, { [p.n]: !st.rp[p.n] }) }) })),
+      rMissing: offered.some((p) => !p.time),
+      rDelays: [[0, 'À l\u2019heure']].concat(RS.delais.map((d) => [d, dLabel(d) + ' avant'])).map((d) => ({ label: d[1], pressed: String(st.rdl === d[0]), pick: () => persist({ rdl: d[0] }) })),
+      rSon: RS.son !== false, rVib: RS.vibration !== false,
+      rOnStr: String(st.ron),
+      rToggle: () => {
+        if (st.ron) { persist({ ron: false }); return; }
+        if (!N) { this.setState({ rErr: 'unsupported' }); return; }
+        const go = (pm) => { if (pm === 'granted') { this.setState({ rErr: '' }); persist({ ron: true }); } else this.setState({ rErr: pm === 'denied' ? 'denied' : '' }); };
+        try { if (N.permission === 'default') { const pr = N.requestPermission(go); if (pr && pr.then) pr.then(go); } else go(N.permission); } catch (e) { go(N.permission); }
+      },
+      rBtnLabel: st.ron ? 'Rappels activés — Désactiver' : 'Activer mes rappels', rBtnCls: st.ron ? 'btn-green' : 'btn-gold',
+      rHead: !nx ? 'Choisissez au moins une prière' : (st.ron ? 'Prochain rappel' : 'Aperçu — rappels inactifs'),
+      rCount: nx ? (hh ? hh + ':' : '') + String(mm).padStart(2, '0') + ':' + String(ss).padStart(2, '0') : '--:--',
+      rRing: nx ? Math.round(Math.min(100, left / span * 100)) : 100, rNextName: nx ? nx.n + (st.rdl ? ' (−' + dLabel(st.rdl) + ')' : '') : 'la prochaine prière',
+      rSummary: active.length + ' prière' + (active.length > 1 ? 's' : '') + ' · ' + (st.rdl ? dLabel(st.rdl) + ' avant' : 'à l\u2019heure'),
+      rNotifTitle: nx ? title(nx) : String(RS.titre || '').split('{délai}').join(dLabel(st.rdl || 15)),
+      rDenied: perm === 'denied' || st.rErr === 'denied', rUnsupported: perm === 'unsupported' || st.rErr === 'unsupported',
+      rIcs: ics, rHasIcs: Array.isArray(PT.days) && PT.days.length > 0, rIcsMsg: st.rIcsMsg || '', rHasIcsMsg: !!st.rIcsMsg,
+    };
+  }
+"""
+
+
+def patch_xvals(tpl, code_new, mark):
+    a = tpl.index('<script type="text/x-dc"')
+    b = tpl.index('</script>', a)
+    code = tpl[a:b]
+    if mark in code:
+        return tpl
+    code, n = re.subn(r'\n  xvals\(\) \{.*?\n  \}\n', lambda _: code_new, code, count=1, flags=re.S)
+    assert n == 1, 'xvals introuvable'
+    return tpl[:a] + code + tpl[b:]
+
+
+def patch_khutba(tpl):
+    tpl = patch_xvals(tpl, KHUTBA_XVALS, '/*ascil-khutba*/')
+    if '{{kJum}}' in tpl:
+        return tpl
+    tpl = resub(tpl, r'<div class="flag" role="note"[^>]*>(?:(?!</div>).)*</div>', lambda m: '')
+    tpl = resub(tpl, r'<p style="margin:24px 0 0;color:#F3EAD8">Jumu’a à <strong style="color:#fff">12:30</strong>(?:(?!</p>).)*</p>',
+                lambda m: sc_if('kHasCur', '<p style="margin:24px 0 0;color:#F3EAD8">Jumu’a à <strong style="color:#fff">{{kJum}}</strong>'
+                                + sc_if('kHasImam', ' · Imam {{kImam}}', 'false') + '</p>', 'false'))
+    tpl = rep(tpl, 'Les prochains vendredis <span class="ex">[EXEMPLE À MODIFIER]</span></h2>', 'Les prochains vendredis</h2>')
+    tpl = resub(tpl, r'(<div class="g4" style="margin-top:20px">\s*<sc-for list="\{\{kWeeks\}\}".*?</sc-for>\s*</div>)', lambda m: sc_if('kHasWeeks', m.group(1), 'true'))
+    tpl = resub(tpl, r'(<div class="card sand" style="margin-top:20px;display:flex;gap:14px;align-items:flex-start">.*?)<p style="margin:0">La langue alterne(?:(?!</p>).)*</p></div>',
+                lambda m: sc_if('kHasNote', m.group(1) + '<p style="margin:0">{{kNote}}</p></div>', 'true'))
+    return tpl
+
+
+def patch_rappel(tpl):
+    tpl = patch_xvals(tpl, RAPPEL_XVALS, '/*ascil-rappel*/')
+    if 'id="rp-son"' in tpl:
+        return tpl
+    tpl = resub(tpl, r'<div class="flag" role="note"[^>]*>(?:(?!</div>).)*</div>', lambda m: '')
+    tpl = resub(tpl, r'<p class="muted" style="margin:10px 0 0;font-size:14px">Dohr, Asr et Maghreb : heures d’exemple(?:(?!</p>).)*</p>',
+                lambda m: sc_if('rMissing', '<p class="muted" style="margin:10px 0 0;font-size:14px">Certaines heures ne sont pas encore dans le tableau du mois : '
+                                'ces prières seront rappelées dès qu’elles y figurent.</p>', 'false'))
+    tpl = resub(tpl, r'<label style="display:flex;gap:10px;align-items:center;font-weight:600;min-height:44px"><input type="checkbox" sc-camel-default-checked="true"( style="[^"]*")>Son</label>',
+                lambda m: sc_if('rSon', '<label style="display:flex;gap:10px;align-items:center;font-weight:600;min-height:44px"><input type="checkbox" id="rp-son" sc-camel-default-checked="true"' + m.group(1) + '>Son</label>'))
+    tpl = resub(tpl, r'<label style="display:flex;gap:10px;align-items:center;font-weight:600;min-height:44px"><input type="checkbox" sc-camel-default-checked="true"( style="[^"]*")>Vibration</label>',
+                lambda m: sc_if('rVib', '<label style="display:flex;gap:10px;align-items:center;font-weight:600;min-height:44px"><input type="checkbox" id="rp-vib" sc-camel-default-checked="true"' + m.group(1) + '>Vibration</label>'))
+    tpl = rep(tpl, 'Votre navigateur vous demandera l’autorisation d’envoyer des notifications. Aucun compte, aucune donnée envoyée.</p>',
+              'Votre navigateur vous demandera l’autorisation d’envoyer des notifications. Aucun compte, aucune donnée envoyée. '
+              'Les rappels arrivent tant que cette page reste ouverte.</p>'
+              + sc_if('rUnsupported', '<p style="margin:10px 0 0;font-size:14px;color:#B3261E;font-weight:600">Ce navigateur ne permet pas les notifications : '
+                      'ajoutez plutôt les rappels à votre calendrier.</p>', 'false')
+              + sc_if('rHasIcs', '<button type="button" class="btn btn-ghost" sc-camel-on-click="{{rIcs}}" style="width:100%;min-height:52px;margin-top:14px">'
+                      'Ajouter les rappels du mois à mon calendrier</button>'
+                      '<p class="muted" style="margin:8px 0 0;font-size:14px">Fichier .ics : vos rappels sonnent même page fermée.</p>', 'false')
+              + sc_if('rHasIcsMsg', '<p role="status" style="margin:8px 0 0;font-size:14px;font-weight:600;color:#0E4D3C">{{rIcsMsg}}</p>', 'false'))
+    tpl = resub(tpl, r'(<div class="flag" style="background:#FDF3F2;border:1.5px dashed #B3261E">.*?)\s*<span class="muted">\(état d’erreur\)</span>(</p></div>)',
+                lambda m: sc_if('rDenied', m.group(1) + m.group(2), 'false'))
+    return tpl
+
+
 def wire(name):
     path = ROOT / name
     s, i, j, tpl = load(path)
@@ -377,6 +584,10 @@ def wire(name):
     tpl = patch_common(tpl)
     if name in HORAIRES:
         tpl = patch_markup(tpl)
+    if name in KHUTBA:
+        tpl = patch_khutba(tpl)
+    if name in RAPPEL:
+        tpl = patch_rappel(tpl)
     tpl = re.sub(r'<script id="ascil-prayer-live">.*?</script>\s*', '', tpl, flags=re.S)
     k = tpl.rindex('</body>')
     tpl = tpl[:k] + LIVE_SCRIPT + tpl[k:]

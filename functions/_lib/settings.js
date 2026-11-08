@@ -384,6 +384,77 @@ export function cleanHorairesSettings(input) {
   };
 }
 
+// Horaires → Langue de la khutba (clé khutba). Une ligne par vendredi (date AAAA-MM-JJ, un vendredi),
+// triées par date ; le site montre les vendredis à venir, dans la limite de « nombre ».
+export const KHUTBA_LANGUES = ['Français', 'Arabe', 'Anglais', 'Arabe et français'];
+export const KHUTBA_TRADUCTIONS = ['Aucune', 'Arabe', 'Français', 'Anglais'];
+export const KHUTBA_MODES = ['Résumé imprimé à l’entrée', 'Traduction orale', 'Écran'];
+DEFAULT_SETTINGS.khutba = {
+  vendredis: [
+    { date: '2026-11-06', langue: 'Français', traduction: 'Aucune', imam: '', on: true },
+    { date: '2026-11-13', langue: 'Arabe', traduction: 'Français', imam: '', on: true },
+  ],
+  nombre: 4,
+  mode: 'Résumé imprimé à l’entrée',
+};
+
+export function cleanKhutbaSettings(input) {
+  const def = DEFAULT_SETTINGS.khutba;
+  const i = input && typeof input === 'object' ? input : {};
+  const seen = new Set();
+  const list = (Array.isArray(i.vendredis) ? i.vendredis : def.vendredis)
+    .filter((v) => v && typeof v === 'object' && typeof v.date === 'string' && ISO_DAY.test(v.date)
+      && new Date(`${v.date}T12:00:00Z`).getUTCDay() === 5)
+    .filter((v) => (seen.has(v.date) ? false : (seen.add(v.date), true)))
+    .slice(0, 60)
+    .map((v) => ({
+      date: v.date,
+      langue: KHUTBA_LANGUES.includes(v.langue) ? v.langue : 'Arabe',
+      traduction: KHUTBA_TRADUCTIONS.includes(v.traduction) ? v.traduction : 'Aucune',
+      imam: typeof v.imam === 'string' ? v.imam.replace(/\s+/g, ' ').trim().slice(0, 80) : '',
+      on: typeof v.on === 'boolean' ? v.on : true,
+    }))
+    .sort((a, b) => (a.date < b.date ? -1 : 1));
+  const nombre = Number(i.nombre);
+  return {
+    vendredis: list,
+    nombre: [2, 4, 6, 8].includes(nombre) ? nombre : def.nombre,
+    mode: KHUTBA_MODES.includes(i.mode) ? i.mode : def.mode,
+  };
+}
+
+// Horaires → Rappel de prière (clé rappel) : prières proposées aux visiteurs, délais, notification.
+export const RAPPEL_DELAIS = [5, 10, 15, 30, 60];
+DEFAULT_SETTINGS.rappel = {
+  prieres: { fajr: true, dohr: false, jumua: true, asr: false, maghreb: false, icha: true },
+  delais: [5, 10, 15, 30, 60],
+  defaut: 15,
+  titre: 'Prière dans {délai}',
+  son: true,
+  vibration: true,
+};
+
+export function cleanRappelSettings(input) {
+  const def = DEFAULT_SETTINGS.rappel;
+  const i = input && typeof input === 'object' ? input : {};
+  const prieres = {};
+  Object.keys(def.prieres).forEach((k) => {
+    prieres[k] = typeof i.prieres?.[k] === 'boolean' ? i.prieres[k] : def.prieres[k];
+  });
+  let delais = Array.isArray(i.delais) ? RAPPEL_DELAIS.filter((d) => i.delais.map(Number).includes(d)) : def.delais.slice();
+  if (!delais.length) delais = [15];
+  const defaut = Number(i.defaut);
+  const titre = typeof i.titre === 'string' ? i.titre.replace(/\s+/g, ' ').trim().slice(0, 80) : def.titre;
+  return {
+    prieres,
+    delais,
+    defaut: delais.includes(defaut) ? defaut : (delais.includes(def.defaut) ? def.defaut : delais[0]),
+    titre: titre || def.titre,
+    son: typeof i.son === 'boolean' ? i.son : def.son,
+    vibration: typeof i.vibration === 'boolean' ? i.vibration : def.vibration,
+  };
+}
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -394,7 +465,9 @@ export const GENERIC_KEYS = {
   season: { roles: ['superadmin', 'editor'], clean: cleanSeasonSettings },
   languages: { roles: ['superadmin', 'editor'], clean: cleanLanguagesSettings },
   horaires: { roles: ['superadmin', 'editor'], clean: cleanHorairesSettings },
+  khutba: { roles: ['superadmin', 'editor'], clean: cleanKhutbaSettings },
+  rappel: { roles: ['superadmin', 'editor'], clean: cleanRappelSettings },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
-export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires'];
+export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel'];

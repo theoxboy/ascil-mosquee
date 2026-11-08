@@ -25,7 +25,8 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | H2 | Horaires : API du tableau du mois (`GET`/`PUT /api/admin/prayer-times`) et API publique du mois et du jour (`GET /api/prayer-times`, repli sur les défauts Accueil) | en ligne |
 | H3 | Horaires : panneau `SA-Horaires` (« Horaires du mois », tableau mensuel éditable, copie sur tout le mois, collage Excel, réglages `horaires`, dates Ramadan depuis `season`, Jumu'a depuis le tableau mensuel) | en ligne |
 | H4 | Horaires : page publique (et M-/T-) reliée à la base : heures du jour, tableau du mois avec « Aujourd'hui » sur le vrai jour, carte du vendredi, Ramadan (dates du Mode du site, Suhoor, Iftar, Tarawih), Aïd, Qibla, réglages du bloc Aujourd'hui ; bouton PDF retiré (`scripts/wire_prieres.py`) | en ligne |
-| H5 | Horaires : heures du jour sur les 58 pages publiques (barre « Prochaine prière », menu mobile, pied de page, carte « Prochaine prière » de l'accueil), sur toutes les heures remplies ; le script de l'accueil ne garde que l'affichage des puces et de la progression | fait, à pousser |
+| H5 | Horaires : heures du jour sur les 58 pages publiques (barre « Prochaine prière », menu mobile, pied de page, carte « Prochaine prière » de l'accueil), sur toutes les heures remplies ; le script de l'accueil ne garde que l'affichage des puces et de la progression | en ligne |
+| H6 | Horaires : onglets « Langue de la khutba » (clé `khutba` : vendredis datés, langue, traduction, imam, nombre affiché, mode) et « Rappel de prière » (clé `rappel` : prières et délais proposés, délai par défaut, titre, son, vibration) ; pages N2-Khutba et N3-Rappel reliées (vraies notifications page ouverte, choix mémorisés sur l'appareil, fichier calendrier .ics du mois) | fait, à pousser |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -61,11 +62,13 @@ INSERT OR IGNORE INTO d1_migrations (name) VALUES ('0006_dates_iso_et_limites.sq
 | `season` | superadmin, editor | `PUT /api/admin/settings/season` | `GET /api/settings/season` (accueil) |
 | `languages` | superadmin, editor | `PUT /api/admin/settings/languages` | `GET /api/settings/languages` |
 | `horaires` | superadmin, editor | `PUT /api/admin/settings/horaires` | `GET /api/settings/horaires` (page Horaires) |
+| `khutba` | superadmin, editor | `PUT /api/admin/settings/khutba` | `GET /api/settings/khutba` (page Langue de la khutba) |
+| `rappel` | superadmin, editor | `PUT /api/admin/settings/rappel` | `GET /api/settings/rappel` (page Rappel de prière) |
 | `event_registration` | superadmin, events | `PUT /api/admin/events/settings` | `GET /api/events/registration-info` |
 
 La route générique `/api/admin/settings/:key` n'accepte que les clés de `GENERIC_KEYS`
 (`functions/_lib/settings.js`), chacune avec ses rôles et sa validation : aucune clé arbitraire.
-La lecture publique `/api/settings/:key` est limitée à `PUBLIC_KEYS` (`home`, `pages`, `alert`, `season`, `languages`, `horaires`).
+La lecture publique `/api/settings/:key` est limitée à `PUBLIC_KEYS` (`home`, `pages`, `alert`, `season`, `languages`, `horaires`, `khutba`, `rappel`).
 
 Horaires : les heures sont dans `prayer_times` (une ligne par jour) ; une case vide prend la valeur par défaut de la carte
 « Prochaine prière » de l'Accueil (`home.priere` : Fajr 06:30, Jumu'a 12:30, Icha 19:00), puis « — ». Les dates du Ramadan viennent de la clé `season`.

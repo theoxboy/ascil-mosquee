@@ -229,6 +229,71 @@ SP0_HTML = (
 )
 
 
+# Onglets « Langue de la khutba » (#sp-1, clé khutba) et « Rappel de prière » (#sp-2, clé rappel) : étape H6.
+SP12_HTML = (
+    '<div id="sp-1" class="sp">'
+    '<div class="sp-h"><div style="flex:1;min-width:220px"><p class="eyebrow">Page</p>'
+    '<h2 class="serif" style="margin:4px 0 0;font-size:26px;color:#0E4D3C;font-weight:700">Langue de la khutba</h2></div>'
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    '<span class="tag" style="background:{{pub.pub_khutba.bg}};color:{{pub.pub_khutba.fg}}">{{pub.pub_khutba.t}}</span>'
+    '<span style="font-size:13px;font-weight:600;color:#4F5E57">Page publiée</span>'
+    '<button type="button" class="sw" role="switch" aria-label="Publier la page Langue de la khutba" aria-checked="{{s.pub_khutba.c}}" sc-camel-on-click="{{s.pub_khutba.t}}"></button></div>'
+    '<a class="btn btn-line" href="N2-Khutba.dc.html" style="min-height:40px"><svg aria-hidden="true" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Voir la page</a></div></div>'
+    '<p class="warn">Le site montre les vendredis à venir, dans l’ordre des dates, avec l’heure de Jumu’a du tableau du mois. '
+    'La page reste masquée tant que vous ne la publiez pas.</p>'
+    '<section class="card" aria-label="Vendredis à venir"><div class="card-h"><span class="num" aria-hidden="true">1</span>'
+    '<div><h3 class="ttl">Vendredis à venir</h3><p class="dsc">Une ligne par vendredi. Les vendredis passés ne sont plus affichés sur le site.</p></div></div>'
+    '<div class="card-b"><div id="kh-list"><p class="hint">Chargement…</p></div>'
+    '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">'
+    '<div class="fld" style="min-width:200px"><label class="lbl" for="kh-new-date">Date du vendredi à ajouter</label>'
+    '<input class="in" id="kh-new-date" type="date"></div>'
+    '<button type="button" class="btn btn-line" id="kh-add" style="min-height:44px">+ Ajouter un vendredi</button></div>'
+    '<div class="g2"><div class="fld"><label class="lbl" for="f21">Nombre de vendredis affichés</label>'
+    '<sc-raw-select class="in" id="f21"><option value="2">2</option><option value="4">4</option><option value="6">6</option><option value="8">8</option></sc-raw-select></div>'
+    '<div class="fld"><label class="lbl" for="f22">Mode de traduction</label><sc-raw-select class="in" id="f22">'
+    '<option>Résumé imprimé à l’entrée</option><option>Traduction orale</option><option>Écran</option></sc-raw-select></div></div>'
+    '</div></section></div>'
+
+    '<div id="sp-2" class="sp">'
+    '<div class="sp-h"><div style="flex:1;min-width:220px"><p class="eyebrow">Petite app</p>'
+    '<h2 class="serif" style="margin:4px 0 0;font-size:26px;color:#0E4D3C;font-weight:700">Rappel de prière</h2></div>'
+    '<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
+    '<span class="tag" style="background:{{pub.pub_rappel.bg}};color:{{pub.pub_rappel.fg}}">{{pub.pub_rappel.t}}</span>'
+    '<span style="font-size:13px;font-weight:600;color:#4F5E57">Page publiée</span>'
+    '<button type="button" class="sw" role="switch" aria-label="Publier la page Rappel de prière" aria-checked="{{s.pub_rappel.c}}" sc-camel-on-click="{{s.pub_rappel.t}}"></button></div>'
+    '<a class="btn btn-line" href="N3-Rappel.dc.html" style="min-height:40px"><svg aria-hidden="true" width="16" height="16" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"></path><circle cx="12" cy="12" r="3"></circle></svg>Voir la page</a></div></div>'
+    '<p class="warn">Les rappels fonctionnent dans le navigateur des visiteurs, sans compte, tant que la page reste ouverte. '
+    'Ils peuvent aussi les ajouter à leur calendrier (fichier .ics) pour être prévenus page fermée.</p>'
+    '<section class="card" aria-label="Prières proposées"><div class="card-h"><span class="num" aria-hidden="true">1</span>'
+    '<div><h3 class="ttl">Prières proposées</h3><p class="dsc">Les visiteurs choisissent parmi celles-ci. Les heures viennent du tableau du mois.</p></div></div>'
+    '<div class="card-b"><div>'
+    + ''.join(
+        '<div class="row"><div><div style="font-weight:600;font-size:14px">%s</div>%s</div>'
+        '<button type="button" class="sw" role="switch" aria-label="%s" aria-checked="{{s.%s.c}}" sc-camel-on-click="{{s.%s.t}}"></button></div>'
+        % (n, '<p class="hint">Proposée seulement les jours où son heure est dans le tableau du mois.</p>' if hint else '', n, k, k)
+        for n, k, hint in [('Fajr', 'r_fajr', False), ('Dohr', 'r_dohr', True), ('Jumu’a', 'r_jumua', False),
+                           ('Asr', 'r_asr', True), ('Maghreb', 'r_maghreb', True), ('Icha', 'r_icha', False)])
+    + '</div></div></section>'
+    '<section class="card" aria-label="Délais de rappel"><div class="card-h"><span class="num" aria-hidden="true">2</span>'
+    '<div><h3 class="ttl">Délais de rappel</h3><p class="dsc">« À l’heure » est toujours proposé en plus.</p></div></div>'
+    '<div class="card-b"><div class="fld"><span class="lbl" id="f23">Délais proposés</span>'
+    '<div class="seg" id="rp-delais" role="group" aria-labelledby="f23" style="align-self:flex-start;flex-wrap:wrap">'
+    '<button type="button" data-rp-delai="5" aria-pressed="true">5 min</button><button type="button" data-rp-delai="10" aria-pressed="true">10 min</button>'
+    '<button type="button" data-rp-delai="15" aria-pressed="true">15 min</button><button type="button" data-rp-delai="30" aria-pressed="true">30 min</button>'
+    '<button type="button" data-rp-delai="60" aria-pressed="true">1 h</button></div></div>'
+    '<div class="g2"><div class="fld"><label class="lbl" for="f24">Délai coché par défaut</label><sc-raw-select class="in" id="f24">'
+    '<option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option><option value="30">30 min</option><option value="60">1 h</option>'
+    '</sc-raw-select></div>'
+    '<div class="fld"><label class="lbl" for="f25">Titre de la notification</label><input class="in" id="f25" type="text" maxlength="80">'
+    '<p class="hint">{délai} est remplacé par le délai choisi, par exemple « 15 min ».</p></div></div>'
+    '<div><div class="row"><div><div style="font-weight:600;font-size:14px">Option « Son »</div></div>'
+    '<button type="button" class="sw" role="switch" aria-label="Option « Son »" aria-checked="{{s.r_son.c}}" sc-camel-on-click="{{s.r_son.t}}"></button></div>'
+    '<div class="row"><div><div style="font-weight:600;font-size:14px">Option « Vibration »</div></div>'
+    '<button type="button" class="sw" role="switch" aria-label="Option « Vibration »" aria-checked="{{s.r_vib.c}}" sc-camel-on-click="{{s.r_vib.t}}"></button></div></div>'
+    '</div></section></div>'
+)
+
+
 COMPONENT_SCRIPT = r"""class Component extends DCLogic {
   constructor(props) {
     super(props);
@@ -635,6 +700,8 @@ HORAIRES_SYNC_SCRIPT = r'''<script id="sa-horaires-sync">
   }
 
   function isSettingsDirty() {
+    if (khBase && JSON.stringify(readKhutba()) !== khBase) return true;
+    if (rpDomBase && rpDomSig() !== rpDomBase) return true;
     if (!settingsBase) return false;
     return JSON.stringify(readHorairesForm()) !== JSON.stringify(settingsBase);
   }
@@ -829,6 +896,189 @@ HORAIRES_SYNC_SCRIPT = r'''<script id="sa-horaires-sync">
     return { ok: true };
   }
 
+
+  // ---- H6 : onglet « Langue de la khutba » (clé khutba) ----
+  var KH_LANGUES = ['Français', 'Arabe', 'Anglais', 'Arabe et français'];
+  var KH_TRADS = ['Aucune', 'Arabe', 'Français', 'Anglais'];
+  var KH_TRASH = '<svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+  var khBase = null, khDraft = null, rpBase = null, rpDomBase = null;
+  // Interrupteurs : suivis par la logique du panneau (état « on » / « base ») ; ici, seulement les champs.
+  function rpDomSig() { return JSON.stringify({ delais: rpSelectedDelais(), defaut: parseInt(getVal('f24'), 10) || 15, titre: oneSpace(getVal('f25')) }); }
+
+  function escH(v) {
+    return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; });
+  }
+  function todayIso() {
+    try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
+    catch (e) { return new Date().toISOString().slice(0, 10); }
+  }
+  function longFr(iso) {
+    try { return new Intl.DateTimeFormat('fr-CA', { timeZone: 'UTC', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso + 'T12:00:00Z')); }
+    catch (e) { return iso; }
+  }
+  function opts(list, cur) {
+    return list.map(function (v) { return '<option' + (v === cur ? ' selected' : '') + '>' + escH(v) + '</option>'; }).join('');
+  }
+  function oneSpace(v) { return String(v || '').replace(/\s+/g, ' ').trim(); }
+
+  function renderKhutba() {
+    var wrap = getEl('kh-list');
+    if (!wrap || !khDraft) return;
+    var list = khDraft.vendredis, t = todayIso();
+    if (!list.length) {
+      wrap.innerHTML = '<p class="hint" style="margin:0">Aucun vendredi pour l’instant. Choisissez une date ci-dessous pour ajouter le premier.</p>';
+      return;
+    }
+    wrap.innerHTML = '<ol style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px">' + list.map(function (v, i) {
+      var lab = longFr(v.date), past = v.date < t;
+      return '<li style="border:1px solid #E4D9C0;border-radius:14px;background:#fff">' +
+        '<div style="display:flex;align-items:center;gap:10px;padding:10px 10px 10px 14px;flex-wrap:wrap;border-bottom:1px solid #F3EAD8">' +
+        '<span class="pos">' + (i + 1) + '</span>' +
+        '<span style="flex:1;min-width:150px;font-weight:700;color:#0E4D3C;text-transform:capitalize">' + escH(lab) + '</span>' +
+        (past ? '<span class="tag" style="background:#F3EAD8;color:#7A5A1E">Passé, plus affiché</span>' : '') +
+        '<button type="button" class="ico" data-kh-del="' + i + '" aria-label="Supprimer le ' + escH(lab) + '">' + KH_TRASH + '</button>' +
+        '<button type="button" class="sw" role="switch" data-kh-on="' + i + '" aria-label="Afficher le ' + escH(lab) + '" aria-checked="' + (v.on ? 'true' : 'false') + '"></button>' +
+        '</div><div class="li-b" style="opacity:' + (v.on ? 1 : 0.5) + '"><div class="g3">' +
+        '<div class="fld"><label class="lbl" for="kh-l-' + i + '">Langue principale</label><select class="in" id="kh-l-' + i + '" data-i="' + i + '" data-f="langue">' + opts(KH_LANGUES, v.langue) + '</select></div>' +
+        '<div class="fld"><label class="lbl" for="kh-t-' + i + '">Traduction</label><select class="in" id="kh-t-' + i + '" data-i="' + i + '" data-f="traduction">' + opts(KH_TRADS, v.traduction) + '</select></div>' +
+        '<div class="fld"><label class="lbl" for="kh-i-' + i + '">Imam</label><input class="in" id="kh-i-' + i + '" type="text" maxlength="80" data-i="' + i + '" data-f="imam" placeholder="Nom à confirmer" value="' + escH(v.imam) + '"></div>' +
+        '</div></div></li>';
+    }).join('') + '</ol>';
+  }
+
+  function applyKhutba(k, asBase) {
+    if (!k) return;
+    if (asBase) khBase = JSON.stringify(k);
+    khDraft = JSON.parse(JSON.stringify(k));
+    setVal('f21', String(k.nombre || 4));
+    setVal('f22', k.mode || 'Résumé imprimé à l’entrée');
+    renderKhutba();
+  }
+
+  function readKhutba() {
+    if (!khDraft) return null;
+    return {
+      vendredis: khDraft.vendredis.map(function (v) {
+        return { date: v.date, langue: v.langue, traduction: v.traduction, imam: oneSpace(v.imam), on: !!v.on };
+      }),
+      nombre: parseInt(getVal('f21'), 10) || 4,
+      mode: getVal('f22') || 'Résumé imprimé à l’entrée'
+    };
+  }
+
+  function addKhutbaDay() {
+    var d = getVal('kh-new-date');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) { flash('Choisissez d’abord la date du vendredi à ajouter.'); return; }
+    if (dayOfWeek(d) !== 5) { flash('Cette date n’est pas un vendredi. Choisissez un vendredi.'); return; }
+    if (!khDraft) return;
+    if (khDraft.vendredis.some(function (v) { return v.date === d; })) { flash('Ce vendredi est déjà dans la liste.'); return; }
+    khDraft.vendredis.push({ date: d, langue: 'Arabe', traduction: 'Français', imam: '', on: true });
+    khDraft.vendredis.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    setVal('kh-new-date', '');
+    renderKhutba();
+    checkDirty();
+    flash('Vendredi ajouté. Cliquez sur Enregistrer pour le publier.');
+  }
+
+  // ---- H6 : onglet « Rappel de prière » (clé rappel) ----
+  var RP_KEYS = { fajr: 'r_fajr', dohr: 'r_dohr', jumua: 'r_jumua', asr: 'r_asr', maghreb: 'r_maghreb', icha: 'r_icha' };
+  function rpSelectedDelais() {
+    var out = [];
+    document.querySelectorAll('#rp-delais [data-rp-delai]').forEach(function (b) {
+      if (b.getAttribute('aria-pressed') === 'true') out.push(parseInt(b.getAttribute('data-rp-delai'), 10));
+    });
+    return out;
+  }
+  function rpRefreshDefaut(wanted) {
+    var sel = getEl('f24');
+    if (!sel) return;
+    var list = rpSelectedDelais();
+    var cur = wanted != null ? String(wanted) : sel.value;
+    sel.innerHTML = list.map(function (d) { return '<option value="' + d + '">' + (d === 60 ? '1 h' : d + ' min') + '</option>'; }).join('');
+    sel.value = list.indexOf(parseInt(cur, 10)) > -1 ? cur : (list.indexOf(15) > -1 ? '15' : String(list[0]));
+  }
+  function readRappel() {
+    var c = comp();
+    var on = (c && c.state && c.state.on) ? c.state.on : {};
+    var prieres = {};
+    Object.keys(RP_KEYS).forEach(function (k) { prieres[k] = !!on[RP_KEYS[k]]; });
+    return {
+      prieres: prieres,
+      delais: rpSelectedDelais(),
+      defaut: parseInt(getVal('f24'), 10) || 15,
+      titre: oneSpace(getVal('f25')),
+      son: !!on.r_son,
+      vibration: !!on.r_vib
+    };
+  }
+  function applyRappel(r, asBase) {
+    if (!r) return;
+    if (asBase) rpBase = JSON.stringify(r);
+    var sw = { r_son: !!r.son, r_vib: !!r.vibration };
+    Object.keys(RP_KEYS).forEach(function (k) { sw[RP_KEYS[k]] = !!(r.prieres && r.prieres[k]); });
+    var c = comp();
+    if (c) c.setSwitches(sw, asBase);
+    document.querySelectorAll('#rp-delais [data-rp-delai]').forEach(function (b) {
+      var d = parseInt(b.getAttribute('data-rp-delai'), 10);
+      b.setAttribute('aria-pressed', (r.delais || []).indexOf(d) > -1 ? 'true' : 'false');
+    });
+    rpRefreshDefaut(r.defaut);
+    setVal('f25', r.titre || 'Prière dans {délai}');
+    if (asBase) rpDomBase = rpDomSig();
+  }
+
+  function bindH6() {
+    var list = getEl('kh-list');
+    if (list) {
+      var onField = function (e) {
+        var t = e.target;
+        if (!t || !t.getAttribute || t.getAttribute('data-f') == null || !khDraft) return;
+        var row = khDraft.vendredis[parseInt(t.getAttribute('data-i'), 10)];
+        if (!row) return;
+        row[t.getAttribute('data-f')] = t.value;
+        checkDirty();
+      };
+      list.addEventListener('input', onField);
+      list.addEventListener('change', onField);
+      list.addEventListener('click', function (e) {
+        var b = e.target && e.target.closest ? e.target.closest('button') : null;
+        if (!b || !khDraft) return;
+        if (b.hasAttribute('data-kh-del')) {
+          khDraft.vendredis.splice(parseInt(b.getAttribute('data-kh-del'), 10), 1);
+          renderKhutba();
+          checkDirty();
+          flash('Vendredi retiré. « Annuler les changements » le remet.');
+        } else if (b.hasAttribute('data-kh-on')) {
+          var row = khDraft.vendredis[parseInt(b.getAttribute('data-kh-on'), 10)];
+          if (!row) return;
+          row.on = !row.on;
+          renderKhutba();
+          checkDirty();
+        }
+      });
+    }
+    var add = getEl('kh-add');
+    if (add) add.addEventListener('click', addKhutbaDay);
+    ['f21', 'f22', 'f24', 'f25'].forEach(function (id) {
+      var el = getEl(id);
+      if (!el) return;
+      el.addEventListener('input', checkDirty);
+      el.addEventListener('change', checkDirty);
+    });
+    var seg = getEl('rp-delais');
+    if (seg) {
+      seg.addEventListener('click', function (e) {
+        var b = e.target && e.target.closest ? e.target.closest('[data-rp-delai]') : null;
+        if (!b) return;
+        var pressed = b.getAttribute('aria-pressed') === 'true';
+        if (pressed && rpSelectedDelais().length === 1) { flash('Gardez au moins un délai proposé.'); return; }
+        b.setAttribute('aria-pressed', pressed ? 'false' : 'true');
+        rpRefreshDefaut(null);
+        checkDirty();
+      });
+    }
+  }
+
   function saveAll() {
     if (saving) return;
     var check = validateTableInputs();
@@ -839,6 +1089,14 @@ HORAIRES_SYNC_SCRIPT = r'''<script id="sa-horaires-sync">
       flash('Le lien itinéraire de l’Aïd doit commencer par https://');
       var f8 = getEl('f8');
       if (f8) f8.focus();
+      return;
+    }
+
+    var khPayload = readKhutba(), rpPayload = readRappel();
+    if (rpPayload && !rpPayload.titre) {
+      flash('Écrivez le titre de la notification (onglet Rappel de prière).');
+      var f25 = getEl('f25');
+      if (f25) f25.focus();
       return;
     }
 
@@ -860,7 +1118,9 @@ HORAIRES_SYNC_SCRIPT = r'''<script id="sa-horaires-sync">
     };
 
     var tasks = [
-      putJson('/api/admin/settings/horaires', horairesPayload)
+      putJson('/api/admin/settings/horaires', horairesPayload),
+      khPayload ? putJson('/api/admin/settings/khutba', khPayload) : Promise.resolve({ ok: true }),
+      rpPayload ? putJson('/api/admin/settings/rappel', rpPayload) : Promise.resolve({ ok: true })
     ];
 
     monthsToSave.forEach(function (ym) {
@@ -898,6 +1158,8 @@ HORAIRES_SYNC_SCRIPT = r'''<script id="sa-horaires-sync">
           flash((failed && failed.message) || 'L’enregistrement a échoué. Vérifiez vos valeurs et réessayez.');
           return;
         }
+        if (results[1] && results[1].settings) applyKhutba(results[1].settings, true);
+        if (results[2] && results[2].settings) applyRappel(results[2].settings, true);
         var hRes = results[0];
         if (hRes && hRes.settings) {
           applyHorairesToForm(hRes.settings, true);
@@ -932,6 +1194,8 @@ HORAIRES_SYNC_SCRIPT = r'''<script id="sa-horaires-sync">
     if (settingsBase) {
       applyHorairesToForm(settingsBase, false);
     }
+    if (khBase) applyKhutba(JSON.parse(khBase), false);
+    if (rpBase) applyRappel(JSON.parse(rpBase), false);
     var c = comp();
     if (c) c.revertBase();
     flash('Changements annulés.');
@@ -1096,6 +1360,7 @@ HORAIRES_SYNC_SCRIPT = r'''<script id="sa-horaires-sync">
     }
 
     bindEvents();
+    bindH6();
 
     var getJson = function (url) {
       return fetch(url, { credentials: 'same-origin' }).then(function (r) { return r.json().catch(function () { return { ok: false }; }); });
@@ -1105,9 +1370,14 @@ HORAIRES_SYNC_SCRIPT = r'''<script id="sa-horaires-sync">
       getJson('/api/admin/settings/horaires'),
       getJson('/api/admin/settings/season'),
       getJson('/api/admin/settings/pages'),
-      loadMonth(currentMonth, true)
+      loadMonth(currentMonth, true),
+      getJson('/api/admin/settings/khutba'),
+      getJson('/api/admin/settings/rappel')
     ]).then(function (res) {
       var hData = res[0], sData = res[1], pData = res[2];
+      if (res[4] && res[4].ok && res[4].settings) applyKhutba(res[4].settings, true);
+      else { var kl = getEl('kh-list'); if (kl) kl.innerHTML = '<p class="hint" style="margin:0">Impossible de charger la liste des vendredis. Rechargez la page.</p>'; }
+      if (res[5] && res[5].ok && res[5].settings) applyRappel(res[5].settings, true);
       if (hData && hData.ok && hData.settings) {
         applyHorairesToForm(hData.settings, true);
       }
@@ -1146,6 +1416,11 @@ def wire_horaires_panel():
     a = tpl.index('<div id="sp-0" class="sp">')
     b = tpl.index('<div id="sp-1" class="sp">')
     tpl = tpl[:a] + SP0_HTML + tpl[b:]
+
+    # 1 bis. Remplace #sp-1 (khutba) et #sp-2 (rappel), jusqu'à la fin de <main> (étape H6)
+    a = tpl.index('<div id="sp-1" class="sp">')
+    b = tpl.index('</main>', a)
+    tpl = tpl[:a] + SP12_HTML + tpl[b:]
 
     # 2. Remplace la classe Component par la version reliée
     tpl, n = re.subn(r'class Component extends DCLogic \{.*?\n\}', lambda _: COMPONENT_SCRIPT, tpl, count=1, flags=re.S)
