@@ -288,7 +288,8 @@ LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
   var page = (location.pathname.split('/').pop() || '').replace(/^(M-|T-)/, '').replace(/\.dc(\.html)?$/, '');
   var isHoraires = page === 'Horaires';
   var EXTRA = { 'Horaires': ['horaires', 'season'], 'N2-Khutba': ['khutba'], 'N3-Rappel': ['rappel'],
-    'APropos': ['apropos', 'campagne'], 'N3-Campagne': ['campagne'] }[page] || [];
+    'APropos': ['apropos', 'campagne'], 'N3-Campagne': ['campagne'],
+    'Services': ['services', 'horaires'] }[page] || [];
   var URLS = { campagne: '/api/campagne' };
   function getJ(u) {
     return fetch(u, { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });

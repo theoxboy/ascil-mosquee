@@ -610,6 +610,65 @@ export function cleanCampagneSettings(input) {
   };
 }
 
+// Services → Tous les services (clé services). Cartes de la page Services, dans l'ordre.
+// Trois cartes ont un rôle propre : prieres (heures de Fajr et d'Icha du tableau du mois),
+// jumua (heure de Jumu'a, lignes khutba et espace femmes), aid (lieu repris de horaires.aid.lieu,
+// Zakat al-Fitr). Les autres sont libres (kind 'libre') et peuvent être ajoutées ou supprimées.
+export const SERVICE_KINDS = ['prieres', 'jumua', 'aid', 'libre'];
+const SERVICE_BASE = { titre: '', texte: '', icone: 0, saison: false, lien: '', lienTexte: '', khutba: false, femmes: false, zakat: null, zakatAnnee: '', on: true };
+DEFAULT_SETTINGS.services = {
+  items: [
+    { ...SERVICE_BASE, kind: 'prieres', titre: 'Les cinq prières quotidiennes', texte: 'Au 174 rue Lafontaine, tous les jours.', icone: 0,
+      lien: 'Page : Horaires du mois', lienTexte: 'Tableau complet des horaires' },
+    { ...SERVICE_BASE, kind: 'jumua', titre: 'La prière du vendredi (Jumu’a)', texte: 'Khutba suivie de la prière.', icone: 1, khutba: true, femmes: true },
+    { ...SERVICE_BASE, kind: 'libre', titre: 'Ramadan : Iftar et Tarawih', icone: 2, saison: true,
+      texte: 'Proposés pendant le mois de Ramadan, avec des dates publiées chaque année dès l’annonce officielle.' },
+    { ...SERVICE_BASE, kind: 'aid', titre: 'Les prières de l’Aïd', icone: 3, saison: true, zakat: 15, zakatAnnee: '2025' },
+    { ...SERVICE_BASE, kind: 'libre', titre: 'Solidarité et événements caritatifs', icone: 4, lien: 'Page : Événements', lienTexte: 'Voir les événements',
+      texte: 'Exemple : la journée de parrainage d’orphelins avec l’organisme Soleil des Orphelins, le 25 avril 2026 au 174 rue Lafontaine.' },
+  ],
+  autres: { on: true, cours: true, mariages: true, funerailles: true, aide: true, femmes: true, khutba: true },
+  equipements: { on: true, fauteuil: true, ablutions: true, parking: true, femmes: false },
+  question: { on: true, lien: 'Page : Contact' },
+};
+
+export function cleanServicesSettings(input) {
+  const def = DEFAULT_SETTINGS.services;
+  const i = input && typeof input === 'object' ? input : {};
+  const seen = new Set();
+  const items = listOf(i.items, def.items, 12, (x) => {
+    const kind = SERVICE_KINDS.includes(x.kind) ? x.kind : 'libre';
+    const icone = Number(x.icone);
+    const zak = x.zakat === null || x.zakat === '' || x.zakat === undefined ? null : wholeAmount(x.zakat, 10000);
+    return {
+      kind,
+      titre: oneLine(x.titre, 80),
+      texte: typeof x.texte === 'string' ? x.texte.replace(/\r/g, '').split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).join('\n').trim().slice(0, 400) : '',
+      icone: [0, 1, 2, 3, 4].includes(icone) ? icone : 0,
+      saison: boolOr(x.saison, false),
+      lien: x.lien === '' ? '' : homeLink(x.lien, ''),
+      lienTexte: oneLine(x.lienTexte, 60),
+      khutba: boolOr(x.khutba, false),
+      femmes: boolOr(x.femmes, false),
+      zakat: zak,
+      zakatAnnee: oneLine(x.zakatAnnee, 12),
+      on: boolOr(x.on, true),
+    };
+  }).filter((x) => (x.kind === 'libre' ? true : (seen.has(x.kind) ? false : (seen.add(x.kind), true))));
+  // Les trois cartes à rôle propre existent toujours (masquées si elles avaient disparu).
+  for (const k of ['prieres', 'jumua', 'aid']) {
+    if (!seen.has(k)) items.push({ ...def.items.find((x) => x.kind === k), on: false });
+  }
+  const sec = (k) => (i[k] && typeof i[k] === 'object' ? i[k] : {});
+  const flags = (k) => Object.fromEntries(Object.keys(def[k]).map((f) => [f, boolOr(sec(k)[f], def[k][f])]));
+  return {
+    items,
+    autres: flags('autres'),
+    equipements: flags('equipements'),
+    question: { on: boolOr(sec('question').on, def.question.on), lien: homeLink(sec('question').lien, def.question.lien) },
+  };
+}
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -625,7 +684,8 @@ export const GENERIC_KEYS = {
   // Photos de l’équipe incluses (réduites dans le panneau) : corps de requête plus grand.
   apropos: { roles: ['superadmin', 'editor'], clean: cleanAproposSettings, maxBytes: 1000000 },
   campagne: { roles: ['superadmin', 'editor'], clean: cleanCampagneSettings },
+  services: { roles: ['superadmin', 'editor'], clean: cleanServicesSettings },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
-export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos'];
+export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos', 'services'];
