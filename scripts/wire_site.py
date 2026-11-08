@@ -753,7 +753,11 @@ ACCOUNT_SCRIPT = r"""<script id="sa-site-account">
     'prayer_times.update': 'Horaires du mois modifiés',
     'forms.status': 'Statut d’une demande reçue changé', 'forms.delete': 'Demande reçue supprimée',
     'dua.publier': 'Message du mur Dua publié', 'dua.refuser': 'Message du mur Dua refusé', 'dua.retirer': 'Message retiré du mur Dua',
-    'dua.modifier': 'Message du mur Dua corrigé', 'dua.delete': 'Message du mur Dua supprimé'
+    'dua.modifier': 'Message du mur Dua corrigé', 'dua.delete': 'Message du mur Dua supprimé',
+    'media.upload': 'Photo envoyée', 'media.delete': 'Photo supprimée du stockage',
+    'widgets.create': 'Widget créé', 'widgets.update': 'Widget modifié', 'widgets.delete': 'Widget supprimé',
+    'cforms.create': 'Formulaire créé', 'cforms.update': 'Formulaire modifié', 'cforms.delete': 'Formulaire supprimé',
+    'cforms.entries.status': 'Statut de réponses changé', 'cforms.entries.delete': 'Réponse à un formulaire supprimée'
   };
   var TARGETS = {
     'settings:home': 'Accueil', 'settings:pages': 'Pages publiées', 'settings:event_registration': 'Événement',
@@ -816,6 +820,11 @@ ACCOUNT_SCRIPT = r"""<script id="sa-site-account">
         if (parts.length) label += ' (' + parts.join(' ; ') + ')';
       }
       return label;
+    }
+
+    if (e.target && /^(media|widget|form):/.test(e.target)) {
+      var nm = d && (d.title || d.name) ? ' : « ' + (d.title || d.name) + ' »' : '';
+      return base + nm + (d && Array.isArray(d.ids) ? ' (' + d.ids.length + ')' : '');
     }
 
     if (e.target && e.target.indexOf('prayer_times:') === 0) {

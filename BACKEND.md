@@ -3,6 +3,7 @@
 Le site statique reste servi depuis la racine du dépôt. L'API vit dans `functions/`,
 sur le même domaine : pas de CORS, cookie de session `HttpOnly; Secure; SameSite=Strict`.
 Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages → Paramètres → Liaisons).
+Photos (étape M1) : bucket R2 `ascil-medias`, lié sous le nom `MEDIA` dans `wrangler.toml` (ce fichier fait foi pour les liaisons). Le bucket doit exister avant le déploiement.
 
 ## Feuille de route
 
@@ -34,7 +35,12 @@ Base : D1 `ascil-mosquee`, liée sous le nom `DB` (voir `wrangler.toml` et Pages
 | D | Faire un don : onglet « Page Dons » (clé `dons` : affichage de la campagne, Virement Interac avec montants proposés, Desjardins masqué tant que les 3 numéros manquent, autres formes de don, questions fréquentes, reçus fiscaux ; objectif et montant récolté écrits dans `home.campagne`, zakat al-Fitr reprise de la carte Aïd des Services) et onglet « Bloc Merci » (clé `merci` : bandeau en bas de la page Dons, partage Facebook et WhatsApp réels, bouton de suivi) ; 3 pages Dons (PC, M-, T-) reliées, mentions « À remplir » retirées | en ligne |
 | E | Événements : onglet « Annonces » (clé `evenements` : liste des événements avec fiche détaillée dépliable, inscription par formulaire ou par message, événement à la une automatique ou choisi, filtres par lieu, événements passés le lendemain de leur date, rendez-vous fixes, bloc « Aller plus loin », partage), onglet « Calendrier du mois » (clé `calendrier` : catégories, cours de la semaine, vue par défaut, fichier agenda .ics) et onglet « Inscription » relié à la liste ; onglet « Détail d’un événement » retiré ; « Dernières annonces » de l’accueil calculées depuis les événements (`GET /api/settings/home`) ; pages Événements et Calendrier (PC, M-, T-) reliées, mentions [EXEMPLE À MODIFIER] et « Alertes par courriel » retirées | en ligne |
 | R | Ressources : onglet « Nouveaux arrivants » (clé `ressources` : phrase d’accueil, Manger halal, mosquées et centres voisins avec copie d’adresse et itinéraire, services publics et repères personnels avec liens réels, cartes « Pour bien s’installer », Étudier et scolariser) et onglet « Dua et annonces » : mur réel, table `dua_messages` (migration 0010), envoi public `POST /api/dua` (champ piège, délai minimal de 3 s, 5 envois par connexion en 15 min), compteur « J’ai fait une dua » (une fois par connexion et par jour), signalement qui retire le message jusqu’à relecture, modération `GET/PATCH/DELETE /api/admin/dua` (superadmin, editor), règles du mur (clé `dua` : longueur, délai, catégories, onglets, compteur, signature anonyme, pause) ; pages Ressources et N3-Dua (PC, M-, T-) reliées, mentions [EXEMPLE À MODIFIER] et « prototype » retirées | en ligne |
-| C | Contact : onglet « Page Contact » (clé `contact` : carte et coordonnées GPS, code postal, lignes pratiques modifiables, étiquette de visite en conseils, bouton Copier, lien Facebook des coordonnées générales, demandes particulières avec liens, sujets du formulaire, longueur maximale vérifiée aussi par `POST /api/forms`, page après envoi : remerciement, page du site ou une de mes pages) ; adresse, ville et courriel tirés de `home.general` ; onglet « Page 404 » (clé `p404` : titre, texte, raccourcis) et nouvelle page `404.html` servie par Cloudflare Pages pour toute adresse inconnue ; fausses options « Page : Merci » et « Ma page : Inscriptions Ramadan 2027 » retirées | à pousser |
+| C | Contact : onglet « Page Contact » (clé `contact` : carte et coordonnées GPS, code postal, lignes pratiques modifiables, étiquette de visite en conseils, bouton Copier, lien Facebook des coordonnées générales, demandes particulières avec liens, sujets du formulaire, longueur maximale vérifiée aussi par `POST /api/forms`, page après envoi : remerciement, page du site ou une de mes pages) ; adresse, ville et courriel tirés de `home.general` ; onglet « Page 404 » (clé `p404` : titre, texte, raccourcis) et nouvelle page `404.html` servie par Cloudflare Pages pour toute adresse inconnue ; fausses options « Page : Merci » et « Ma page : Inscriptions Ramadan 2027 » retirées | en ligne |
+| M1 | Photos : bloc « + Photo » de l'éditeur de pages ; envoi `POST /api/admin/media` (corps = fichier, 5 Mo au plus), format reconnu d'après le contenu (JPEG, PNG, WebP, GIF ; pas de SVG), nom aléatoire, fichier rangé dans R2 `MEDIA` et fiche dans `media` (migration 0011) ; `GET /api/admin/media`, `DELETE /api/admin/media/:id` (superadmin, editor) ; photo servie par `GET /media/<nom>` (vrai type, nosniff, aucun script) ; texte alternatif obligatoire, légende, taille ; largeur et hauteur lues dans le fichier pour éviter les sauts de page | à pousser |
+| M2 | Vidéos : bloc « + Vidéo » ; lien YouTube (lu par youtube-nocookie.com), Vimeo (dnt=1) ou Facebook, reconnu des deux côtés (`functions/_lib/video.js`) ; tout autre site refusé ; aperçu dans l'éditeur | à pousser |
+| M3 | Widgets HTML / CSS / JS : bloc « + Widget » ; code rangé dans `page_widgets` (migration 0011), jamais dans la page ; servi seul par `GET /w/:id` avec CSP `sandbox allow-scripts` (origine opaque : pas d'accès à la session, aux cookies, aux données du site ni à la page qui l'affiche) et affiché dans `<iframe sandbox="allow-scripts">` ; sans l'interrupteur « Internet », aucune connexion possible (`connect-src 'none'`) ; création et modification `POST/PUT/DELETE /api/admin/widgets` réservées au superadmin, l'éditeur peut seulement placer un widget existant | à pousser |
+| M4 | Python : langage « Python » du widget, exécuté par Pyodide 0.26.4 (cdn.jsdelivr.net) dans la même boîte isolée ; `print()` affiché sous le widget | à pousser |
+| M5 | Formulaires : nouvelle rubrique `SA-Formulaires` (lien dans le menu de toutes les pages du panneau, avec le nombre de nouvelles réponses) ; tables `custom_forms` et `form_entries` (migration 0011) ; champs texte court, texte long, courriel, téléphone, nombre, date, liste, choix unique, cases à cocher (libellé, aide, obligatoire, choix, ordre) ; bloc « + Formulaire » de l'éditeur ; envoi public `POST /api/forms/custom/:id` par un vrai formulaire HTML (la page reste sans script) : champ piège, délai minimal de 3 s, 5 envois par connexion en 15 min, seuls les champs connus gardés et vérifiés selon leur type, retour sur la page avec le message de remerciement ou l'erreur ; réponses `GET/PATCH /api/admin/custom-forms/:id/entries` (superadmin, editor), suppression (superadmin) ; tableau avec filtre, recherche, statut, export CSV pour Excel (formules neutralisées) ; création et modification des formulaires réservées au superadmin | à pousser |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -53,6 +59,7 @@ Les tables existantes ne sont jamais recréées : on les complète avec `ALTER T
 | `0008_prayer_times.sql` | complète `prayer_times` : colonne `lever`, index unique `ux_prayer_times_date` (une ligne par jour, date AAAA-MM-JJ) |
 | `0009_form_messages.sql` | nouvelle table `form_messages` (boîte de réception des formulaires publics : formulaire d'origine, nom, courriel ou téléphone, message, champs propres, statut) ; aucune table existante modifiée |
 | `0010_dua_messages.sql` | nouvelle table `dua_messages` (mur Dua et annonces : type, catégorie, texte, signature, statut attente/publie/refuse, signalé, compteur de dua, dates) ; aucune table existante modifiée |
+| `0011_medias_widgets_formulaires.sql` | nouvelles tables `media` (photos), `page_widgets` (code des widgets), `custom_forms` (formulaires créés) et `form_entries` (leurs réponses) ; aucune table existante modifiée |
 
 Les migrations sont appliquées à la main dans la console D1. Après chaque application,
 enregistrer la ligne correspondante dans `d1_migrations`, sinon `wrangler d1 migrations apply --remote`
@@ -138,7 +145,7 @@ Les pages `SA-*` sont générées depuis la maquette, puis « branchées » sur 
 modifient les pages générées. Régénérer sans rebrancher efface les branchements.
 
 1. `scripts/install_superadmin.py /Users/mac/Documents/mosque/superadmin.html .` régénère les pages `SA-*`.
-   **Il relance lui-même les étapes 2 à 15**, sauf avec `--sans-branchements`.
+   **Il relance lui-même les étapes 2 à 16**, sauf avec `--sans-branchements`.
 2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
    Il remplace la logique du panneau par `scripts/panneau_component.js` (état unique : interrupteurs,
    ordre, cartes, annonces, heures) ; le script `#sa-panneau-sync` enregistre via `window.__saHome`.
@@ -163,12 +170,13 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
 13. `scripts/wire_ressources.py` : panneau `SA-Ressources` (onglets Nouveaux arrivants et Dua et annonces avec modération), pages Ressources et N3-Dua
 14. `scripts/wire_inbox.py` : onglet « Demandes reçues » de `SA-Contact` et formulaire de la page Contact
 15. `scripts/wire_contact.py` : onglets « Page Contact » et « Page 404 » de `SA-Contact`, pages Contact et nouvelle page `404.html` (construite depuis Contact, liens absolus)
-16. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
+16. `scripts/wire_formulaires.py` : nouvelle page `SA-Formulaires` (construite depuis `SA-Pages` déjà reliée), lien « Formulaires » dans le menu de toutes les pages du panneau et de `SA-Comptes.html`
+17. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
    avec `value="…"` dans la maquette devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
    de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
-   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 15 s'appuient sur les attributs d'origine, d'où cet ordre.
+   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 16 s'appuient sur les attributs d'origine, d'où cet ordre.
 
-Les scripts 2 à 15 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
+Les scripts 2 à 16 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
 
 Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `--reset` pour un nouveau mot de passe).

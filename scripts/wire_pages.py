@@ -5,7 +5,7 @@
    Voir, Copier le lien, Dupliquer, Supprimer (confirmation). L'en-tête global (« Tout est enregistré »,
    « Annuler les changements », « Enregistrer ») suit l'état réel de chargement et du formulaire.
 2. SA-PageEditeur.dc.html (éditeur, ?id=<page>) : titre (compteur X / 120), blocs Texte / Bouton /
-   Tableau (+ Ligne, + Colonne, − Dernière ligne, − Dernière colonne, et suppression par ligne/colonne),
+   Tableau / Photo / Vidéo / Formulaire / Widget (étapes M1 à M5) (+ Ligne, + Colonne, − Dernière ligne, − Dernière colonne, et suppression par ligne/colonne),
    lien de la page (compteur X / 60), visibilité (Brouillon / Publiée / Lien privé), mise en page,
    largeur, description (compteur X / 160), suppression de la page avec confirmation, et barre
    d'enregistrement cohérente en haut ET en bas de page.
@@ -167,7 +167,7 @@ class Component extends DCLogic {
 # ---------------------------------------------------------------- 1. Mes pages
 LIST_MAIN = '''
    <div><p class="eyebrow">Rubrique du menu</p><h1 class="serif ttl-page">Créer une page</h1>
-   <p style="margin:6px 0 0;color:#4F5E57;max-width:640px">Ajoutez une page complète sans toucher au code : texte, boutons, tableaux. Chaque page a son adresse, en brouillon par défaut tant que vous ne la publiez pas.</p></div>
+   <p style="margin:6px 0 0;color:#4F5E57;max-width:640px">Ajoutez une page complète sans toucher au code : texte, boutons, tableaux, photos, vidéos, formulaires et widgets. Chaque page a son adresse, en brouillon par défaut tant que vous ne la publiez pas.</p></div>
    <section class="card" aria-labelledby="np-t"><div class="card-h"><span class="num" aria-hidden="true">1</span><div><h2 class="ttl" id="np-t">Nouvelle page</h2>
    <p class="dsc">Elle démarre en brouillon par défaut (invisible du public). Vous pouvez choisir son lien et sa visibilité dès maintenant, puis la remplir dans l’éditeur.</p></div></div>
    <div class="card-b"><form id="np-form" novalidate style="display:flex;flex-direction:column;gap:14px;margin-top:10px">
@@ -472,7 +472,11 @@ EDITOR_MAIN = '''
       <p class="hint" style="margin:4px 0 0">Les blocs s’affichent dans cet ordre sur la page. Changez l’ordre avec les flèches.</p>
       <div class="pe-add"><button type="button" class="btn btn-line" data-pe-add="texte">+ Texte</button>
       <button type="button" class="btn btn-line" data-pe-add="bouton">+ Bouton</button>
-      <button type="button" class="btn btn-line" data-pe-add="tableau">+ Tableau</button></div>
+      <button type="button" class="btn btn-line" data-pe-add="tableau">+ Tableau</button>
+      <button type="button" class="btn btn-line" data-pe-add="photo">+ Photo</button>
+      <button type="button" class="btn btn-line" data-pe-add="video">+ Vidéo</button>
+      <button type="button" class="btn btn-line" data-pe-add="formulaire">+ Formulaire</button>
+      <button type="button" class="btn btn-line" data-pe-add="widget">+ Widget</button></div>
      </div></section>
     </div>
     <aside aria-label="Réglages de la page" style="display:flex;flex-direction:column;gap:14px;min-width:0">
@@ -536,7 +540,58 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
     private: 'Accessible seulement à qui a le lien. Google ne la voit pas.'
   };
   var LAY_HINT = { site: 'La page garde le menu, le logo et le pied de page du site.', blank: 'Sans menu ni pied de page : idéal pour un outil ou un tableau.' };
-  var META = { texte: 'Texte', bouton: 'Bouton', tableau: 'Tableau' };
+  var META = { texte: 'Texte', bouton: 'Bouton', tableau: 'Tableau', photo: 'Photo', video: 'Vidéo', formulaire: 'Formulaire', widget: 'Widget' };
+  var me = null, media = [], mediaNotice = '', storage = false, widgets = {}, forms = [];
+  function isSuper() { return !!(me && me.role === 'superadmin'); }
+  function mediaById(mid) { for (var k = 0; k < media.length; k++) if (media[k].id === mid) return media[k]; return null; }
+  function widgetList() { return Object.keys(widgets).map(function (k) { return widgets[k]; }).sort(function (a, c) { return c.id - a.id; }); }
+  function widgetDraft(w) {
+    return w ? { title: w.title || '', lang: w.lang || 'web', html: w.html || '', css: w.css || '', js: w.js || '', net: !!w.net, height: w.height || 400 }
+      : { title: '', lang: 'web', html: '', css: '', js: '', net: false, height: 300 };
+  }
+  function stripBlocks(list) {
+    return list.map(function (b) { var c = {}; Object.keys(b).forEach(function (k) { if (k !== '_w') c[k] = b[k]; }); return c; });
+  }
+  // Widgets nouveaux ou modifiés : enregistrés un par un AVANT la page (la page ne garde que leur numéro).
+  function saveWidgets() {
+    if (!isSuper()) return Promise.resolve();
+    var jobs = blocks.filter(function (b) {
+      return b.type === 'widget' && b._w && (!b.widget || !widgets[b.widget] || JSON.stringify(widgetDraft(widgets[b.widget])) !== JSON.stringify(b._w));
+    });
+    return jobs.reduce(function (p, b) {
+      return p.then(function () {
+        var exists = b.widget && widgets[b.widget];
+        return api(exists ? '/api/admin/widgets/' + b.widget : '/api/admin/widgets', { method: exists ? 'PUT' : 'POST', body: JSON.stringify(b._w) }).then(function (r) {
+          if (!r.ok) throw new Error(r.message || 'Le widget n’a pas pu être enregistré. Réessayez.');
+          widgets[r.widget.id] = r.widget;
+          b.widget = r.widget.id;
+        });
+      });
+    }, Promise.resolve());
+  }
+  // Même règle que le serveur (functions/_lib/video.js) : YouTube, Vimeo ou Facebook seulement.
+  function parseVideo(raw) {
+    var u; try { u = new URL(String(raw || '').trim()); } catch (e) { return null; }
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+    var host = u.hostname.replace(/^(www\.|m\.)/, '').toLowerCase();
+    var yt = function (vid) { return /^[A-Za-z0-9_-]{11}$/.test(vid || '') ? { provider: 'YouTube', embed: 'https://www.youtube-nocookie.com/embed/' + vid } : null; };
+    if (host === 'youtu.be') return yt(u.pathname.split('/')[1]);
+    if (host === 'youtube.com' || host === 'youtube-nocookie.com' || host === 'music.youtube.com') {
+      if (u.pathname === '/watch') return yt(u.searchParams.get('v'));
+      var m = /^\/(?:embed|shorts|live|v)\/([^/?#]+)/.exec(u.pathname);
+      return m ? yt(m[1]) : null;
+    }
+    if (host === 'vimeo.com' || host === 'player.vimeo.com') {
+      var mv = /\/(?:video\/)?(\d{5,12})(?:\/|$)/.exec(u.pathname);
+      return mv ? { provider: 'Vimeo', embed: 'https://player.vimeo.com/video/' + mv[1] + '?dnt=1' } : null;
+    }
+    if (host === 'facebook.com' || host === 'fb.watch') {
+      if (host === 'facebook.com' && !/\/(videos|watch|reel)\b/.test(u.pathname + u.search)) return null;
+      var clean = 'https://' + (host === 'fb.watch' ? 'fb.watch' : 'www.facebook.com') + u.pathname + (u.pathname === '/watch/' || u.pathname === '/watch' ? u.search : '');
+      return { provider: 'Facebook', embed: 'https://www.facebook.com/plugins/video.php?href=' + encodeURIComponent(clean) + '&show_text=false' };
+    }
+    return null;
+  }
   var id = parseInt(new URLSearchParams(location.search).get('id'), 10);
   var page = null, blocks = [], saved = '', customPages = [], vis = 'draft', lay = 'site', isSaving = false;
   function $(x) { return document.getElementById(x); }
@@ -793,6 +848,174 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
         }
       });
       body.appendChild(tools);
+    } else if (b.type === 'photo') {
+      if (!storage) body.appendChild(el('p', { class: 'pg-err', style: 'margin-top:8px' }, mediaNotice || 'Le stockage des photos n’est pas relié au site : créez le bucket R2 « ascil-medias » dans Cloudflare, puis redéployez.'));
+      var cur = mediaById(b.media);
+      if (cur) {
+        var pv = el('img', { src: cur.url, alt: '', style: 'display:block;max-width:100%;max-height:220px;margin-top:10px;border-radius:12px;border:1px solid #E4D9C0' });
+        body.appendChild(pv);
+      }
+      var ps = el('select', { class: 'in', id: nid('m') });
+      ps.appendChild(el('option', { value: '' }, media.length ? 'Choisir une photo déjà envoyée…' : 'Aucune photo envoyée pour l’instant'));
+      media.forEach(function (m) {
+        ps.appendChild(el('option', { value: String(m.id) }, (m.name || ('Photo ' + m.id)) + (m.width ? ' · ' + m.width + ' × ' + m.height : '') + ' · ' + Math.max(1, Math.round(m.size / 1024)) + ' ko'));
+      });
+      ps.value = b.media ? String(b.media) : '';
+      ps.addEventListener('change', function () { b.media = ps.value ? parseInt(ps.value, 10) : null; render(); dirtyCheck(); });
+      body.appendChild(field('Photo', ps));
+      var up = el('input', { type: 'file', id: nid('f'), accept: 'image/jpeg,image/png,image/webp,image/gif', class: 'in', style: 'padding:10px' });
+      up.disabled = !storage;
+      var upMsg = el('p', { class: 'hint', role: 'status', 'aria-live': 'polite' }, 'JPEG, PNG, WebP ou GIF · 5 Mo au plus.');
+      up.addEventListener('change', function () {
+        var file = up.files && up.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) { upMsg.textContent = 'Cette photo dépasse 5 Mo. Réduisez-la, puis réessayez.'; up.value = ''; return; }
+        upMsg.textContent = 'Envoi de la photo…';
+        up.disabled = true;
+        fetch('/api/admin/media', { method: 'POST', credentials: 'same-origin', body: file,
+          headers: { 'Content-Type': file.type || 'application/octet-stream', 'X-File-Name': encodeURIComponent(file.name || '') } })
+          .then(function (r) { return r.json().catch(function () { return { ok: false }; }); })
+          .then(function (r) {
+            up.disabled = false; up.value = '';
+            if (!r.ok) { upMsg.textContent = r.message || 'L’envoi a échoué. Réessayez.'; return; }
+            media.unshift(r.media);
+            b.media = r.media.id;
+            render(); dirtyCheck();
+            flash('Photo envoyée. Décrivez-la dans « Texte alternatif », puis enregistrez la page.');
+          }, function () { up.disabled = false; upMsg.textContent = 'Impossible de joindre le serveur. Réessayez.'; });
+      });
+      var upF = field('Ou envoyer une nouvelle photo', up); upF.appendChild(upMsg);
+      body.appendChild(upF);
+      var alt = el('input', { class: 'in', type: 'text', id: nid('a'), maxlength: '200', placeholder: 'Ex. La salle de prière pendant le Ramadan' }); alt.value = b.alt || '';
+      on(alt, function (v) { b.alt = v; });
+      body.appendChild(field('Texte alternatif (obligatoire)', alt, 'Décrit la photo pour les personnes aveugles et pour Google.'));
+      var leg = el('input', { class: 'in', type: 'text', id: nid('c'), maxlength: '200' }); leg.value = b.legende || '';
+      on(leg, function (v) { b.legende = v; });
+      body.appendChild(field('Légende (facultative)', leg, 'Affichée sous la photo.'));
+      var tl = el('select', { class: 'in', id: nid('z') });
+      [['pleine', 'Pleine largeur'], ['moyenne', 'Moyenne'], ['petite', 'Petite']].forEach(function (x) { tl.appendChild(el('option', { value: x[0] }, x[1])); });
+      tl.value = b.taille || 'pleine';
+      tl.addEventListener('change', function () { b.taille = tl.value; dirtyCheck(); });
+      body.appendChild(field('Taille', tl));
+      if (cur) {
+        var rm = el('button', { type: 'button', class: 'btn btn-line', style: 'color:#B3261E;border-color:#E9B4AF;align-self:flex-start;margin-top:8px' }, 'Supprimer cette photo du stockage');
+        rm.addEventListener('click', function () {
+          if (!window.confirm('Supprimer définitivement la photo « ' + (cur.name || cur.id) + ' » ?\n\nToutes les pages qui l’affichent ne la montreront plus. Cette action est irréversible.')) return;
+          api('/api/admin/media/' + cur.id, { method: 'DELETE' }).then(function (r) {
+            if (!r.ok) { flash(r.message || 'La suppression a échoué. Réessayez.'); return; }
+            media = media.filter(function (m) { return m.id !== cur.id; });
+            blocks.forEach(function (x) { if (x.type === 'photo' && x.media === cur.id) x.media = null; });
+            render(); dirtyCheck();
+            flash('Photo supprimée du stockage. Enregistrez la page pour garder ce changement.');
+          }, function () { flash('Impossible de joindre le serveur. Réessayez.'); });
+        });
+        body.appendChild(rm);
+      }
+    } else if (b.type === 'video') {
+      var vu = el('input', { class: 'in', type: 'url', id: nid('v'), maxlength: '500', placeholder: 'https://www.youtube.com/watch?v=…' }); vu.value = b.url || '';
+      var vMsg = el('p', { class: 'hint', role: 'status', 'aria-live': 'polite' });
+      var vBox = el('div', { style: 'margin-top:10px' });
+      var syncVideo = function () {
+        var v = parseVideo(vu.value);
+        vBox.innerHTML = '';
+        if (!vu.value.trim()) { vMsg.textContent = 'Collez le lien d’une vidéo YouTube, Vimeo ou Facebook.'; return; }
+        if (!v) { vMsg.textContent = 'Lien non reconnu : collez un lien YouTube, Vimeo ou Facebook (par exemple https://youtu.be/…).'; return; }
+        vMsg.textContent = 'Vidéo ' + v.provider + ' reconnue. Aperçu ci-dessous.';
+        var fr = el('iframe', { src: v.embed, title: 'Aperçu de la vidéo', loading: 'lazy', allow: 'encrypted-media; picture-in-picture; fullscreen',
+          style: 'display:block;width:100%;max-width:480px;aspect-ratio:16/9;border:0;border-radius:12px;background:#1E2B26' });
+        vBox.appendChild(fr);
+      };
+      vu.addEventListener('input', function () { b.url = vu.value.trim(); vMsg.textContent = ''; dirtyCheck(); });
+      vu.addEventListener('change', function () { b.url = vu.value.trim(); syncVideo(); dirtyCheck(); });
+      var vf = field('Lien de la vidéo', vu); vf.appendChild(vMsg);
+      body.appendChild(vf);
+      var vt = el('input', { class: 'in', type: 'text', id: nid('vt'), maxlength: '120', placeholder: 'Ex. Khutba du vendredi 6 novembre' }); vt.value = b.titre || '';
+      on(vt, function (v) { b.titre = v; });
+      body.appendChild(field('Titre de la vidéo (facultatif)', vt, 'Affiché sous la vidéo et lu par les lecteurs d’écran.'));
+      body.appendChild(vBox);
+      syncVideo();
+    } else if (b.type === 'formulaire') {
+      var fs = el('select', { class: 'in', id: nid('fm') });
+      fs.appendChild(el('option', { value: '' }, forms.length ? 'Choisir un formulaire…' : 'Aucun formulaire pour l’instant'));
+      forms.forEach(function (f) {
+        fs.appendChild(el('option', { value: String(f.id) }, f.title + ' · ' + f.fields.length + (f.fields.length > 1 ? ' champs' : ' champ') + (f.open ? '' : ' · fermé')));
+      });
+      fs.value = b.form ? String(b.form) : '';
+      fs.addEventListener('change', function () { b.form = fs.value ? parseInt(fs.value, 10) : null; dirtyCheck(); });
+      body.appendChild(field('Formulaire à afficher', fs, 'Les réponses arrivent dans le panneau, rubrique Formulaires → Réponses.'));
+      var fl = el('p', { class: 'hint', style: 'margin:8px 0 0' });
+      var fa = el('a', { href: 'SA-Formulaires.dc.html', style: 'font-weight:700' }, forms.length ? 'Gérer les formulaires et voir les réponses' : 'Créer un formulaire');
+      fl.appendChild(fa);
+      body.appendChild(fl);
+    } else if (b.type === 'widget') {
+      if (!isSuper()) {
+        var ws = el('select', { class: 'in', id: nid('w') });
+        ws.appendChild(el('option', { value: '' }, widgetList().length ? 'Choisir un widget…' : 'Aucun widget pour l’instant'));
+        widgetList().forEach(function (w) { ws.appendChild(el('option', { value: String(w.id) }, w.title || ('Widget ' + w.id))); });
+        ws.value = b.widget ? String(b.widget) : '';
+        ws.addEventListener('change', function () { b.widget = ws.value ? parseInt(ws.value, 10) : null; render(); dirtyCheck(); });
+        body.appendChild(field('Widget à afficher', ws, 'Le code des widgets ne peut être écrit ou modifié que par le superadmin.'));
+      } else {
+        if (!b._w) b._w = widgetDraft(widgets[b.widget]);
+        var wd = b._w;
+        var wsel = el('select', { class: 'in', id: nid('w') });
+        wsel.appendChild(el('option', { value: 'new' }, 'Nouveau widget'));
+        widgetList().forEach(function (w) { wsel.appendChild(el('option', { value: String(w.id) }, (w.title || ('Widget ' + w.id)) + ' (n° ' + w.id + ')')); });
+        wsel.value = b.widget ? String(b.widget) : 'new';
+        wsel.addEventListener('change', function () {
+          b.widget = wsel.value === 'new' ? null : parseInt(wsel.value, 10);
+          b._w = widgetDraft(widgets[b.widget]);
+          render(); dirtyCheck();
+        });
+        body.appendChild(field('Widget', wsel, 'Un même widget peut servir sur plusieurs pages : le modifier change toutes ces pages.'));
+        var wt = el('input', { class: 'in', type: 'text', id: nid('wt'), maxlength: '80', placeholder: 'Ex. Calculateur de zakat' }); wt.value = wd.title;
+        on(wt, function (v) { wd.title = v; });
+        body.appendChild(field('Nom du widget', wt, 'Lu par les lecteurs d’écran pour annoncer le widget.'));
+        var lg = el('div', { class: 'seg', role: 'group', 'aria-label': 'Langage du widget', style: 'flex-wrap:wrap;align-self:flex-start;margin-top:8px' });
+        [['web', 'HTML, CSS et JavaScript'], ['python', 'Python']].forEach(function (x) {
+          var bb = el('button', { type: 'button', 'aria-pressed': String(wd.lang === x[0]) }, x[1]);
+          bb.addEventListener('click', function () { wd.lang = x[0]; render(); dirtyCheck(); });
+          lg.appendChild(bb);
+        });
+        body.appendChild(lg);
+        var mono = 'font-family:ui-monospace,Menlo,monospace;font-size:13px;min-height:120px;resize:vertical;white-space:pre';
+        var area = function (key, label, hint, rows) {
+          var t = el('textarea', { class: 'in', id: nid('wc'), rows: String(rows || 6), spellcheck: 'false', autocapitalize: 'off', autocomplete: 'off', style: mono });
+          t.value = wd[key] || '';
+          t.addEventListener('input', function () { wd[key] = t.value; dirtyCheck(); });
+          body.appendChild(field(label, t, hint));
+        };
+        if (wd.lang === 'python') {
+          area('js', 'Code Python', 'Tourne dans le navigateur du visiteur (Pyodide). print() s’affiche sous le widget. Premier chargement : environ 10 Mo, lent sur téléphone.', 10);
+          area('html', 'HTML affiché au-dessus du résultat (facultatif)', 'Le code Python peut le modifier avec « from js import document ».', 4);
+          area('css', 'CSS (facultatif)', '', 4);
+        } else {
+          area('html', 'HTML', '', 8);
+          area('css', 'CSS', '', 5);
+          area('js', 'JavaScript', '', 8);
+        }
+        var g2 = el('div', { class: 'g2', style: 'align-items:start' });
+        var wh = el('input', { class: 'in', type: 'number', id: nid('wh'), min: '80', max: '2000', step: '10' }); wh.value = String(wd.height);
+        on(wh, function (v) { var n = parseInt(v, 10); wd.height = isNaN(n) ? 400 : n; });
+        g2.appendChild(field('Hauteur affichée (pixels)', wh, 'Entre 80 et 2000.'));
+        var nw = el('div', { class: 'fld' });
+        var nl = el('label', { style: 'display:flex;gap:10px;align-items:flex-start;font-weight:600;min-height:44px;cursor:pointer' });
+        var nc = el('input', { type: 'checkbox', style: 'width:22px;height:22px;flex:none;margin-top:2px' }); nc.checked = !!wd.net;
+        nc.addEventListener('change', function () { wd.net = nc.checked; dirtyCheck(); });
+        nl.appendChild(nc); nl.appendChild(document.createTextNode('Autoriser le widget à joindre Internet'));
+        nw.appendChild(nl);
+        nw.appendChild(el('p', { class: 'hint' }, 'Désactivé par défaut : le widget ne peut alors envoyer ni recevoir aucune donnée. À activer seulement pour un service que vous connaissez (formulaire de don externe, carte…).'));
+        g2.appendChild(nw);
+        body.appendChild(g2);
+        var box = el('div', { style: 'margin-top:10px;padding:12px 14px;border-radius:12px;background:#E6EEF8;color:#1F4E86;font-size:14px' },
+          'Sécurité : le widget tourne dans une boîte isolée (adresse /w/…). Il ne peut lire ni la session du panneau, ni les cookies, ni les données du site, ni toucher au reste de la page. Son code reste visible par les visiteurs : n’y mettez jamais de mot de passe ni de clé secrète.');
+        body.appendChild(box);
+        if (b.widget && widgets[b.widget]) {
+          body.appendChild(el('p', { class: 'lbl', style: 'margin:14px 0 6px' }, 'Aperçu (dernière version enregistrée)'));
+          body.appendChild(el('iframe', { src: '/w/' + b.widget + '?v=' + encodeURIComponent(widgets[b.widget].updatedAt || ''), title: 'Aperçu du widget', sandbox: 'allow-scripts',
+            style: 'display:block;width:100%;height:' + Math.min(600, widgets[b.widget].height) + 'px;border:1px solid #E4D9C0;border-radius:12px;background:#fff' }));
+        }
+      }
     }
     sec.appendChild(body);
     return sec;
@@ -803,7 +1026,7 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
     if (!blocks.length) {
       var empty = el('section', { class: 'card' }); var b = el('div', { class: 'card-b' });
       b.appendChild(el('p', { style: 'margin:0;font-weight:700;color:#0E4D3C' }, 'Cette page est encore vide.'));
-      b.appendChild(el('p', { class: 'hint', style: 'margin:4px 0 0' }, 'Ajoutez un premier bloc ci-dessous : un texte, un bouton ou un tableau.'));
+      b.appendChild(el('p', { class: 'hint', style: 'margin:4px 0 0' }, 'Ajoutez un premier bloc ci-dessous : texte, bouton, tableau, photo, vidéo, formulaire ou widget.'));
       empty.appendChild(b); box.appendChild(empty);
     }
     blocks.forEach(function (b, i) { box.appendChild(blockCard(b, i)); });
@@ -814,7 +1037,10 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
   function fill(p) {
     page = p;
     blocks = JSON.parse(JSON.stringify(p.blocks || []));
-    blocks.forEach(function (b) { if (b && b.type === 'tableau') normTable(b); });
+    blocks.forEach(function (b) {
+      if (b && b.type === 'tableau') normTable(b);
+      if (b && b.type === 'widget' && isSuper()) b._w = widgetDraft(widgets[b.widget]);
+    });
     vis = p.visibility || 'draft';
     lay = p.layout || 'site';
     $('pe-title').value = p.title || '';
@@ -844,6 +1070,16 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
     }
     var badUrl = blocks.some(function (x) { return x.type === 'bouton' && x.lien && x.lien.type === 'url' && !/^https?:\/\/\S{3,}$/i.test(x.lien.url); });
     if (badUrl) { flash('Un bouton a un lien externe invalide : il doit commencer par https://'); return; }
+    for (var bi = 0; bi < blocks.length; bi++) {
+      var x = blocks[bi], bn = bi + 1, why = '';
+      if (x.type === 'photo' && !x.media) why = 'Choisissez ou envoyez une photo pour le bloc ' + bn + ', ou supprimez ce bloc.';
+      else if (x.type === 'photo' && !String(x.alt || '').trim()) why = 'Décrivez la photo du bloc ' + bn + ' dans « Texte alternatif » (obligatoire).';
+      else if (x.type === 'video' && !parseVideo(x.url)) why = 'Le bloc ' + bn + ' n’a pas de lien vidéo reconnu : collez un lien YouTube, Vimeo ou Facebook.';
+      else if (x.type === 'formulaire' && !x.form) why = 'Choisissez le formulaire à afficher dans le bloc ' + bn + ', ou supprimez ce bloc.';
+      else if (x.type === 'widget' && !isSuper() && !x.widget) why = 'Choisissez le widget à afficher dans le bloc ' + bn + ', ou supprimez ce bloc.';
+      else if (x.type === 'widget' && isSuper() && x._w && !(x._w.html + x._w.js).trim()) why = 'Le widget du bloc ' + bn + ' est vide : écrivez son code, ou supprimez ce bloc.';
+      if (why) { flash(why); return; }
+    }
     var targetVis = (typeof forcedVis === 'string' && VIS_HINT[forcedVis]) ? forcedVis : vis;
     var body = {
       title: title,
@@ -856,7 +1092,10 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
     };
     isSaving = true;
     syncActionUi();
-    api('/api/admin/pages/' + id, { method: 'PUT', body: JSON.stringify(body) }).then(function (r) {
+    saveWidgets().then(function () {
+      body.blocks = stripBlocks(blocks);
+      return api('/api/admin/pages/' + id, { method: 'PUT', body: JSON.stringify(body) });
+    }, function (err) { return { ok: false, message: err && err.message }; }).then(function (r) {
       isSaving = false;
       if (!r.ok) {
         syncActionUi();
@@ -914,11 +1153,15 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
       if (blocks.length >= 50) { flash('Une page compte au plus 50 blocs.'); return; }
       blocks.push(k === 'texte' ? { type: 'texte', titre: '', texte: '' }
         : k === 'bouton' ? { type: 'bouton', texte: '', lien: { type: 'none' }, style: 'or' }
+        : k === 'photo' ? { type: 'photo', media: null, alt: '', legende: '', taille: 'pleine' }
+        : k === 'video' ? { type: 'video', url: '', titre: '' }
+        : k === 'formulaire' ? { type: 'formulaire', form: null }
+        : k === 'widget' ? { type: 'widget', widget: null }
         : { type: 'tableau', colonnes: ['', ''], lignes: [['', ''], ['', '']] });
       render(); dirtyCheck();
       flash('Bloc « ' + META[k] + ' » ajouté.');
       var cards = $('pe-blocks').querySelectorAll('section.card');
-      var last = cards[cards.length - 1]; var f = last && last.querySelector('input,textarea'); if (f) f.focus();
+      var last = cards[cards.length - 1]; var f = last && last.querySelector('input,textarea,select'); if (f) f.focus();
     } else if (t.hasAttribute('data-pe-vis')) {
       vis = t.getAttribute('data-pe-vis');
       setSeg('data-pe-vis', vis);
@@ -961,7 +1204,8 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
       setBridge({ loaded: true, dirty: false });
       return;
     }
-    Promise.all([api('/api/admin/pages/' + id), api('/api/admin/pages')]).then(function (rs) {
+    Promise.all([api('/api/admin/pages/' + id), api('/api/admin/pages'), api('/api/auth/me'), api('/api/admin/media'),
+      api('/api/admin/widgets'), api('/api/admin/custom-forms')]).then(function (rs) {
       var r = rs[0];
       if (!r.ok) {
         miss.textContent = r.message || 'Impossible de charger cette page.';
@@ -970,6 +1214,13 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
         return;
       }
       customPages = rs[1].ok ? rs[1].pages : [];
+      me = rs[2].ok ? rs[2].admin : null;
+      media = rs[3].ok ? rs[3].media || [] : [];
+      storage = !!(rs[3].ok && rs[3].storage);
+      mediaNotice = rs[3].notice || (rs[3].ok ? '' : rs[3].message || '');
+      widgets = {};
+      (rs[4].ok ? rs[4].widgets || [] : []).forEach(function (w) { widgets[w.id] = w; });
+      forms = rs[5].ok ? rs[5].forms || [] : [];
       $('pe-root').hidden = false;
       fill(r.page);
     }, function () {

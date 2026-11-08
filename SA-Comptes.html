@@ -143,6 +143,7 @@ a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,te
    <a href="SA-Evenements.dc.html">Événements</a>
    <a href="SA-Ressources.dc.html">Ressources</a>
    <a href="SA-Contact.dc.html">Contact</a>
+   <a href="SA-Formulaires.dc.html">Formulaires</a>
    <a href="SA-Comptes.html" aria-current="page" class="on">Comptes</a>
    <div class="side-sub">
     <a href="#sp-liste">Comptes de l’équipe</a>
@@ -705,6 +706,34 @@ document.addEventListener('click', function (e) {
   });
 
   loadAccounts();
+})();
+</script>
+<script id="sa-forms-badge">
+(function () {
+  function apply(n) {
+    document.querySelectorAll('nav.side a[href="SA-Formulaires.dc.html"]').forEach(function (a) {
+      var b = a.querySelector('.fm-badge');
+      if (!n) { if (b) b.remove(); return; }
+      if (!b) {
+        b = document.createElement('span');
+        b.className = 'fm-badge';
+        b.setAttribute('style', 'display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;margin-left:8px;border-radius:999px;background:#C49A4A;color:#1E2B26;font-size:12px;font-weight:800');
+        a.appendChild(b);
+      }
+      b.textContent = String(n);
+      b.setAttribute('aria-label', n + (n > 1 ? ' nouvelles réponses' : ' nouvelle réponse'));
+    });
+  }
+  var n = 0;
+  fetch('/api/admin/custom-forms', { credentials: 'same-origin' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+    if (!d || !d.ok) return;
+    n = (d.forms || []).reduce(function (s, f) { return s + (f.nouveaux || 0); }, 0);
+    apply(n);
+    new MutationObserver(function () {
+      var a = document.querySelector('nav.side a[href="SA-Formulaires.dc.html"]');
+      if (a && n && !a.querySelector('.fm-badge')) apply(n);
+    }).observe(document.documentElement, { childList: true, subtree: true });
+  }, function () {});
 })();
 </script>
 </body>

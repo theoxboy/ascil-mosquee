@@ -4,6 +4,8 @@
     "/api/*",
     "/p/*",
     "/p",
+    "/media/*",
+    "/w/*",
     "/superadmin",
     "/superadmin.html",
     "/SA-*",

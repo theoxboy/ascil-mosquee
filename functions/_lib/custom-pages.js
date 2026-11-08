@@ -2,6 +2,7 @@
 // par l'affichage public /p/<slug>). Tout ce qui entre en base passe par cleanPage().
 import { error } from './http.js';
 import { PAGE_FILES } from './settings.js';
+import { parseVideo } from './video.js';
 
 export const ROLES = ['superadmin', 'editor'];
 export const VISIBILITIES = ['draft', 'published', 'private'];
@@ -9,6 +10,8 @@ const LAYOUTS = ['site', 'blank'];
 const WIDTHS = ['normal', 'large', 'full'];
 const BUTTON_STYLES = ['or', 'vert', 'contour'];
 const MAX_BLOCKS = 50;
+const PHOTO_SIZES = ['pleine', 'moyenne', 'petite'];
+const posInt = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 ? n : null; };
 
 // Lien : 2 à 60 caractères, minuscules sans accent, chiffres et tirets simples.
 export const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -56,7 +59,7 @@ function cleanLink(l) {
   return { type: 'none' };
 }
 
-// Blocs acceptés à cette étape : texte, bouton, tableau. Les autres types sont ignorés.
+// Blocs acceptés : texte, bouton, tableau, photo, vidéo, widget, formulaire. Les autres types sont ignorés.
 export function cleanBlocks(input) {
   if (!Array.isArray(input)) return [];
   const out = [];
@@ -75,6 +78,18 @@ export function cleanBlocks(input) {
         .map((r) => r.concat(Array(n - r.length).fill('')));
       const safeLignes = lignes.length ? lignes : [Array(n).fill('')];
       out.push({ type: 'tableau', colonnes: safeColonnes, lignes: safeLignes });
+    } else if (b.type === 'photo') {
+      // La photo elle-même est une fiche de la table media ; le bloc ne garde que son numéro.
+      out.push({ type: 'photo', media: posInt(b.media), alt: str(b.alt, 200), legende: str(b.legende, 200),
+        taille: PHOTO_SIZES.includes(b.taille) ? b.taille : 'pleine' });
+    } else if (b.type === 'video') {
+      const url = str(b.url, 500);
+      out.push({ type: 'video', url: parseVideo(url) ? url : '', titre: str(b.titre, 120) });
+    } else if (b.type === 'widget') {
+      // Le code n'est jamais dans la page : seulement le numéro du widget (table page_widgets).
+      out.push({ type: 'widget', widget: posInt(b.widget) });
+    } else if (b.type === 'formulaire') {
+      out.push({ type: 'formulaire', form: posInt(b.form) });
     }
   }
   return out;

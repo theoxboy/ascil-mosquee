@@ -1,6 +1,10 @@
 // Rendu HTML des pages créées dans le superadmin (/p/<lien>), côté serveur, sans aucun script.
+// Les widgets (code du superadmin) ne sont jamais insérés ici : ils s'affichent dans un <iframe>
+// isolé qui pointe vers /w/<id> (voir widgets.js). Les formulaires sont de vrais formulaires HTML.
 // Tout texte venant de la base est échappé ; les liens sont recalculés à partir des blocs validés.
 import { PAGE_FILES } from './settings.js';
+import { parseVideo } from './video.js';
+import { FIELD_TYPES, RESULT_MESSAGES } from './custom-forms.js';
 
 const esc = (s) => String(s ?? '')
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -20,7 +24,7 @@ function href(lien) {
   return null;
 }
 
-function renderBlock(b) {
+function renderBlock(b, ctx = {}) {
   if (b.type === 'texte') {
     const paras = String(b.texte || '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean)
       .map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('');
@@ -44,7 +48,89 @@ function renderBlock(b) {
     return `<div class="blk blk-tableau" role="region" aria-label="Tableau, défilable horizontalement si besoin" tabindex="0">`
       + `<table>${head}<tbody>${body}</tbody></table></div>`;
   }
+  if (b.type === 'photo') {
+    const m = ctx.media && ctx.media.get(b.media);
+    if (!m) return '';
+    const size = m.width && m.height ? ` width="${m.width}" height="${m.height}"` : '';
+    return `<figure class="blk blk-photo blk-photo-${esc(b.taille || 'pleine')}">`
+      + `<img src="/media/${esc(m.file_key)}" alt="${esc(b.alt)}"${size} loading="lazy" decoding="async">`
+      + `${b.legende ? `<figcaption>${esc(b.legende)}</figcaption>` : ''}</figure>`;
+  }
+  if (b.type === 'video') {
+    const v = parseVideo(b.url);
+    if (!v) return '';
+    const title = b.titre || `Vidéo ${v.provider}`;
+    return `<figure class="blk blk-video"><div class="vid"><iframe src="${esc(v.embed)}" title="${esc(title)}" loading="lazy"`
+      + ` allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>`
+      + `${b.titre ? `<figcaption>${esc(b.titre)}</figcaption>` : ''}</figure>`;
+  }
+  if (b.type === 'widget') {
+    const w = ctx.widgets && ctx.widgets.get(b.widget);
+    if (!w) return '';
+    return `<div class="blk blk-widget"><iframe src="/w/${w.id}?v=${encodeURIComponent(w.updated_at || '')}" title="${esc(w.title || 'Widget')}"`
+      + ` sandbox="allow-scripts" loading="lazy" referrerpolicy="no-referrer" style="height:${Number(w.height) || 400}px"></iframe></div>`;
+  }
+  if (b.type === 'formulaire') {
+    const f = ctx.forms && ctx.forms.get(b.form);
+    return f ? renderForm(f, ctx) : '';
+  }
   return '';
+}
+
+function fieldHtml(f, fid) {
+  const name = `c_${f.id}`;
+  const id = `f${fid}-${f.id}`;
+  const req = f.requis ? ' required' : '';
+  const star = f.requis ? ' <span class="req" aria-hidden="true">*</span>' : '';
+  const hintId = f.aide ? `${id}-aide` : '';
+  const desc = hintId ? ` aria-describedby="${hintId}"` : '';
+  const hint = f.aide ? `<p class="aide" id="${hintId}">${esc(f.aide)}</p>` : '';
+  const label = `${esc(f.label)}${star}`;
+  if (f.type === 'choix' || f.type === 'cases') {
+    const type = f.type === 'choix' ? 'radio' : 'checkbox';
+    const opts = (f.options || []).map((o, i) => `<label class="opt"><input type="${type}" name="${name}" value="${esc(o)}"`
+      + `${type === 'radio' && f.requis && i === 0 ? ' required' : ''}> <span>${esc(o)}</span></label>`).join('');
+    return `<fieldset class="fld"${desc}><legend>${label}</legend>${hint}${opts}</fieldset>`;
+  }
+  let control;
+  if (f.type === 'paragraphe') {
+    control = `<textarea id="${id}" name="${name}" rows="5" maxlength="5000"${req}${desc}></textarea>`;
+  } else if (f.type === 'liste') {
+    control = `<select id="${id}" name="${name}"${req}${desc}><option value="">Choisir…</option>`
+      + (f.options || []).map((o) => `<option value="${esc(o)}">${esc(o)}</option>`).join('') + '</select>';
+  } else {
+    const t = { texte: 'text', courriel: 'email', telephone: 'tel', nombre: 'text', date: 'date' }[f.type] || 'text';
+    const extra = { texte: ' maxlength="300"', courriel: ' maxlength="200" autocomplete="email"', telephone: ' maxlength="30" autocomplete="tel"',
+      nombre: ' inputmode="decimal" maxlength="30" pattern="-?[0-9]+([.,][0-9]+)?"', date: '' }[f.type] || '';
+    control = `<input id="${id}" name="${name}" type="${t}"${extra}${req}${desc}>`;
+  }
+  return `<div class="fld"><label for="${id}">${label}</label>${hint}${control}</div>`;
+}
+
+function renderForm(f, ctx) {
+  const anchor = `form-${f.id}`;
+  const res = ctx.result && ctx.result.form === f.id ? ctx.result.code : '';
+  const head = `<h2 id="${anchor}-t">${esc(f.title)}</h2>${f.intro ? f.intro.split(/\n\s*\n/).map((p) => `<p>${esc(p).replace(/\n/g, '<br>')}</p>`).join('') : ''}`;
+  if (res === 'ok') {
+    const merci = f.merci || 'Merci ! Votre réponse est bien arrivée à l’association.';
+    return `<section class="blk blk-form" id="${anchor}" aria-labelledby="${anchor}-t">${head}`
+      + `<div class="ok" role="status">${esc(merci).replace(/\n/g, '<br>')}</div>`
+      + `<p><a href="/p/${encodeURIComponent(ctx.slug)}#${anchor}">Envoyer une autre réponse</a></p></section>`;
+  }
+  if (!f.open) {
+    return `<section class="blk blk-form" id="${anchor}" aria-labelledby="${anchor}-t">${head}`
+      + `<p class="note" role="note">Ce formulaire est fermé : il n’accepte plus de réponses.</p></section>`;
+  }
+  const err = res && RESULT_MESSAGES[res] ? `<div class="err" role="alert">${esc(RESULT_MESSAGES[res])}</div>` : '';
+  const fields = (f.fields || []).filter((x) => FIELD_TYPES[x.type]).map((x) => fieldHtml(x, f.id)).join('');
+  const anyReq = (f.fields || []).some((x) => x.requis);
+  return `<section class="blk blk-form" id="${anchor}" aria-labelledby="${anchor}-t">${head}${err}`
+    + `<form method="post" action="/api/forms/custom/${f.id}" accept-charset="utf-8">`
+    + `<input type="hidden" name="_p" value="${esc(ctx.slug)}"><input type="hidden" name="_t" value="${Date.now()}">`
+    + `<div class="hp" aria-hidden="true"><label>Ne pas remplir ce champ <input type="text" name="_site" tabindex="-1" autocomplete="off"></label></div>`
+    + (anyReq ? '<p class="aide">Les champs marqués d’un astérisque (*) sont obligatoires.</p>' : '')
+    + fields
+    + `<p><button class="btn btn-or" type="submit">${esc(f.bouton || 'Envoyer')}</button></p></form></section>`;
 }
 
 const STYLE = `
@@ -88,6 +174,31 @@ table{border-collapse:collapse;width:100%;min-width:480px}
 th,td{padding:12px 14px;text-align:start;border-bottom:1px solid var(--sable);vertical-align:top}
 th{background:var(--sable);color:var(--vert)}
 tr:last-child td{border-bottom:0}
+.blk-photo{margin-inline:0}
+.blk-photo img{display:block;width:100%;height:auto;border-radius:14px;background:var(--sable)}
+.blk-photo-moyenne{max-width:480px}.blk-photo-petite{max-width:280px}
+figcaption{margin-top:8px;color:var(--muted);font-size:15px}
+.blk-video{margin-inline:0}
+.vid{position:relative;aspect-ratio:16/9;border-radius:14px;overflow:hidden;background:var(--encre)}
+.vid iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.blk-widget iframe{display:block;width:100%;border:1px solid var(--sable-bord);border-radius:14px;background:var(--blanc)}
+.blk-form{background:var(--blanc);border:1px solid var(--sable-bord);border-radius:16px;padding:24px}
+.blk-form form{display:flex;flex-direction:column;gap:16px;margin-top:8px}
+.blk-form .fld{display:flex;flex-direction:column;gap:6px;border:0;margin:0;padding:0;min-width:0}
+.blk-form label,.blk-form legend{font-weight:700;color:var(--encre);padding:0}
+.blk-form .opt{font-weight:400;display:flex;gap:10px;align-items:center;min-height:40px}
+.blk-form .opt input{width:22px;height:22px;accent-color:var(--vert)}
+.blk-form input[type=text],.blk-form input[type=email],.blk-form input[type=tel],.blk-form input[type=date],.blk-form select,.blk-form textarea{
+  width:100%;min-width:0;min-height:48px;padding:10px 14px;border:1px solid #8A9A92;border-radius:12px;font:inherit;color:var(--encre);background:var(--blanc)}
+.blk-form textarea{min-height:120px;resize:vertical}
+.blk-form :is(input,select,textarea,button):focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+.blk-form .aide{margin:0;color:var(--muted);font-size:14px}
+.blk-form .req{color:var(--rouge)}
+.blk-form .btn{cursor:pointer;font:inherit;font-weight:700}
+.blk-form .ok{padding:14px 16px;border-radius:12px;background:#DCEFE6;color:var(--vert);font-weight:600}
+.blk-form .err{padding:14px 16px;border-radius:12px;background:#FBEAE8;color:#8C1D18;font-weight:600}
+.blk-form .note{color:var(--muted)}
+.hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
 .draft{background:var(--sable);color:#7A5A1E;text-align:center;padding:10px 16px;font-weight:700;border-bottom:1px solid var(--sable-bord)}
 .empty{color:var(--muted)}
 .ftr{background:var(--vert);color:var(--sable);padding:32px 0;font-size:15px}
@@ -138,8 +249,9 @@ ${site ? FOOTER : ''}
 </body></html>`;
 }
 
-export function renderPage(page, { alert = null, draft = false, origin = '' } = {}) {
-  const blocks = (page.blocks || []).map(renderBlock).join('');
+export function renderPage(page, { alert = null, draft = false, origin = '', refs = {}, result = null } = {}) {
+  const ctx = { ...refs, result, slug: page.slug };
+  const blocks = (page.blocks || []).map((b) => renderBlock(b, ctx)).join('');
   const body = `<main id="contenu" style="max-width:${WIDTHS[page.width] || WIDTHS.normal}">`
     + `<h1>${esc(page.title)}</h1>${blocks || '<p class="empty">Cette page est encore vide.</p>'}</main>`;
   return shell({
