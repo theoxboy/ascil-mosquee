@@ -45,7 +45,8 @@ Photos (étape M1) : espace KV `ascil-medias` (palier gratuit, sans carte bancai
 | N | Nettoyage : libellés « Services (niveau 2) » et « Applications (niveau 3) » dans « Pages publiées », ligne CCIQ masquée dans la page tant qu'elle est vide (plus de lien « # »), lien Facebook de l'ASCIL appliqué aussi hors du pied de page, bouton « Revenir en haut » vers le haut de page, textes de réserve reformulés | en ligne |
 | L1 | Langues : le sélecteur FR / العربية / English change vraiment de langue (choix gardé dans le navigateur, ou `?lang=ar` / `?lang=en` dans l'adresse) ; arabe de droite à gauche avec la police Cairo (`/fonts/cairo`, licence SIL OFL) ; en-tête, menus, pied de page, textes fixes des 59 pages, messages, dates et contenus par défaut traduits (786 textes) ; une langue désactivée dans Site entier → Langues n'est jamais appliquée. Les textes saisis dans le panneau restent en français (étape suivante) | en ligne |
 | L2 | Traductions du panneau : nouvelle rubrique « Traductions » (superadmin et éditeur). Tous les textes saisis dans les rubriques, relus en direct, avec un champ arabe et un champ anglais ; filtre « À traduire », recherche ; correction des traductions des textes fixes ; retrait des traductions plus utilisées. Clé `traductions` (sans migration), lisible publiquement, appliquée par les pages publiques avant le dictionnaire du site. Les pages créées (/p/…) ne sont pas encore traduites | en ligne |
-| P1 | Photos de l'Accueil : dans le panneau Accueil, cartes « Héros » et « Bienvenue aux visiteurs », un bloc Photo permet de choisir la photo (JPEG, PNG, WebP ou GIF, 5 Mo au plus), de la décrire et de remettre la photo d'origine. Clé `photos` (superadmin et éditeur, lisible publiquement), aucune migration. | à pousser |
+| P1 | Photos de l'Accueil : dans le panneau Accueil, cartes « Héros » et « Bienvenue aux visiteurs », un bloc Photo permet de choisir la photo (JPEG, PNG, WebP ou GIF, 5 Mo au plus), de la décrire et de remettre la photo d'origine. Clé `photos` (superadmin et éditeur, lisible publiquement), aucune migration. | en ligne |
+| G | Page « Un site gratuit pour votre mosquée » (`/site-gratuit-mosquee`) en français, arabe et anglais, sans nom mis en avant ; absente du menu principal, lien discret dans le pied de page de toutes les pages publiques | à pousser |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -150,7 +151,7 @@ Les pages `SA-*` sont générées depuis la planche d’origine (`superadmin.htm
 modifient les pages générées. Régénérer sans rebrancher efface les branchements.
 
 1. `scripts/install_superadmin.py /Users/mac/Documents/mosque/superadmin.html .` régénère les pages `SA-*`.
-   **Il relance lui-même les étapes 2 à 21**, sauf avec `--sans-branchements`.
+   **Il relance lui-même les étapes 2 à 22**, sauf avec `--sans-branchements`.
 2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
    Il remplace la logique du panneau par `scripts/panneau_component.js` (état unique : interrupteurs,
    ordre, cartes, annonces, heures) ; le script `#sa-panneau-sync` enregistre via `window.__saHome`.
@@ -181,12 +182,13 @@ modifient les pages générées. Régénérer sans rebrancher efface les branche
 19. `scripts/wire_nettoyage.py` : dernières mentions de brouillon retirées (bouton « Revenir en haut », lieu de l'Aïd vide, certification halal, description du panneau Services)
 20. `scripts/wire_photos.py` : photos de l'Accueil (grande photo du haut et photo « Vous venez pour la première fois ? ») choisies dans le panneau Accueil, cartes Héros et Bienvenue aux visiteurs ; envoi par `/api/admin/media`, chemin gardé dans la clé `photos` ; script `#ascil-photos-live` sur les 4 versions de l'Accueil
 21. `scripts/wire_langues.py` : versions arabe et anglaise. Construit `i18n/ar.json` et `i18n/en.json` depuis `scripts/i18n/strings.json` et `scripts/i18n/*.tsv` (français, arabe, anglais), installe le script commun `#ascil-i18n` sur les 59 pages publiques et liste dans `scripts/i18n-a-traduire.txt` les textes fixes encore sans traduction
-22. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
+22. `scripts/wire_gratuit.py` : page publique `site-gratuit-mosquee.html` (adresse `/site-gratuit-mosquee`), construite depuis `404.html`, en trois langues (textes dans `scripts/i18n/lot-gratuit.tsv`) ; lien discret dans le pied de page de toutes les pages publiques ; pas dans le menu principal
+23. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
    avec `value="…"` dans la planche d’origine devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
    de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
-   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 21 s'appuient sur les attributs d'origine, d'où cet ordre.
+   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 22 s'appuient sur les attributs d'origine, d'où cet ordre.
 
-Les scripts 2 à 21 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
+Les scripts 2 à 22 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
 
 Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `--reset` pour un nouveau mot de passe).

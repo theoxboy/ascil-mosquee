@@ -32,7 +32,8 @@ wire_*.py. Ce script les relance donc automatiquement, dans cet ordre obligatoir
  19. wire_nettoyage.py      (dernières mentions de brouillon retirées)
  20. wire_photos.py         (photos de l'Accueil choisies dans le panneau Accueil)
  21. wire_langues.py        (versions arabe et anglaise : sélecteur, dictionnaires i18n/ar.json et i18n/en.json)
- 22. fix_inputs.py           (libère les champs figés par la maquette : TOUJOURS en dernier)
+ 22. wire_gratuit.py        (page « Un site gratuit pour votre mosquée » et son lien du pied de page)
+ 23. fix_inputs.py           (libère les champs figés par la maquette : TOUJOURS en dernier)
 Option --sans-branchements : ne relance pas les étapes 2 à 12 (déconseillé).
 
 Usage : python3 scripts/install_superadmin.py /chemin/superadmin.html /chemin/ascil-mosquee
@@ -415,7 +416,7 @@ for p in sorted(ROOT.glob('*.dc.html')) + [ROOT / 'index.html']:
 print('pages du site reliées:', n)
 
 # 3. Rebrancher : sans cette étape, les pages SA-* régénérées perdraient la base de données.
-WIRE = ['wire_homepage.py', 'wire_events.py', 'wire_site.py', 'wire_pages.py', 'wire_horaires.py', 'wire_prieres.py', 'wire_apropos.py', 'wire_services.py', 'wire_service_pages.py', 'wire_dons.py', 'wire_evenements.py', 'wire_ressources.py', 'wire_inbox.py', 'wire_contact.py', 'wire_formulaires.py', 'wire_traductions.py', 'wire_pied.py', 'wire_nettoyage.py', 'wire_photos.py', 'wire_langues.py', 'fix_inputs.py']
+WIRE = ['wire_homepage.py', 'wire_events.py', 'wire_site.py', 'wire_pages.py', 'wire_horaires.py', 'wire_prieres.py', 'wire_apropos.py', 'wire_services.py', 'wire_service_pages.py', 'wire_dons.py', 'wire_evenements.py', 'wire_ressources.py', 'wire_inbox.py', 'wire_contact.py', 'wire_formulaires.py', 'wire_traductions.py', 'wire_pied.py', 'wire_nettoyage.py', 'wire_photos.py', 'wire_langues.py', 'wire_gratuit.py', 'fix_inputs.py']
 HERE = pathlib.Path(__file__).resolve().parent
 if '--sans-branchements' in sys.argv:
     print('ATTENTION : branchements non relancés. Lancez ensuite, dans l’ordre :', ', '.join(WIRE))
