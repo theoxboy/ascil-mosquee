@@ -3,9 +3,14 @@
 import { currentAdmin } from './_lib/auth.js';
 import { error, sameOrigin } from './_lib/http.js';
 import { canOpenPage, homeFor, pageKey } from './_lib/roles.js';
-import { pageSettingForPath, readPagesSettings } from './_lib/settings.js';
+import { todayToronto } from './_lib/prayer-times.js';
+import { activeSeasonMode, pageSettingForPath, readPagesSettings, readSeasonSettings } from './_lib/settings.js';
 
 const PRIVATE = [/^\/functions(\/|$)/, /^\/migrations(\/|$)/, /^\/scripts(\/|$)/, /^\/wrangler\.toml$/, /^\/_routes\.json$/, /^\/\.git/];
+// Adresses de l'Accueil : pendant le Ramadan (« Site entier → Mode du site »), elles affichent l'Accueil Ramadan.
+const HOME_PAGES = [/^\/$/, /^\/index(\.html)?$/, /^\/Main\.dc(\.html)?$/, /^\/(?:M|T)-Accueil\.dc(\.html)?$/];
+const SEASON_HOME = { ramadan: '/TH-Ramadan-Accueil.dc' };
+const SEASON_HOME_RE = /^\/TH-Ramadan-Accueil\.dc(\.html)?$/;
 const LOGIN_PAGES = [/^\/superadmin(\.html)?$/, /^\/SA-Connexion\.dc(\.html)?$/];
 
 const PAGE_HEADERS = {
@@ -61,6 +66,24 @@ export async function onRequest(context) {
       return redirect(homeFor(admin.role));
     }
     return withHeaders(await next(), PAGE_HEADERS);
+  }
+
+  // Accueil de saison : servi à la place de l'Accueil, à la même adresse (pas de redirection, pas de clignotement).
+  // Hors saison, l'adresse directe de l'Accueil Ramadan mène à l'Accueil normal.
+  const isHome = HOME_PAGES.some((re) => re.test(path));
+  if ((isHome || SEASON_HOME_RE.test(path)) && env.DB && request.method === 'GET') {
+    const season = await readSeasonSettings(env.DB).catch(() => null);
+    const mode = season ? activeSeasonMode(season, todayToronto()) : 'normal';
+    if (isHome && SEASON_HOME[mode]) {
+      try {
+        const r = await env.ASSETS.fetch(new Request(new URL(SEASON_HOME[mode], url), { method: 'GET' }));
+        if (r.ok) return withHeaders(r, { 'Cache-Control': 'no-cache' });
+      } catch (e) {
+        console.warn('season home error', e && e.message);
+      }
+    } else if (!isHome && !SEASON_HOME[mode]) {
+      return redirect('/');
+    }
   }
 
   // Page publique masquée dans « Site entier → Pages publiées » : son adresse mène à l'accueil.

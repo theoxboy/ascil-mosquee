@@ -323,6 +323,24 @@ export function cleanSeasonSettings(input) {
   return out;
 }
 
+// Mode de saison en vigueur aujourd'hui (date AAAA-MM-JJ, heure de Rivière-du-Loup) : 'normal' sinon.
+export function activeSeasonMode(season, today) {
+  const s = cleanSeasonSettings(season);
+  if (s.mode === 'normal') return 'normal';
+  if (!s.auto) return s.mode;
+  return s.from && s.to && today >= s.from && today <= s.to ? s.mode : 'normal';
+}
+
+export async function readSeasonSettings(db) {
+  try {
+    const row = await db.prepare("SELECT value FROM site_settings WHERE key = 'season'").first();
+    if (row && row.value) return cleanSeasonSettings(JSON.parse(row.value));
+  } catch (err) {
+    console.warn('read season error:', err && err.message);
+  }
+  return { ...DEFAULT_SETTINGS.season };
+}
+
 // « Site entier → Saison et langues → Langues » : langues proposées dans le sélecteur du site.
 // Le français est toujours actif. Par défaut, les trois restent visibles (comme avant ce réglage).
 DEFAULT_SETTINGS.languages = { fr: true, ar: true, en: true };

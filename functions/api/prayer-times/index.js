@@ -88,6 +88,8 @@ export async function handlePublicGet({ request, env, param }) {
     resolveForDate(targetDate),
     targetDate === todayDate ? null : resolveForDate(todayDate),
   ]);
+  // Heures retenues pour chaque jour du mois (ligne du tableau, sinon défauts de l'Accueil, sinon calcul).
+  const resolved = days.map((d) => resolveDayWithDefaults(d, defaults, d.date));
 
   return json(
     {
@@ -97,6 +99,7 @@ export async function handlePublicGet({ request, env, param }) {
       day,
       today: today || day,
       days,
+      resolved,
       savedCount,
       defaults,
     },

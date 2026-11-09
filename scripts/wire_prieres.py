@@ -40,7 +40,7 @@ HORAIRES = {'Horaires.dc.html', 'M-Horaires.dc.html', 'T-Horaires.dc.html'}
 
 
 def public_pages():
-    return sorted(p.name for p in ROOT.glob('*.dc.html') if not p.name.startswith('SA-')) + ['index.html']
+    return sorted(p.name for p in ROOT.glob('*.dc.html') if not p.name.startswith(('SA-', 'TH-'))) + ['index.html']
 
 
 def load(path):

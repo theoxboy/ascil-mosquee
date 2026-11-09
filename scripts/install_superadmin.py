@@ -12,29 +12,30 @@ Puis on ajoute un lien discret « Espace administration » dans le pied de page 
 ATTENTION : régénérer les pages SA-* efface les branchements ajoutés ensuite par les scripts
 wire_*.py. Ce script les relance donc automatiquement, dans cet ordre obligatoire :
   1. install_superadmin.py   (ce script : pages SA-* depuis la maquette)
-  2. wire_homepage.py        (accueil public + panneau Accueil + bandeau statistiques)
-  3. wire_events.py          (inscriptions publiques)
-  4. wire_site.py            (Site entier → Pages publiées, Compte et sécurité + liens du site public)
-  5. wire_pages.py           (Créer une page : « Mes pages » et éditeur)
-  6. wire_horaires.py        (panneau Horaires du mois : tableau mensuel, copie, collage Excel, réglages)
-  7. wire_prieres.py         (site public : heures de prière tirées de la base, page Horaires)
-  8. wire_apropos.py         (panneau À propos + pages publiques À propos et Campagne en direct)
-  9. wire_services.py        (panneau Services + page publique Services)
- 10. wire_service_pages.py  (onglets Cours, Mariages, Funérailles, Aide alimentaire, Espace femmes + leurs pages)
- 11. wire_dons.py            (Faire un don : panneau Page Dons et Bloc Merci + page Dons publique)
- 12. wire_evenements.py      (Événements : liste, à la une, calendrier du mois, inscriptions + pages publiques)
- 13. wire_ressources.py      (Ressources : nouveaux arrivants, mur Dua et annonces avec modération + pages publiques)
- 14. wire_inbox.py           (boîte de réception : Contact → Demandes reçues, formulaire Contact)
- 15. wire_contact.py         (Contact : page Contact, page 404 et nouvelle page 404.html)
- 16. wire_formulaires.py     (nouvelle rubrique Formulaires : formulaires créés et leurs réponses)
- 17. wire_traductions.py     (nouvelle rubrique Traductions : textes du panneau en arabe et en anglais)
- 18. wire_pied.py           (réglages communs : coordonnées et pied de page sur toutes les pages publiques)
- 19. wire_nettoyage.py      (dernières mentions de brouillon retirées)
- 20. wire_photos.py         (photos de l'Accueil choisies dans le panneau Accueil)
- 21. wire_langues.py        (versions arabe et anglaise : sélecteur, dictionnaires i18n/ar.json et i18n/en.json)
- 22. wire_gratuit.py        (page « Un site gratuit pour votre mosquée » et son lien du pied de page)
- 23. fix_inputs.py           (libère les champs figés par la maquette : TOUJOURS en dernier)
-Option --sans-branchements : ne relance pas les étapes 2 à 12 (déconseillé).
+  2. wire_ramadan.py         (thème Ramadan : Accueil et page du mois depuis les maquettes, lien du menu en saison)
+  3. wire_homepage.py        (accueil public + panneau Accueil + bandeau statistiques)
+  4. wire_events.py          (inscriptions publiques)
+  5. wire_site.py            (Site entier → Pages publiées, Compte et sécurité + liens du site public)
+  6. wire_pages.py           (Créer une page : « Mes pages » et éditeur)
+  7. wire_horaires.py        (panneau Horaires du mois : tableau mensuel, copie, collage Excel, réglages)
+  8. wire_prieres.py         (site public : heures de prière tirées de la base, page Horaires)
+  9. wire_apropos.py         (panneau À propos + pages publiques À propos et Campagne en direct)
+ 10. wire_services.py        (panneau Services + page publique Services)
+ 11. wire_service_pages.py  (onglets Cours, Mariages, Funérailles, Aide alimentaire, Espace femmes + leurs pages)
+ 12. wire_dons.py            (Faire un don : panneau Page Dons et Bloc Merci + page Dons publique)
+ 13. wire_evenements.py      (Événements : liste, à la une, calendrier du mois, inscriptions + pages publiques)
+ 14. wire_ressources.py      (Ressources : nouveaux arrivants, mur Dua et annonces avec modération + pages publiques)
+ 15. wire_inbox.py           (boîte de réception : Contact → Demandes reçues, formulaire Contact)
+ 16. wire_contact.py         (Contact : page Contact, page 404 et nouvelle page 404.html)
+ 17. wire_formulaires.py     (nouvelle rubrique Formulaires : formulaires créés et leurs réponses)
+ 18. wire_traductions.py     (nouvelle rubrique Traductions : textes du panneau en arabe et en anglais)
+ 19. wire_pied.py           (réglages communs : coordonnées et pied de page sur toutes les pages publiques)
+ 20. wire_nettoyage.py      (dernières mentions de brouillon retirées)
+ 21. wire_photos.py         (photos de l'Accueil choisies dans le panneau Accueil)
+ 22. wire_langues.py        (versions arabe et anglaise : sélecteur, dictionnaires i18n/ar.json et i18n/en.json)
+ 23. wire_gratuit.py        (page « Un site gratuit pour votre mosquée » et son lien du pied de page)
+ 24. fix_inputs.py           (libère les champs figés par la maquette : TOUJOURS en dernier)
+Option --sans-branchements : ne relance pas les étapes 2 à 24 (déconseillé).
 
 Usage : python3 scripts/install_superadmin.py /chemin/superadmin.html /chemin/ascil-mosquee
 """
@@ -416,7 +417,7 @@ for p in sorted(ROOT.glob('*.dc.html')) + [ROOT / 'index.html']:
 print('pages du site reliées:', n)
 
 # 3. Rebrancher : sans cette étape, les pages SA-* régénérées perdraient la base de données.
-WIRE = ['wire_homepage.py', 'wire_events.py', 'wire_site.py', 'wire_pages.py', 'wire_horaires.py', 'wire_prieres.py', 'wire_apropos.py', 'wire_services.py', 'wire_service_pages.py', 'wire_dons.py', 'wire_evenements.py', 'wire_ressources.py', 'wire_inbox.py', 'wire_contact.py', 'wire_formulaires.py', 'wire_traductions.py', 'wire_pied.py', 'wire_nettoyage.py', 'wire_photos.py', 'wire_langues.py', 'wire_gratuit.py', 'fix_inputs.py']
+WIRE = ['wire_ramadan.py', 'wire_homepage.py', 'wire_events.py', 'wire_site.py', 'wire_pages.py', 'wire_horaires.py', 'wire_prieres.py', 'wire_apropos.py', 'wire_services.py', 'wire_service_pages.py', 'wire_dons.py', 'wire_evenements.py', 'wire_ressources.py', 'wire_inbox.py', 'wire_contact.py', 'wire_formulaires.py', 'wire_traductions.py', 'wire_pied.py', 'wire_nettoyage.py', 'wire_photos.py', 'wire_langues.py', 'wire_gratuit.py', 'fix_inputs.py']
 HERE = pathlib.Path(__file__).resolve().parent
 if '--sans-branchements' in sys.argv:
     print('ATTENTION : branchements non relancés. Lancez ensuite, dans l’ordre :', ', '.join(WIRE))

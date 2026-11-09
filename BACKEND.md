@@ -46,7 +46,8 @@ Photos (étape M1) : espace KV `ascil-medias` (palier gratuit, sans carte bancai
 | L1 | Langues : le sélecteur FR / العربية / English change vraiment de langue (choix gardé dans le navigateur, ou `?lang=ar` / `?lang=en` dans l'adresse) ; arabe de droite à gauche avec la police Cairo (`/fonts/cairo`, licence SIL OFL) ; en-tête, menus, pied de page, textes fixes des 59 pages, messages, dates et contenus par défaut traduits (786 textes) ; une langue désactivée dans Site entier → Langues n'est jamais appliquée. Les textes saisis dans le panneau restent en français (étape suivante) | en ligne |
 | L2 | Traductions du panneau : nouvelle rubrique « Traductions » (superadmin et éditeur). Tous les textes saisis dans les rubriques, relus en direct, avec un champ arabe et un champ anglais ; filtre « À traduire », recherche ; correction des traductions des textes fixes ; retrait des traductions plus utilisées. Clé `traductions` (sans migration), lisible publiquement, appliquée par les pages publiques avant le dictionnaire du site. Les pages créées (/p/…) ne sont pas encore traduites | en ligne |
 | P1 | Photos de l'Accueil : dans le panneau Accueil, cartes « Héros » et « Bienvenue aux visiteurs », un bloc Photo permet de choisir la photo (JPEG, PNG, WebP ou GIF, 5 Mo au plus), de la décrire et de remettre la photo d'origine. Clé `photos` (superadmin et éditeur, lisible publiquement), aucune migration. | en ligne |
-| G | Page « Un site gratuit pour votre mosquée » (`/site-gratuit-mosquee`) en français, arabe et anglais, sans nom mis en avant ; absente du menu principal, lien discret dans le pied de page de toutes les pages publiques | à pousser |
+| G | Page « Un site gratuit pour votre mosquée » (`/site-gratuit-mosquee`) en français, arabe et anglais, sans nom mis en avant ; absente du menu principal, lien discret dans le pied de page de toutes les pages publiques | en ligne |
+| R1 | Thème Ramadan (maquettes « event templates ») : quand Site entier → Mode du site est sur Ramadan (dans ses dates si le changement automatique est coché), l'adresse de l'Accueil affiche l'Accueil Ramadan (`TH-Ramadan-Accueil.dc.html`, servi par `functions/_middleware.js`, sans redirection) et « Ramadan » apparaît dans le menu, vers la page du mois (`TH-Ramadan-Page.dc.html` : calendrier semaine par semaine, nuits du Qadr). Vraies données seulement : dates de `season`, heures de `/api/prayer-times` (iftar = Maghreb ; le mois renvoie maintenant `resolved`, les heures retenues de chaque jour), campagne et annonces de `home`. Imsak, Tarawih, programme, zakat, questions et iftars communautaires restent cachés jusqu'à la rubrique Ramadan du panneau (R2). Aucune migration | à pousser |
 | 4 | Annonces, dons : API sur les tables existantes `announcements`, `donations`, `events` | à faire |
 
 Les tables existantes ne sont jamais recréées : on les complète avec `ALTER TABLE`.
@@ -151,44 +152,45 @@ Les pages `SA-*` sont générées depuis la planche d’origine (`superadmin.htm
 modifient les pages générées. Régénérer sans rebrancher efface les branchements.
 
 1. `scripts/install_superadmin.py /Users/mac/Documents/mosque/superadmin.html .` régénère les pages `SA-*`.
-   **Il relance lui-même les étapes 2 à 22**, sauf avec `--sans-branchements`.
-2. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
+   **Il relance lui-même les étapes 2 à 24**, sauf avec `--sans-branchements`.
+2. `scripts/wire_ramadan.py` : **en premier**. Reconstruit `TH-Ramadan-Accueil.dc.html` et `TH-Ramadan-Page.dc.html` depuis les maquettes gardées dans `scripts/maquettes/` (seul le modèle change, l'enveloppe du fichier reste), les relie aux vraies données et ajoute le script `#ascil-ramadan-menu` (lien « Ramadan » pendant la saison) aux pages publiques ; les étapes suivantes y ajoutent leurs scripts communs (langues, pied de page, bannière d'alerte).
+3. `scripts/wire_homepage.py` : accueil public (réglages, visites), panneau Accueil, bandeau statistiques.
    Il remplace la logique du panneau par `scripts/panneau_component.js` (état unique : interrupteurs,
    ordre, cartes, annonces, heures) ; le script `#sa-panneau-sync` enregistre via `window.__saHome`.
-3. `scripts/wire_events.py` : inscriptions publiques, panneau Événements.
-4. `scripts/wire_site.py` : tout Site entier (pages publiées, mode du site, langues, bannière d'alerte, compte et sécurité),
+4. `scripts/wire_events.py` : inscriptions publiques, panneau Événements.
+5. `scripts/wire_site.py` : tout Site entier (pages publiées, mode du site, langues, bannière d'alerte, compte et sécurité),
    et sur le site public : masquage des pages, bannière d'alerte, sélecteur de langues, bandeau de saison (accueil).
 
-5. `scripts/wire_pages.py` : Créer une page (« Mes pages » et l'éditeur `SA-PageEditeur.dc.html?id=<page>`),
+6. `scripts/wire_pages.py` : Créer une page (« Mes pages » et l'éditeur `SA-PageEditeur.dc.html?id=<page>`),
    et les liens de l'accueil (pages créées proposées, « Lien externe… » qui demande l'adresse).
-6. `scripts/wire_horaires.py` : panneau `SA-Horaires` (« Horaires du mois » : choix du mois courant + 2 suivants,
+7. `scripts/wire_horaires.py` : panneau `SA-Horaires` (« Horaires du mois » : choix du mois courant + 2 suivants,
    tableau mensuel éditable relié à `/api/admin/prayer-times/:month`, « Copier une heure sur tout le mois »,
    « Coller depuis Excel », réglages reliés à `horaires`, dates Ramadan lues depuis `season`, Jumu'a lu/écrit dans le tableau mensuel).
-7. `scripts/wire_prieres.py` : les 58 pages publiques, heures de prière tirées de la base (`GET /api/prayer-times`) ; page Horaires :
+8. `scripts/wire_prieres.py` : les 58 pages publiques, heures de prière tirées de la base (`GET /api/prayer-times`) ; page Horaires :
    tableau du mois, cartes et réglages `horaires`. Le script `#ascil-prayer-live` range les données dans `window.__ascilPrayer`
    et prévient la page (événement `ascil:prayer`).
-8. `scripts/wire_apropos.py` : panneau `SA-APropos` (clés `apropos`, `campagne`, objectif et récolté de `home`)
+9. `scripts/wire_apropos.py` : panneau `SA-APropos` (clés `apropos`, `campagne`, objectif et récolté de `home`)
    et pages publiques APropos et N3-Campagne (données de `/api/settings/apropos` et `/api/campagne`, relues chaque minute sur la campagne).
-9. `scripts/wire_services.py` : panneau `SA-Services` (clé `services`, lieu de l'Aïd dans `horaires`, pages publiées) et page publique Services
-10. `scripts/wire_service_pages.py` : onglets 2 à 6 de `SA-Services` (moteur commun construit d’après la description des champs) et les 15 pages N2 des services
-11. `scripts/wire_dons.py` : onglets « Page Dons » et « Bloc Merci » de `SA-Dons` (même moteur que les Services) et les 3 pages Dons
-12. `scripts/wire_evenements.py` : panneau `SA-Evenements` (onglets Annonces, Calendrier, Inscription avec inscrits, export et annulation), renvoi « Dernières annonces » du panneau Accueil, pages Événements et N3-Calendrier
-13. `scripts/wire_ressources.py` : panneau `SA-Ressources` (onglets Nouveaux arrivants et Dua et annonces avec modération), pages Ressources et N3-Dua
-14. `scripts/wire_inbox.py` : onglet « Demandes reçues » de `SA-Contact` et formulaire de la page Contact
-15. `scripts/wire_contact.py` : onglets « Page Contact » et « Page 404 » de `SA-Contact`, pages Contact et nouvelle page `404.html` (construite depuis Contact, liens absolus)
-16. `scripts/wire_formulaires.py` : nouvelle page `SA-Formulaires` (construite depuis `SA-Pages` déjà reliée), lien « Formulaires » dans le menu de toutes les pages du panneau et de `SA-Comptes.html`
-17. `scripts/wire_traductions.py` : nouvelle page `SA-Traductions` (construite depuis `SA-Pages`) : textes saisis dans le panneau, textes fixes du site et traductions plus utilisées, chacun avec un champ arabe et un champ anglais, enregistrés dans la clé `traductions` ; lien « Traductions » dans le menu de toutes les pages du panneau
-18. `scripts/wire_pied.py` : réglages communs (coordonnées et pied de page) sur toutes les pages publiques, nettoyage de la page Inscription, aide du champ CCIQ
-19. `scripts/wire_nettoyage.py` : dernières mentions de brouillon retirées (bouton « Revenir en haut », lieu de l'Aïd vide, certification halal, description du panneau Services)
-20. `scripts/wire_photos.py` : photos de l'Accueil (grande photo du haut et photo « Vous venez pour la première fois ? ») choisies dans le panneau Accueil, cartes Héros et Bienvenue aux visiteurs ; envoi par `/api/admin/media`, chemin gardé dans la clé `photos` ; script `#ascil-photos-live` sur les 4 versions de l'Accueil
-21. `scripts/wire_langues.py` : versions arabe et anglaise. Construit `i18n/ar.json` et `i18n/en.json` depuis `scripts/i18n/strings.json` et `scripts/i18n/*.tsv` (français, arabe, anglais), installe le script commun `#ascil-i18n` sur les 59 pages publiques et liste dans `scripts/i18n-a-traduire.txt` les textes fixes encore sans traduction
-22. `scripts/wire_gratuit.py` : page publique `site-gratuit-mosquee.html` (adresse `/site-gratuit-mosquee`), construite depuis `404.html`, en trois langues (textes dans `scripts/i18n/lot-gratuit.tsv`) ; lien discret dans le pied de page de toutes les pages publiques ; pas dans le menu principal
-23. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
+10. `scripts/wire_services.py` : panneau `SA-Services` (clé `services`, lieu de l'Aïd dans `horaires`, pages publiées) et page publique Services
+11. `scripts/wire_service_pages.py` : onglets 2 à 6 de `SA-Services` (moteur commun construit d’après la description des champs) et les 15 pages N2 des services
+12. `scripts/wire_dons.py` : onglets « Page Dons » et « Bloc Merci » de `SA-Dons` (même moteur que les Services) et les 3 pages Dons
+13. `scripts/wire_evenements.py` : panneau `SA-Evenements` (onglets Annonces, Calendrier, Inscription avec inscrits, export et annulation), renvoi « Dernières annonces » du panneau Accueil, pages Événements et N3-Calendrier
+14. `scripts/wire_ressources.py` : panneau `SA-Ressources` (onglets Nouveaux arrivants et Dua et annonces avec modération), pages Ressources et N3-Dua
+15. `scripts/wire_inbox.py` : onglet « Demandes reçues » de `SA-Contact` et formulaire de la page Contact
+16. `scripts/wire_contact.py` : onglets « Page Contact » et « Page 404 » de `SA-Contact`, pages Contact et nouvelle page `404.html` (construite depuis Contact, liens absolus)
+17. `scripts/wire_formulaires.py` : nouvelle page `SA-Formulaires` (construite depuis `SA-Pages` déjà reliée), lien « Formulaires » dans le menu de toutes les pages du panneau et de `SA-Comptes.html`
+18. `scripts/wire_traductions.py` : nouvelle page `SA-Traductions` (construite depuis `SA-Pages`) : textes saisis dans le panneau, textes fixes du site et traductions plus utilisées, chacun avec un champ arabe et un champ anglais, enregistrés dans la clé `traductions` ; lien « Traductions » dans le menu de toutes les pages du panneau
+19. `scripts/wire_pied.py` : réglages communs (coordonnées et pied de page) sur toutes les pages publiques, nettoyage de la page Inscription, aide du champ CCIQ
+20. `scripts/wire_nettoyage.py` : dernières mentions de brouillon retirées (bouton « Revenir en haut », lieu de l'Aïd vide, certification halal, description du panneau Services)
+21. `scripts/wire_photos.py` : photos de l'Accueil (grande photo du haut et photo « Vous venez pour la première fois ? ») choisies dans le panneau Accueil, cartes Héros et Bienvenue aux visiteurs ; envoi par `/api/admin/media`, chemin gardé dans la clé `photos` ; script `#ascil-photos-live` sur les 4 versions de l'Accueil
+22. `scripts/wire_langues.py` : versions arabe et anglaise. Construit `i18n/ar.json` et `i18n/en.json` depuis `scripts/i18n/strings.json` et `scripts/i18n/*.tsv` (français, arabe, anglais), installe le script commun `#ascil-i18n` sur les 59 pages publiques et liste dans `scripts/i18n-a-traduire.txt` les textes fixes encore sans traduction
+23. `scripts/wire_gratuit.py` : page publique `site-gratuit-mosquee.html` (adresse `/site-gratuit-mosquee`), construite depuis `404.html`, en trois langues (textes dans `scripts/i18n/lot-gratuit.tsv`) ; lien discret dans le pied de page de toutes les pages publiques ; pas dans le menu principal
+24. `scripts/fix_inputs.py` : **toujours en dernier**. Les pages sont rendues par React : un champ écrit
    avec `value="…"` dans la planche d’origine devient « contrôlé » et refuse toute saisie (impossible d'écrire ou
    de choisir une date). Le script transforme ces valeurs en valeurs de départ (`defaultValue`,
-   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 22 s'appuient sur les attributs d'origine, d'où cet ordre.
+   `defaultChecked`). Le contenu des balises `<script>` n'est pas touché (champs construits en HTML par les panneaux). Les scripts 2 à 23 s'appuient sur les attributs d'origine, d'où cet ordre.
 
-Les scripts 2 à 22 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
+Les scripts 2 à 23 peuvent être relancés seuls autant de fois que nécessaire : ils remplacent
 leurs propres ajouts au lieu de les dupliquer.
 
 Autres scripts : `scripts/create-superadmin.mjs` (`--sql` pour la console D1, `--reset` pour un nouveau mot de passe).
