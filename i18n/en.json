@@ -24,6 +24,10 @@
 [
 "^© (\\d{4}) Association Socio-Culturelle Islamique Louperivoise — Rivière-du-Loup, Québec$",
 "© $1 Association Socio-Culturelle Islamique Louperivoise — Rivière-du-Loup, Quebec"
+],
+[
+"^(\\d[\\d\\s.,]*) \\$ récoltés · (\\d+(?:[.,]\\d+)?) ?%$",
+"$1 $ raised · $2 %"
 ]
 ],
 "strings": {

@@ -24,6 +24,10 @@
 [
 "^© (\\d{4}) Association Socio-Culturelle Islamique Louperivoise — Rivière-du-Loup, Québec$",
 "© $1 الجمعية الاجتماعية الثقافية الإسلامية بريفيير-دو-لو — ريفيير-دو-لو، كيبيك"
+],
+[
+"^(\\d[\\d\\s.,]*) \\$ récoltés · (\\d+(?:[.,]\\d+)?) ?%$",
+"$1 $ مجموعة · $2 %"
 ]
 ],
 "strings": {

@@ -6,7 +6,8 @@
     { "re": "^· dans (\\d+) min$", "ar": "· بعد $1 دقيقة", "en": "· in $1 min" },
     { "re": "^dans (\\d+) h (\\d\\d)$", "ar": "بعد $1 س $2 د", "en": "in $1 h $2" },
     { "re": "^dans (\\d+) min$", "ar": "بعد $1 دقيقة", "en": "in $1 min" },
-    { "re": "^© (\\d{4}) Association Socio-Culturelle Islamique Louperivoise — Rivière-du-Loup, Québec$", "ar": "© $1 الجمعية الاجتماعية الثقافية الإسلامية بريفيير-دو-لو — ريفيير-دو-لو، كيبيك", "en": "© $1 Association Socio-Culturelle Islamique Louperivoise — Rivière-du-Loup, Quebec" }
+    { "re": "^© (\\d{4}) Association Socio-Culturelle Islamique Louperivoise — Rivière-du-Loup, Québec$", "ar": "© $1 الجمعية الاجتماعية الثقافية الإسلامية بريفيير-دو-لو — ريفيير-دو-لو، كيبيك", "en": "© $1 Association Socio-Culturelle Islamique Louperivoise — Rivière-du-Loup, Quebec" },
+    { "re": "^(\\d[\\d\\s.,]*) \\$ récoltés · (\\d+(?:[.,]\\d+)?) ?%$", "ar": "$1 $ مجموعة · $2 %", "en": "$1 $ raised · $2 %" }
   ],
 
   "Accueil": { "ar": "الرئيسية", "en": "Home" },

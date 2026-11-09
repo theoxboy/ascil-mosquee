@@ -167,12 +167,22 @@ SCRIPT = r"""<script id="ascil-i18n">
     }
     return false;
   }
+  // En arabe (de droite à gauche), un nombre en plusieurs morceaux (« 350 000 $ », « 17 % », « 06:30 »)
+  // serait lu bloc par bloc et inversé (« $ 000 350 ») : chaque nombre est tenu en un seul bloc
+  // lu de gauche à droite, entre deux marques invisibles (isolement Unicode U+2066 … U+2069).
+  var ISO = /[\u2066\u2069]/g;
+  var NUM = /[\u2212+-]?\d(?:[\d.,:\/]|[-\u2010\u2013](?=\d)|[\s\u00a0\u202f](?=[\d$%\u20ac])|[$%\u20ac])*/g;
+  var MULTI = /\d[\s\u00a0\u202f.,:\/\u2010\u2013-]+\d|\d[\s\u00a0\u202f]?[$%\u20ac]|^[\u2212+-]/;
+  function bidi(s) {
+    if (lang !== 'ar' || !/\d/.test(s)) return s;
+    return s.replace(ISO, '').replace(NUM, function (m) { return MULTI.test(m) ? '\u2066' + m + '\u2069' : m; });
+  }
   function text(n) {
     if (!n.parentElement || skip(n.parentElement)) return;
-    var v = n.nodeValue, t = tr(v);
-    if (t == null) return;
-    var lead = v.match(/^\s*/)[0], tail = v.match(/\s*$/)[0];
-    var nv = lead + t + tail;
+    var v = n.nodeValue, plain = v.replace(ISO, ''), t = tr(plain);
+    var nv = plain;
+    if (t != null) nv = plain.match(/^\s*/)[0] + t + plain.match(/\s*$/)[0];
+    nv = bidi(nv);
     if (nv !== v) n.nodeValue = nv;
   }
   function attrs(el) {
