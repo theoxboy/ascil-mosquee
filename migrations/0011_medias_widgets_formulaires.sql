@@ -1,5 +1,5 @@
 -- Étapes M1 à M5 : nouveaux blocs des pages créées (« Créer une page »).
---  - media        : photos envoyées depuis le panneau (fichiers rangés dans le stockage R2 « MEDIA ») ;
+--  - media        : photos envoyées depuis le panneau (fichiers rangés dans l'espace KV « MEDIA ») ;
 --  - page_widgets : code des widgets HTML / CSS / JS / Python (affichés dans une boîte isolée, /w/<id>) ;
 --  - custom_forms : formulaires créés dans le panneau (Formulaires) ;
 --  - form_entries : réponses envoyées par les visiteurs à ces formulaires.
@@ -7,7 +7,7 @@
 
 CREATE TABLE IF NOT EXISTS media (
   id          INTEGER PRIMARY KEY AUTOINCREMENT,
-  file_key    TEXT    NOT NULL UNIQUE,                 -- nom aléatoire dans R2, ex. 3f9a…c2.jpg
+  file_key    TEXT    NOT NULL UNIQUE,                 -- clé du fichier dans KV, ex. 3f9a…c2.jpg
   mime        TEXT    NOT NULL,                        -- image/jpeg, image/png, image/webp, image/gif
   size        INTEGER NOT NULL,                        -- octets
   width       INTEGER,

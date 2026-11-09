@@ -10,8 +10,8 @@ database_name = "ascil-mosquee"
 database_id = "461b1f02-3d2f-48bd-a0b7-a946987eb86a"
 migrations_dir = "migrations"
 
-# Photos des pages créées (étape M1). Le bucket « ascil-medias » doit exister dans Cloudflare R2
-# AVANT de pousser ce fichier, sinon le déploiement échoue.
-[[r2_buckets]]
+# Photos des pages créées (étape M1) : espace de stockage KV « ascil-medias » (palier gratuit,
+# sans carte bancaire). La clé de chaque photo = colonne file_key de la table media (D1).
+[[kv_namespaces]]
 binding = "MEDIA"
-bucket_name = "ascil-medias"
+id = "fdbb500e86bf46bdac5b21f8a5390f8a"

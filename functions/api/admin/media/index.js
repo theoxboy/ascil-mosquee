@@ -48,7 +48,8 @@ export async function onRequestPost({ request, env }) {
     if (noTable(e)) return error(503, 'no_table', NO_TABLE);
     throw e;
   }
-  await env.MEDIA.put(key, buf, { httpMetadata: { contentType: mime, cacheControl: 'public, max-age=31536000, immutable' } });
+  // KV : la valeur est le fichier lui-même (5 Mo au plus, la limite de KV est 25 Mo) ; son type en métadonnée.
+  await env.MEDIA.put(key, buf.buffer, { metadata: { mime, size: buf.length } });
   const res = await env.DB.prepare(
     'INSERT INTO media (file_key, mime, size, width, height, name, created_at, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
   ).bind(key, mime, buf.length, width, height, name, nowIso(), admin.id).run();

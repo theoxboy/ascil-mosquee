@@ -849,11 +849,24 @@ EDITOR_SCRIPT = r"""<script id="sa-page-editor">
       });
       body.appendChild(tools);
     } else if (b.type === 'photo') {
-      if (!storage) body.appendChild(el('p', { class: 'pg-err', style: 'margin-top:8px' }, mediaNotice || 'Le stockage des photos n’est pas relié au site : créez le bucket R2 « ascil-medias » dans Cloudflare, puis redéployez.'));
+      if (!storage) body.appendChild(el('p', { class: 'pg-err', style: 'margin-top:8px' }, mediaNotice || 'Le stockage des photos n’est pas relié au site : vérifiez l’espace KV « ascil-medias » (liaison MEDIA) dans Cloudflare, puis redéployez.'));
       var cur = mediaById(b.media);
       if (cur) {
         var pv = el('img', { src: cur.url, alt: '', style: 'display:block;max-width:100%;max-height:220px;margin-top:10px;border-radius:12px;border:1px solid #E4D9C0' });
+        // Le stockage KV peut mettre jusqu'à une minute à rendre visible une photo toute neuve :
+        // ce n'est pas une erreur, on l'annonce et on réessaie (toutes les 5 s, environ une minute).
+        var pvWait = el('p', { class: 'hint', role: 'status', 'aria-live': 'polite', hidden: '' }, 'Photo enregistrée, en cours de mise en ligne : l’aperçu apparaîtra dans quelques secondes. Vous pouvez continuer et enregistrer la page.');
+        var pvTry = 0;
+        pv.addEventListener('load', function () { pv.style.display = 'block'; pvWait.hidden = true; });
+        pv.addEventListener('error', function () {
+          pv.style.display = 'none';
+          pvWait.hidden = false;
+          if (pvTry >= 12) { pvWait.textContent = 'Photo enregistrée. Son aperçu n’est pas encore disponible ici ; elle s’affichera sur la page dès qu’elle sera en ligne.'; return; }
+          pvTry += 1;
+          setTimeout(function () { if (pv.isConnected) pv.src = cur.url + '?essai=' + pvTry; }, 5000);
+        });
         body.appendChild(pv);
+        body.appendChild(pvWait);
       }
       var ps = el('select', { class: 'in', id: nid('m') });
       ps.appendChild(el('option', { value: '' }, media.length ? 'Choisir une photo déjà envoyée…' : 'Aucune photo envoyée pour l’instant'));
