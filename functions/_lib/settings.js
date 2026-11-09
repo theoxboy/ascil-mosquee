@@ -1174,6 +1174,24 @@ export function cleanTraductionsSettings(input) {
   return { items };
 }
 
+// Photos de l'Accueil (PC, index, mobile, tablette), choisies dans le panneau Accueil :
+// « hero » = grande photo du haut, « bienvenue » = photo de « Vous venez pour la première fois ? ».
+// La photo est envoyée par /api/admin/media (stockage MEDIA) ; seul son chemin /media/<nom> est gardé ici.
+// Chemin vide = la photo d'origine du site reste affichée.
+const PHOTO_SLOTS = ['hero', 'bienvenue'];
+const MEDIA_PATH_RE = /^\/media\/[0-9a-f]{32}\.(?:jpg|png|webp|gif)$/;
+DEFAULT_SETTINGS.photos = { hero: { src: '', alt: '' }, bienvenue: { src: '', alt: '' } };
+export function cleanPhotosSettings(input) {
+  const out = {};
+  for (const k of PHOTO_SLOTS) {
+    const x = input && typeof input[k] === 'object' && input[k] ? input[k] : {};
+    const src = typeof x.src === 'string' && MEDIA_PATH_RE.test(x.src.trim()) ? x.src.trim() : '';
+    const alt = typeof x.alt === 'string' ? x.alt.replace(/[\u0000-\u001f\u007f<>]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+    out[k] = { src, alt: src ? alt : '' };
+  }
+  return out;
+}
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -1207,9 +1225,10 @@ export const GENERIC_KEYS = {
   p404: { roles: ['superadmin', 'editor'], clean: cleanP404Settings },
   // Jusqu'à 3000 textes de 2000 caractères au plus, dans les deux langues.
   traductions: { roles: ['superadmin', 'editor'], clean: cleanTraductionsSettings, maxBytes: 1500000 },
+  photos: { roles: ['superadmin', 'editor'], clean: cleanPhotosSettings },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
 export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos', 'services',
   'cours', 'mariages', 'funerailles', 'aide', 'femmes', 'dons', 'merci', 'evenements', 'calendrier', 'ressources', 'dua', 'contact', 'p404',
-  'traductions'];
+  'traductions', 'photos'];

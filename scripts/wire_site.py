@@ -761,7 +761,7 @@ ACCOUNT_SCRIPT = r"""<script id="sa-site-account">
   };
   var TARGETS = {
     'settings:home': 'Accueil', 'settings:pages': 'Pages publiées', 'settings:event_registration': 'Événement',
-    'settings:alert': 'Bannière d’alerte', 'settings:season': 'Mode du site', 'settings:languages': 'Langues', 'settings:traductions': 'Traductions',
+    'settings:alert': 'Bannière d’alerte', 'settings:season': 'Mode du site', 'settings:languages': 'Langues', 'settings:traductions': 'Traductions', 'settings:photos': 'Photos de l’Accueil',
     'settings:horaires': 'Horaires', 'settings:khutba': 'Langue de la khutba', 'settings:rappel': 'Rappel de prière',
     'settings:apropos': 'À propos', 'settings:campagne': 'Campagne en direct', 'settings:services': 'Services',
     'settings:cours': 'Cours', 'settings:mariages': 'Mariages', 'settings:funerailles': 'Funérailles', 'settings:aide': 'Aide alimentaire',
