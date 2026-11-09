@@ -3,7 +3,8 @@
 Pages publiques (PC, M-, T-, index.html, 404.html) :
   - bouton « Revenir en haut de la page » : lien « #top » (haut de la page) au lieu de « # » ;
   - lieu de l'Aïd laissé vide : « Lieu communiqué prochainement » ;
-  - Ressources, restaurants : « à vérifier auprès du restaurant » pour la certification halal non indiquée.
+  - Ressources, restaurants : « à vérifier auprès du restaurant » pour la certification halal non indiquée ;
+  - menu mobile : ouvert sur l'écran visible (plus en haut de la page), page derrière immobile.
 Panneau :
   - SA-Services : description de la rubrique sans « à confirmer ».
 Les scripts d'origine (wire_prieres.py, wire_ressources.py, wire_horaires.py, wire_pages.py, wire_site.py)
@@ -21,6 +22,13 @@ PUBLIC = [
     ("|| 'Lieu à confirmer')", "|| 'Lieu communiqué prochainement')"),
     ("confirmer: 'Certification halal : à confirmer auprès du restaurant'",
      "confirmer: 'Certification halal : à vérifier auprès du restaurant'"),
+    # Menu mobile (trois lignes) : il s'ouvre sur l'écran visible, là où l'on se trouve dans la page,
+    # au lieu du haut de la page ; il défile lui-même s'il est plus long que l'écran, et la page
+    # derrière ne bouge pas tant qu'il est ouvert (à la fermeture, on reste au même endroit).
+    ('<div class="menu-in" role="dialog" aria-label="Menu" style="position:absolute;inset:0;z-index:60;background:#FFFEF9;display:flex;flex-direction:column">',
+     '<div class="menu-in" role="dialog" aria-label="Menu" style="position:fixed;inset:0;z-index:60;background:#FFFEF9;display:flex;flex-direction:column;overflow-y:auto;overscroll-behavior:contain">'),
+    ('.menu-in{animation:menuin .35s cubic-bezier(.2,.8,.2,1) both}\n.menu-in nav a{',
+     '.menu-in{animation:menuin .35s cubic-bezier(.2,.8,.2,1) both}\nhtml:has(.menu-in){overflow:hidden}\n.menu-in nav a{'),
 ]
 PANEL = {
     'SA-Services.dc.html': [
@@ -55,6 +63,7 @@ def main():
             new = new.replace(a, b)
         assert 'Lieu à confirmer' not in new and 'à confirmer auprès' not in new, path.name
         assert 'class="totop"><a href="#"' not in new, path.name
+        assert 'aria-label="Menu" style="position:absolute' not in new, path.name
         if new != tpl:
             save(path, s, i, j, new)
             n += 1
