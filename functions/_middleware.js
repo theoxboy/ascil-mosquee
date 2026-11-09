@@ -4,7 +4,7 @@ import { currentAdmin } from './_lib/auth.js';
 import { error, sameOrigin } from './_lib/http.js';
 import { canOpenPage, homeFor, pageKey } from './_lib/roles.js';
 import { todayToronto } from './_lib/prayer-times.js';
-import { activeSeasonMode, pageSettingForPath, readPagesSettings, readSeasonSettings } from './_lib/settings.js';
+import { activeSeasonMode, activeVendredi, pageSettingForPath, readPagesSettings, readSeasonSettings } from './_lib/settings.js';
 
 const PRIVATE = [/^\/functions(\/|$)/, /^\/migrations(\/|$)/, /^\/scripts(\/|$)/, /^\/wrangler\.toml$/, /^\/_routes\.json$/, /^\/\.git/];
 // Adresses de l'Accueil : pendant le Ramadan (« Site entier → Mode du site »), elles affichent l'Accueil Ramadan.
@@ -12,6 +12,11 @@ const HOME_PAGES = [/^\/$/, /^\/index(\.html)?$/, /^\/Main\.dc(\.html)?$/, /^\/(
 const SEASON_HOME = { ramadan: '/TH-Ramadan-Accueil.dc', aid_fitr: '/TH-Fitr-Accueil.dc', aid_adha: '/TH-Adha-Accueil.dc' };
 const SEASON_HOME_RE = /^\/TH-(Ramadan|Fitr|Adha)-Accueil\.dc(\.html)?$/;
 const SEASON_OF = { Ramadan: 'ramadan', Fitr: 'aid_fitr', Adha: 'aid_adha' };
+// Thème du vendredi (« Mode du site → Thème du vendredi ») : Accueil du vendredi à l'adresse de l'Accueil,
+// pages Horaires et Khutba du vendredi à leur propre adresse. Thème éteint : chaque page mène à la page normale.
+const VENDREDI_HOME = '/TH-Vendredi-Accueil.dc';
+const VENDREDI_RE = /^\/TH-Vendredi-(Accueil|Horaires|Khutba)\.dc(\.html)?$/;
+const VENDREDI_OFF = { Accueil: '/', Horaires: '/Horaires.dc.html', Khutba: '/N2-Khutba.dc.html' };
 const LOGIN_PAGES = [/^\/superadmin(\.html)?$/, /^\/SA-Connexion\.dc(\.html)?$/];
 
 const PAGE_HEADERS = {
@@ -72,16 +77,24 @@ export async function onRequest(context) {
   // Accueil de saison : servi à la place de l'Accueil, à la même adresse (pas de redirection, pas de clignotement).
   // Hors de sa saison, l'adresse directe d'un Accueil saisonnier mène à l'Accueil.
   const isHome = HOME_PAGES.some((re) => re.test(path));
-  if ((isHome || SEASON_HOME_RE.test(path)) && env.DB && request.method === 'GET') {
+  const fri = VENDREDI_RE.exec(path);
+  if ((isHome || SEASON_HOME_RE.test(path) || fri) && env.DB && request.method === 'GET') {
     const season = await readSeasonSettings(env.DB).catch(() => null);
-    const mode = season ? activeSeasonMode(season, todayToronto()) : 'normal';
-    if (isHome && SEASON_HOME[mode]) {
+    const today = todayToronto();
+    const mode = season ? activeSeasonMode(season, today) : 'normal';
+    // Une saison (Ramadan, Aïd) passe avant le thème du vendredi.
+    const friday = mode === 'normal' && !!season && activeVendredi(season, today);
+    const home = SEASON_HOME[mode] || (friday ? VENDREDI_HOME : '');
+    if (isHome && home) {
       try {
-        const r = await env.ASSETS.fetch(new Request(new URL(SEASON_HOME[mode], url), { method: 'GET' }));
+        const r = await env.ASSETS.fetch(new Request(new URL(home, url), { method: 'GET' }));
         if (r.ok) return withHeaders(r, { 'Cache-Control': 'no-cache' });
       } catch (e) {
         console.warn('season home error', e && e.message);
       }
+    } else if (fri) {
+      if (!friday) return redirect(VENDREDI_OFF[fri[1]]);
+      if (fri[1] === 'Accueil') return redirect('/');
     } else if (!isHome && SEASON_OF[SEASON_HOME_RE.exec(path)[1]] !== mode) {
       // Accueil d'une autre saison que celle en cours : on mène à l'Accueil du moment.
       return redirect('/');

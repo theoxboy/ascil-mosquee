@@ -307,8 +307,11 @@ export function cleanAlertSettings(input) {
 // « Site entier → Saison et langues → Mode du site ».
 // auto = true : le mode n'est actif qu'entre les dates (bornes incluses) ; auto = false : le mode
 // choisi s'applique tout de suite, jusqu'à ce qu'on le change. « normal » = rien de particulier.
-DEFAULT_SETTINGS.season = { mode: 'normal', from: '', to: '', auto: true };
+// vendredi : thème du vendredi (Jumu’a). 'off' = désactivé, 'on' = affiché tous les jours (jusqu’à ce qu’on le
+// désactive), 'auto' = affiché chaque vendredi seulement (heure de Rivière-du-Loup). Une saison active passe avant.
+DEFAULT_SETTINGS.season = { mode: 'normal', from: '', to: '', auto: true, vendredi: 'off' };
 const SEASON_MODES = ['normal', 'ramadan', 'aid_fitr', 'aid_adha'];
+export const VENDREDI_MODES = ['off', 'on', 'auto'];
 
 export function cleanSeasonSettings(input) {
   const i = input && typeof input === 'object' ? input : {};
@@ -318,9 +321,18 @@ export function cleanSeasonSettings(input) {
     from: day(i.from),
     to: day(i.to),
     auto: typeof i.auto === 'boolean' ? i.auto : true,
+    vendredi: VENDREDI_MODES.includes(i.vendredi) ? i.vendredi : 'off',
   };
   if (out.from && out.to && out.to < out.from) out.to = '';
   return out;
+}
+
+// Thème du vendredi en vigueur aujourd’hui (date AAAA-MM-JJ, heure de Rivière-du-Loup).
+export function activeVendredi(season, today) {
+  const s = cleanSeasonSettings(season);
+  if (s.vendredi === 'on') return true;
+  if (s.vendredi !== 'auto' || !ISO_DAY.test(today || '')) return false;
+  return new Date(`${today}T12:00:00Z`).getUTCDay() === 5;
 }
 
 // Mode de saison en vigueur aujourd'hui (date AAAA-MM-JJ, heure de Rivière-du-Loup) : 'normal' sinon.

@@ -6,7 +6,8 @@
      * 6 « Services (niveau 2) » (pastille et mention explicite de l'état publié réel sur le site) ;
      * 5 « Applications (niveau 3) » (pastille et mention explicite de l'état publié réel sur le site).
    - #sp-1 « Saison et langues » :
-     * « Mode du site » (Normal, Ramadan, Aïd al-Fitr, Aïd al-Adha, dates, changement auto + état en direct) ;
+     * « Mode du site » (Normal, Ramadan, Aïd al-Fitr, Aïd al-Adha, dates, changement auto + état en direct)
+       et « Thème du vendredi » (Désactivé, Automatique chaque vendredi, Activé tous les jours ; champ season.vendredi) ;
      * « Langues » (Français avec interrupteur réellement désactivé, العربية, English + pastilles d'état) ;
      * « Bannière d'alerte » (interrupteur Afficher, message, lien dont pages créées et lien externe, dates, couleur + Aperçu visuel en direct et état de cohérence message vide / OFF).
    - #sp-2 « Compte et sécurité » :
@@ -195,6 +196,15 @@ def build_sp1():
         '<p class="hint">Activé : le mode ne s’affiche qu’entre les deux dates. Désactivé : il s’affiche tout de suite, jusqu’à ce que vous repassiez en Normal.</p></div>'
         '<button type="button" class="sw" role="switch" aria-label="Changer de mode automatiquement aux dates" aria-checked="{{s.mode_auto.c}}" sc-camel-on-click="{{s.mode_auto.t}}"></button></div></div>'
         '<p class="info" id="season-live-status">Les dates suivent l’annonce officielle de la TCOM. Hors période, le site revient au mode Normal.</p>'
+        '<div class="fld" style="margin-top:8px;padding-top:18px;border-top:1px solid #E4D9C0"><span class="lbl" id="f1v">Thème du vendredi (Jumu’a)</span>'
+        '<div class="seg" role="group" aria-labelledby="f1v" style="align-self:flex-start;flex-wrap:wrap">'
+        '<button type="button" data-friday-mode="off" aria-pressed="true">Désactivé</button>'
+        '<button type="button" data-friday-mode="auto" aria-pressed="false">Automatique, chaque vendredi</button>'
+        '<button type="button" data-friday-mode="on" aria-pressed="false">Activé tous les jours</button>'
+        '</div>'
+        '<p class="hint">Accueil aux couleurs du vendredi : heure de la khutba, langue, sunnas du jour, sourate al-Kahf, salawat et duas. '
+        'Automatique : seulement le vendredi, de minuit à minuit. Un mode Ramadan ou Aïd en cours passe avant.</p></div>'
+        '<p class="info" id="friday-live-status">État sur le site : thème du vendredi désactivé.</p>'
         '</div></section>'
 
         '<section class="card" aria-label="Langues"><div class="card-h"><span class="num" aria-hidden="true">2</span>'
@@ -555,18 +565,35 @@ class Component extends DCLogic {
   readSeasonForm() {
     const v = (id) => { const e = document.getElementById(id); return e ? e.value : ''; };
     const pressed = document.querySelector('[data-season-mode][aria-pressed="true"]');
-    return { mode: pressed ? pressed.getAttribute('data-season-mode') : 'normal', from: v('f2'), to: v('f3'), auto: !!this.state.on.mode_auto };
+    const fr = document.querySelector('[data-friday-mode][aria-pressed="true"]');
+    return { mode: pressed ? pressed.getAttribute('data-season-mode') : 'normal', from: v('f2'), to: v('f3'), auto: !!this.state.on.mode_auto,
+      vendredi: fr ? fr.getAttribute('data-friday-mode') : ((this.seasonBase && this.seasonBase.vendredi) || 'off') };
   }
   setSeasonForm(a) {
     const set = (id, val) => { const e = document.getElementById(id); if (e) e.value = val || ''; };
     set('f2', a.from); set('f3', a.to);
     document.querySelectorAll('[data-season-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-season-mode') === a.mode)));
+    document.querySelectorAll('[data-friday-mode]').forEach((b) => b.setAttribute('aria-pressed', String(b.getAttribute('data-friday-mode') === (a.vendredi || 'off'))));
     this.updateSeasonStatus();
+  }
+  updateFridayStatus(s) {
+    const el = document.getElementById('friday-live-status');
+    if (!el) return;
+    const v = s.vendredi || 'off';
+    const now = this.todayIso();
+    const isFri = /^\d{4}-\d\d-\d\d$/.test(now) && new Date(now + 'T12:00:00Z').getUTCDay() === 5;
+    const season = s.mode !== 'normal' && (!s.auto || (s.from && s.to && now >= s.from && now <= s.to));
+    if (v === 'off') el.textContent = 'État sur le site : thème du vendredi désactivé.';
+    else if (season) el.textContent = 'État sur le site : le mode de saison en cours passe avant ; le thème du vendredi reviendra après la période.';
+    else if (v === 'on') el.textContent = 'État sur le site : Accueil du vendredi affiché tous les jours, jusqu’à ce que vous le désactiviez.';
+    else el.textContent = isFri ? 'État sur le site : c’est vendredi, l’Accueil du vendredi est affiché aujourd’hui.'
+      : 'État sur le site : l’Accueil du vendredi s’affichera automatiquement vendredi prochain.';
   }
   updateSeasonStatus() {
     const el = document.getElementById('season-live-status');
     if (!el) return;
     const s = this.readSeasonForm();
+    this.updateFridayStatus(s);
     const LABELS = { normal: 'Normal', ramadan: 'Ramadan', aid_fitr: 'Aïd al-Fitr', aid_adha: 'Aïd al-Adha' };
     const now = this.todayIso();
     if (s.mode === 'normal') {
@@ -593,7 +620,7 @@ class Component extends DCLogic {
   }
   seasonDirty() {
     if (!this.seasonBase) return false;
-    return JSON.stringify(this.readSeasonForm()) !== JSON.stringify(Object.assign({}, this.seasonBase, { auto: !!this.base.mode_auto }));
+    return JSON.stringify(this.readSeasonForm()) !== JSON.stringify(Object.assign({ mode: 'normal', from: '', to: '', auto: true, vendredi: 'off' }, this.seasonBase, { auto: !!this.base.mode_auto }));
   }
   listenSeason() {
     const inCard = (t) => t && t.closest && t.closest('section[aria-label="Mode du site"]');
@@ -601,6 +628,13 @@ class Component extends DCLogic {
     document.addEventListener('input', changed);
     document.addEventListener('change', changed);
     document.addEventListener('click', (e) => {
+      const f = e.target.closest && e.target.closest('[data-friday-mode]');
+      if (f) {
+        document.querySelectorAll('[data-friday-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === f)));
+        this.updateSeasonStatus();
+        this.forceUpdate();
+        return;
+      }
       const b = e.target.closest && e.target.closest('[data-season-mode]');
       if (!b) return;
       document.querySelectorAll('[data-season-mode]').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
