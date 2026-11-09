@@ -534,13 +534,31 @@ def wire_panel():
     print('SA-Evenements.dc.html : Annonces, Calendrier et Inscription reliés (clés evenements, calendrier, event_registration, pages)')
 
 
+def matching_end(tpl, start):
+    """Fin de la boucle <sc-for> qui commence à start, en tenant compte des boucles imbriquées
+    (la carte d'une annonce contient elle-même une boucle d'options)."""
+    depth, k = 0, start
+    while True:
+        o = tpl.find('<sc-for', k)
+        c = tpl.find('</sc-for>', k)
+        assert c != -1, 'fin de la boucle des annonces introuvable'
+        if o != -1 and o < c:
+            depth += 1
+            k = o + len('<sc-for')
+        else:
+            depth -= 1
+            k = c + len('</sc-for>')
+            if depth == 0:
+                return k
+
+
 def wire_panneau_accueil():
     """La liste « Dernières annonces » du panneau Accueil renvoie vers Événements."""
     path = ROOT / 'SA-Panneau.dc.html'
     s, i, j, tpl = load(path)
     if 'id="ann-from-ev"' not in tpl:
         a = tpl.index('<button type="button" class="btn btn-line" style="align-self:flex-start" disabled="{{annFull}}" sc-camel-on-click="{{addAnn}}">+ Ajouter une annonce</button>')
-        b = tpl.index('</sc-for>', tpl.index('<sc-for list="{{annonces}}"', a)) + len('</sc-for>')
+        b = matching_end(tpl, tpl.index('<sc-for list="{{annonces}}"', a))
         note = ('<p id="ann-from-ev" class="hint" style="margin:0">Les annonces affichées sont les prochains événements de la page Événements '
                 '(à venir, puis en cours, puis les plus récents). '
                 '<a href="SA-Evenements.dc.html" style="color:#0E4D3C;font-weight:700">Gérer les événements</a></p>')

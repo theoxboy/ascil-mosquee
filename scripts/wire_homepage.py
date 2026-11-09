@@ -551,26 +551,9 @@ PUBLIC_HOME_SYNC_SCRIPT = r'''<script id="ascil-home-sync">
         toTop.style.display = s.on.haut === false ? 'none' : '';
       }
 
-      if (s.pied) {
-        if (s.pied.tcom) {
-          var tcom = document.querySelector('a[href*="tcomq.ca"]');
-          if (tcom) tcom.href = s.pied.tcom;
-        }
-        if (s.pied.cciq) {
-          var cciq = document.querySelector('footer a[href="#"]:last-of-type');
-          if (cciq && s.pied.cciq) cciq.href = s.pied.cciq;
-        }
-      }
+      // Liens TCOM et CCIQ, lignes du pied de page et bouton Itinéraire : script commun
+      // #ascil-pied-live (scripts/wire_pied.py), le même sur toutes les pages publiques.
       if (s.on) {
-        var footRows = document.querySelectorAll('footer ul:last-of-type li');
-        if (footRows.length >= 4) {
-          footRows[0].style.display = s.on.pFb === false ? 'none' : '';
-          footRows[1].style.display = s.on.pTcom === false ? 'none' : '';
-          footRows[2].style.display = s.on.pCciq === false ? 'none' : '';
-          footRows[3].style.display = s.on.pMail === false ? 'none' : '';
-        }
-        var footIti = document.querySelector('footer a.btn-gold');
-        if (footIti) footIti.style.display = s.on.pIti === false ? 'none' : '';
         var footHor = document.querySelector('footer .g4 > div:first-child > p.tnum');
         if (footHor) footHor.style.display = s.on.pHor === false ? 'none' : '';
       }
