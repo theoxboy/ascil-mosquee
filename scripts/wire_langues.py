@@ -240,11 +240,8 @@ SCRIPT = r"""<script id="ascil-i18n">
   document.head.appendChild(st);
   var css = document.createElement('style');
   css.id = 'ascil-i18n-css';
-  // Police arabe : Cairo (fichier variable, toutes les graisses ; licence SIL OFL dans /fonts/cairo/OFL.txt).
-  css.textContent = (lang === 'ar' ? "@font-face{font-family:'Cairo';src:url('/fonts/cairo/Cairo-Variable.ttf') format('truetype');font-weight:200 1000;font-style:normal;font-display:swap}" : '')
-    + 'html[lang="ar"] body, html[lang="ar"] .serif, html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3, html[lang="ar"] h4, html[lang="ar"] button, html[lang="ar"] input, html[lang="ar"] select, html[lang="ar"] textarea'
-    + "{font-family:'Cairo','Noto Sans Arabic',system-ui,sans-serif}"
-    + 'html[dir="rtl"] .tnum, html[dir="rtl"] time{unicode-bidi:isolate}';
+  // La police arabe (Cairo) est posée par la feuille fixe #ascil-cairo de chaque page.
+  css.textContent = 'html[dir="rtl"] .tnum, html[dir="rtl"] time{unicode-bidi:isolate}';
   document.head.appendChild(css);
   var giveUp = setTimeout(function () { var w = document.getElementById('ascil-i18n-wait'); if (w) w.remove(); }, 2500);
   Promise.all([
@@ -328,6 +325,26 @@ def visible_texts(tpl):
     return out
 
 
+# Police arabe Cairo (fichier variable, toutes les graisses ; licence SIL OFL dans /fonts/cairo/OFL.txt).
+# Feuille FIXE dans chaque page (pas ajoutée par script), placée après les polices de la page :
+# 1. toute lettre arabe s'affiche en Cairo, dans les trois langues, même dans un élément qui impose
+#    'Noto Sans', 'Noto Serif' ou 'Noto Sans Arabic' dans son propre style (ces noms reçoivent
+#    Cairo pour la plage de caractères arabes uniquement ; le latin garde sa police) ;
+# 2. en version arabe (html lang="ar"), toute la page passe en Cairo, latin et chiffres compris,
+#    malgré les polices écrites sur les éléments eux-mêmes (d'où !important) ; les icônes SVG et le code
+#    ne changent pas.
+AR_RANGE = 'U+0600-06FF,U+0750-077F,U+0870-089F,U+08A0-08FF,U+FB50-FDFF,U+FE70-FEFF,U+200C-200F'
+FONT_STYLE = ('<style id="ascil-cairo">'
+    + ''.join("@font-face{font-family:'%s';src:url('/fonts/cairo/Cairo-Variable.ttf') format('truetype');"
+              "font-weight:100 1000;font-style:normal;font-display:swap;unicode-range:%s}" % (f, AR_RANGE)
+              for f in ('Noto Sans', 'Noto Serif', 'Noto Sans Arabic'))
+    + "@font-face{font-family:'Cairo';src:url('/fonts/cairo/Cairo-Variable.ttf') format('truetype');"
+      "font-weight:200 1000;font-style:normal;font-display:swap}"
+    + 'html[lang="ar"] body,html[lang="ar"] body *:not(svg):not(svg *):not(code):not(pre):not(kbd)'
+      "{font-family:'Cairo',system-ui,sans-serif!important}"
+    + '</style>\n')
+
+
 def main():
     keys, pats = build()
     pages = [p for p in sorted(ROOT.glob('*.dc.html')) if not p.name.startswith('SA-')] + [ROOT / 'index.html', ROOT / '404.html']
@@ -339,8 +356,9 @@ def main():
         if '<footer' not in tpl:
             continue
         tpl = re.sub(r'<script id="ascil-i18n">.*?</script>\s*', '', tpl, flags=re.S)
+        tpl = re.sub(r'<style id="ascil-cairo">.*?</style>\s*', '', tpl, flags=re.S)
         k = tpl.rindex('</body>')
-        tpl = tpl[:k] + SCRIPT + tpl[k:]
+        tpl = tpl[:k] + FONT_STYLE + SCRIPT + tpl[k:]
         enc = json.dumps(tpl).replace('</', '<\\u002F')
         assert json.loads(enc) == tpl
         path.write_text(s[:i] + enc + s[j:], encoding='utf-8')
