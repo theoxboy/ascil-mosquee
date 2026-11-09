@@ -59,7 +59,7 @@ PANEL_CSS = """<style id="sa-photos-css">
 .ph-side{display:grid;gap:10px;flex:1;min-inline-size:min(100%,240px)}
 .ph-btns{display:flex;gap:10px;flex-wrap:wrap}
 .ph-btns .btn{min-block-size:44px;padding:0 16px;border-radius:10px;border:1.5px solid #E4D9C0;font-weight:700;font-size:14px;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
-.ph-btns .btn:focus-visible,.ph-file:focus-visible+.ph-pick{outline:3px solid #C49A4A;outline-offset:2px}
+.ph-btns .btn:focus-visible{outline:3px solid #C49A4A;outline-offset:2px}
 .ph-btns .btn[disabled]{opacity:.5;pointer-events:none}
 .ph-file{position:absolute;inline-size:1px;block-size:1px;opacity:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .ph-msg{font-size:13px;margin:0;color:#4F5E57;min-block-size:1.2em}
@@ -78,10 +78,9 @@ def slot_html(k, title, hint):
         f'<div class="ph-prev" id="ph-prev-{k}" aria-live="polite">Photo d’origine du site</div>'
         '<div class="ph-side">'
         '<div class="ph-btns">'
-        f'<input class="ph-file" type="file" id="ph-file-{k}" accept="image/jpeg,image/png,image/webp,image/gif" aria-labelledby="ph-pick-{k} ph-t-{k}">'
-        f'<label class="btn btn-green ph-pick" id="ph-pick-{k}" for="ph-file-{k}">'
+        f'<button type="button" class="btn btn-green ph-pick" id="ph-pick-{k}" aria-describedby="ph-t-{k}">'
         '<svg aria-hidden="true" width="18" height="18" sc-camel-view-box="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M17 8l-5-5-5 5"></path><path d="M12 3v12"></path></svg>'
-        'Choisir une photo</label>'
+        'Choisir une photo</button>'
         f'<button type="button" class="btn btn-line" id="ph-reset-{k}">Remettre la photo d’origine</button>'
         '</div>'
         f'<div class="fld"><label class="lbl" for="ph-alt-{k}">Description de la photo</label>'
@@ -179,15 +178,32 @@ PANEL_JS = r"""<script id="sa-photos">
       msg(k, 'La photo n’a pas pu être envoyée : pas de connexion. Réessayez.', 'err');
     });
   }
-  document.addEventListener('change', function (e) {
-    var k = slotOf(e.target, 'ph-file-'); if (!k) return;
-    var input = e.target, f = input.files && input.files[0];
-    try { input.value = ''; } catch (x) {}
-    if (f) upload(k, f);
-  }, true);
+  // Champ fichier créé ici, hors de la page dessinée : il ne peut être ni remplacé ni perdu.
+  var picker = null, pickFor = null;
+  function openPicker(k) {
+    if (!picker) {
+      picker = document.createElement('input');
+      picker.type = 'file';
+      picker.accept = 'image/jpeg,image/png,image/webp,image/gif';
+      picker.setAttribute('aria-hidden', 'true');
+      picker.tabIndex = -1;
+      picker.style.cssText = 'position:fixed;left:-9999px;top:0;inline-size:1px;block-size:1px;opacity:0';
+      picker.addEventListener('change', function () {
+        var f = picker.files && picker.files[0], k2 = pickFor;
+        try { picker.value = ''; } catch (x) {}
+        if (f && k2) upload(k2, f);
+      });
+      document.body.appendChild(picker);
+    }
+    if (!picker.isConnected) document.body.appendChild(picker);
+    pickFor = k;
+    picker.click();
+  }
   document.addEventListener('click', function (e) {
     var el = e.target && e.target.closest ? e.target.closest('button') : null; if (!el) return;
-    var k = slotOf(el, 'ph-reset-');
+    var k = slotOf(el, 'ph-pick-');
+    if (k) { e.preventDefault(); if (!busy[k]) openPicker(k); return; }
+    k = slotOf(el, 'ph-reset-');
     if (k) {
       e.preventDefault();
       if (!confirm('Remettre la photo d’origine du site à cet endroit ?')) return;
