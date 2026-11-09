@@ -55,13 +55,13 @@ PANEL_CSS = """<style id="sa-photos-css">
 .ph-slot{margin-top:18px;padding-top:16px;border-top:1px solid #E4D9C0;display:grid;gap:10px}
 .ph-row{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
 .ph-prev{inline-size:220px;max-inline-size:100%;aspect-ratio:4/3;border:1px solid #E4D9C0;border-radius:12px;background:#F7F2E4;overflow:hidden;display:flex;align-items:center;justify-content:center;padding:8px;text-align:center;font-size:13px;color:#4F5E57}
-.ph-prev img{inline-size:100%;block-size:100%;object-fit:cover;display:block;border-radius:8px}
+.ph-prev{position:relative}
 .ph-side{display:grid;gap:10px;flex:1;min-inline-size:min(100%,240px)}
 .ph-btns{display:flex;gap:10px;flex-wrap:wrap}
 .ph-btns .btn{min-block-size:44px;padding:0 16px;border-radius:10px;border:1.5px solid #E4D9C0;font-weight:700;font-size:14px;display:inline-flex;align-items:center;gap:8px;cursor:pointer}
 .ph-btns .btn:focus-visible,.ph-file:focus-visible+.ph-pick{outline:3px solid #C49A4A;outline-offset:2px}
 .ph-btns .btn[disabled]{opacity:.5;pointer-events:none}
-.ph-file{position:absolute;inline-size:1px;block-size:1px;opacity:0;overflow:hidden}
+.ph-file{position:absolute;inline-size:1px;block-size:1px;opacity:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 .ph-msg{font-size:13px;margin:0;color:#4F5E57;min-block-size:1.2em}
 .ph-msg.err{color:#A3261B;font-weight:600}
 .ph-msg.ok{color:#0E4D3C;font-weight:600}
@@ -102,72 +102,114 @@ SLOTS = {
 
 PANEL_JS = r"""<script id="sa-photos">
 (function () {
-  var data = { hero: { src: '', alt: '' }, bienvenue: { src: '', alt: '' } }, loaded = false;
+  // Le panneau est redessiné par la page : on n'attache rien aux éléments eux-mêmes (ils peuvent être
+  // remplacés) ; on écoute au niveau du document et on retrouve l'élément par son id à chaque fois.
+  // On ne retire jamais un texte posé par la page : l'aperçu est une image ajoutée par-dessus.
+  var KEYS = ['hero', 'bienvenue'];
+  var data = { hero: { src: '', alt: '' }, bienvenue: { src: '', alt: '' } }, loaded = false, busy = {};
   var $ = function (id) { return document.getElementById(id); };
-  function msg(k, t, cls) { var m = $('ph-msg-' + k); if (m) { m.textContent = t; m.className = 'ph-msg' + (cls ? ' ' + cls : ''); } }
+  function slotOf(el, prefix) {
+    var id = el && el.id || '';
+    for (var i = 0; i < KEYS.length; i++) if (id === prefix + KEYS[i]) return KEYS[i];
+    return null;
+  }
+  function msg(k, t, cls) {
+    var m = $('ph-msg-' + k); if (!m) return;
+    if (m.textContent !== t) m.textContent = t;
+    m.className = 'ph-msg' + (cls ? ' ' + cls : '');
+  }
   function preview(k) {
     var box = $('ph-prev-' + k); if (!box) return;
-    var src = data[k].src;
+    box.style.position = 'relative';
+    var src = data[k].src, img = box.querySelector('img[data-ph]');
     if (src) {
-      var img = box.querySelector('img');
-      if (!img) { box.textContent = ''; img = document.createElement('img'); box.appendChild(img); }
+      if (!img) {
+        img = document.createElement('img');
+        img.setAttribute('data-ph', '');
+        img.style.cssText = 'position:absolute;inset:0;inline-size:100%;block-size:100%;object-fit:cover;border-radius:12px;background:#F7F2E4';
+        box.appendChild(img);
+      }
       if (img.getAttribute('src') !== src) img.setAttribute('src', src);
       img.setAttribute('alt', data[k].alt || 'Photo choisie');
-    } else if (box.querySelector('img') || box.textContent !== 'Photo d’origine du site') {
-      box.textContent = 'Photo d’origine du site';
+    } else if (img) {
+      img.parentNode.removeChild(img);
     }
-    var reset = $('ph-reset-' + k); if (reset) reset.disabled = !src;
+    var reset = $('ph-reset-' + k); if (reset) reset.disabled = !src || !!busy[k];
     var alt = $('ph-alt-' + k), save = $('ph-save-' + k);
-    if (alt) { alt.disabled = !src; if (alt.getAttribute('data-k') !== k) { alt.value = data[k].alt || ''; alt.setAttribute('data-k', k); } }
-    if (save) save.disabled = !src;
+    if (alt) {
+      alt.disabled = !src;
+      if (alt.getAttribute('data-k') !== k) { alt.value = data[k].alt || ''; alt.setAttribute('data-k', k); }
+    }
+    if (save) save.disabled = !src || !!busy[k];
   }
   function api(url, opt) {
     return fetch(url, Object.assign({ credentials: 'same-origin' }, opt || {})).then(function (r) {
       return r.json().catch(function () { return {}; }).then(function (j) { j.status = r.status; return j; });
     });
   }
-  function save(k, okText) {
-    return api('/api/admin/settings/photos', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(function (j) {
-      if (!j.ok) { msg(k, (j.error && j.error.message) || j.message || 'Enregistrement impossible. Vérifiez votre connexion, puis réessayez.', 'err'); return false; }
-      data = j.settings || data; preview(k); msg(k, okText, 'ok'); return true;
-    }, function () { msg(k, 'Enregistrement impossible : pas de connexion. Réessayez dans un instant.', 'err'); return false; });
+  function errText(j, fallback) {
+    if (j && j.status === 401) return 'Votre session a expiré. Reconnectez-vous, puis réessayez.';
+    return (j && j.error && j.error.message) || (j && j.message) || fallback;
   }
-  function bind(k) {
-    var file = $('ph-file-' + k), reset = $('ph-reset-' + k), btn = $('ph-save-' + k), pick = $('ph-pick-' + k);
-    if (!file || file.getAttribute('data-bound')) return;
-    file.setAttribute('data-bound', '1');
-    file.addEventListener('change', function () {
-      var f = file.files && file.files[0]; file.value = '';
-      if (!f) return;
-      if (f.size > 5 * 1024 * 1024) { msg(k, 'Cette photo dépasse 5 Mo. Réduisez-la (par exemple avec l’outil de partage du téléphone), puis réessayez.', 'err'); return; }
-      msg(k, 'Envoi de la photo…'); if (pick) pick.setAttribute('aria-busy', 'true');
-      api('/api/admin/media', { method: 'POST', headers: { 'X-File-Name': encodeURIComponent(f.name || 'photo') }, body: f }).then(function (j) {
-        if (pick) pick.removeAttribute('aria-busy');
-        if (!j.ok || !j.media || !j.media.url) { msg(k, (j.error && j.error.message) || j.message || 'La photo n’a pas pu être envoyée. Réessayez.', 'err'); return; }
-        data[k] = { src: j.media.url, alt: data[k].alt || '' };
-        var alt = $('ph-alt-' + k); if (alt) alt.removeAttribute('data-k');
-        save(k, 'Photo enregistrée. Elle apparaît sur l’Accueil d’ici une minute environ. Pensez à la décrire ci-dessus.');
-      }, function () { if (pick) pick.removeAttribute('aria-busy'); msg(k, 'La photo n’a pas pu être envoyée : pas de connexion. Réessayez.', 'err'); });
+  function save(k, okText) {
+    busy[k] = true; preview(k);
+    return api('/api/admin/settings/photos', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }).then(function (j) {
+      busy[k] = false;
+      if (!j.ok) { preview(k); msg(k, errText(j, 'Enregistrement impossible. Vérifiez votre connexion, puis réessayez.'), 'err'); return false; }
+      if (j.settings) data = j.settings;
+      preview(k); msg(k, okText, 'ok'); return true;
+    }, function () { busy[k] = false; preview(k); msg(k, 'Enregistrement impossible : pas de connexion. Réessayez dans un instant.', 'err'); return false; });
+  }
+  function upload(k, f) {
+    if (!/^image\/(jpeg|png|webp|gif)$/.test(f.type || '')) { msg(k, 'Ce fichier n’est pas une photo acceptée. Choisissez un JPEG, PNG, WebP ou GIF.', 'err'); return; }
+    if (f.size > 5 * 1024 * 1024) { msg(k, 'Cette photo dépasse 5 Mo. Réduisez-la (par exemple avec l’outil de partage du téléphone), puis réessayez.', 'err'); return; }
+    var pick = $('ph-pick-' + k);
+    busy[k] = true; preview(k);
+    msg(k, 'Envoi de la photo…'); if (pick) pick.setAttribute('aria-busy', 'true');
+    api('/api/admin/media', { method: 'POST', headers: { 'Content-Type': f.type, 'X-File-Name': encodeURIComponent(f.name || 'photo') }, body: f }).then(function (j) {
+      busy[k] = false;
+      var p = $('ph-pick-' + k); if (p) p.removeAttribute('aria-busy');
+      if (!j.ok || !j.media || !j.media.url) { preview(k); msg(k, errText(j, 'La photo n’a pas pu être envoyée. Réessayez.'), 'err'); return; }
+      data[k] = { src: j.media.url, alt: data[k].alt || '' };
+      var alt = $('ph-alt-' + k); if (alt) alt.removeAttribute('data-k');
+      save(k, 'Photo enregistrée. Elle apparaît sur l’Accueil d’ici une minute environ. Pensez à la décrire ci-dessous.');
+    }, function () {
+      busy[k] = false; preview(k);
+      var p = $('ph-pick-' + k); if (p) p.removeAttribute('aria-busy');
+      msg(k, 'La photo n’a pas pu être envoyée : pas de connexion. Réessayez.', 'err');
     });
-    reset.addEventListener('click', function () {
+  }
+  document.addEventListener('change', function (e) {
+    var k = slotOf(e.target, 'ph-file-'); if (!k) return;
+    var input = e.target, f = input.files && input.files[0];
+    try { input.value = ''; } catch (x) {}
+    if (f) upload(k, f);
+  }, true);
+  document.addEventListener('click', function (e) {
+    var el = e.target && e.target.closest ? e.target.closest('button') : null; if (!el) return;
+    var k = slotOf(el, 'ph-reset-');
+    if (k) {
+      e.preventDefault();
       if (!confirm('Remettre la photo d’origine du site à cet endroit ?')) return;
       data[k] = { src: '', alt: '' };
-      var alt = $('ph-alt-' + k); if (alt) alt.removeAttribute('data-k');
+      var a1 = $('ph-alt-' + k); if (a1) a1.removeAttribute('data-k');
       save(k, 'Photo d’origine remise.');
-    });
-    btn.addEventListener('click', function () {
-      var alt = $('ph-alt-' + k); data[k].alt = alt ? alt.value.trim().slice(0, 200) : '';
+      return;
+    }
+    k = slotOf(el, 'ph-save-');
+    if (k) {
+      e.preventDefault();
+      var a2 = $('ph-alt-' + k); data[k].alt = a2 ? a2.value.trim().slice(0, 200) : '';
       save(k, 'Description enregistrée.');
-    });
-  }
-  function tick() { ['hero', 'bienvenue'].forEach(function (k) { bind(k); if (loaded) preview(k); }); }
+    }
+  }, true);
+  function tick() { if (loaded) KEYS.forEach(preview); }
   api('/api/admin/settings/photos').then(function (j) {
     if (j.ok && j.settings) data = j.settings;
     loaded = true; tick();
   }, function () { loaded = true; tick(); });
   var t = null;
   new MutationObserver(function () { clearTimeout(t); t = setTimeout(tick, 60); }).observe(document.documentElement, { childList: true, subtree: true });
-  tick();
 })();
 </script>
 """
@@ -218,9 +260,11 @@ def panel():
         end = body.rindex('</div>')          # fin de .card-b
         body = body[:end] + slot_html(k, *SLOTS[k]) + body[end:]
         tpl = tpl[:a] + body + tpl[b:]
+    h = tpl.index('</helmet>')                # styles : dans l'en-tête de la page, sinon ils sont ignorés
+    tpl = tpl[:h] + PANEL_CSS + tpl[h:]
     k = tpl.rindex('</body>')
-    tpl = tpl[:k] + PANEL_CSS + PANEL_JS + tpl[k:]
-    assert tpl.count('class="ph-slot"') == 2
+    tpl = tpl[:k] + PANEL_JS + tpl[k:]
+    assert tpl.count('class="ph-slot"') == 2 and tpl.count('id="sa-photos-css"') == 1
     save(path, s, i, j, tpl)
     print('panneau Accueil : bloc Photo ajouté aux cartes Héros et Bienvenue aux visiteurs')
 
