@@ -1149,6 +1149,31 @@ DEFAULT_SETTINGS.p404 = {
 };
 export const cleanP404Settings = (input) => cleanWith(P404_SCHEMA, input, DEFAULT_SETTINGS.p404);
 
+// Traductions (étape L2) : textes saisis dans le panneau, et corrections des textes fixes du site,
+// en arabe et en anglais. Clé = texte français tel qu'affiché (espaces normalisés). Le script des pages
+// publiques (#ascil-i18n) les applique en priorité sur son dictionnaire intégré.
+// Les valeurs ne sont jamais insérées comme HTML : elles remplacent le texte d'un nœud ou d'un attribut.
+DEFAULT_SETTINGS.traductions = { items: [] };
+const TR_MAX_ITEMS = 3000;
+const TR_MAX_LEN = 2000;
+const trText = (v) => (typeof v === 'string'
+  ? v.replace(/[\u0000-\u001f\u007f]/g, ' ').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim().slice(0, TR_MAX_LEN)
+  : '');
+export function cleanTraductionsSettings(input) {
+  const list = input && Array.isArray(input.items) ? input.items : [];
+  const items = [];
+  const seen = new Set();
+  for (const x of list) {
+    if (items.length >= TR_MAX_ITEMS) break;
+    if (!x || typeof x !== 'object') continue;
+    const fr = trText(x.fr), ar = trText(x.ar), en = trText(x.en);
+    if (!fr || (!ar && !en) || seen.has(fr)) continue;
+    seen.add(fr);
+    items.push({ fr, ar, en });
+  }
+  return { items };
+}
+
 // Clés modifiables par la route générique /api/admin/settings/:key, et par qui.
 // « event_registration » n'y figure pas : elle passe par /api/admin/events/settings
 // (superadmin et responsable événements), qui la valide.
@@ -1180,8 +1205,11 @@ export const GENERIC_KEYS = {
   dua: { roles: ['superadmin', 'editor'], clean: cleanDuaSettings },
   contact: { roles: ['superadmin', 'editor'], clean: cleanContactSettings },
   p404: { roles: ['superadmin', 'editor'], clean: cleanP404Settings },
+  // Jusqu'à 3000 textes de 2000 caractères au plus, dans les deux langues.
+  traductions: { roles: ['superadmin', 'editor'], clean: cleanTraductionsSettings, maxBytes: 1500000 },
 };
 
 // Réglages lisibles publiquement par /api/settings/:key.
 export const PUBLIC_KEYS = ['home', 'pages', 'alert', 'season', 'languages', 'horaires', 'khutba', 'rappel', 'apropos', 'services',
-  'cours', 'mariages', 'funerailles', 'aide', 'femmes', 'dons', 'merci', 'evenements', 'calendrier', 'ressources', 'dua', 'contact', 'p404'];
+  'cours', 'mariages', 'funerailles', 'aide', 'femmes', 'dons', 'merci', 'evenements', 'calendrier', 'ressources', 'dua', 'contact', 'p404',
+  'traductions'];

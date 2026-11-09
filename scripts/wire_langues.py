@@ -12,7 +12,9 @@
    - chaque texte et chaque attribut (aria-label, placeholder, title, alt) dont le français est dans le
      dictionnaire est remplacé, y compris après chaque nouveau rendu (MutationObserver, seulement sur
      les parties modifiées) ; un texte absent du dictionnaire reste en français ;
-   - une langue désactivée dans le panneau (Site entier -> Langues) n'est jamais appliquée.
+   - une langue désactivée dans le panneau (Site entier -> Langues) n'est jamais appliquée ;
+   - les traductions saisies dans la rubrique Traductions du panneau (clé « traductions »,
+     wire_traductions.py) passent avant le dictionnaire du site.
 3. Rapport : textes fixes des pages encore sans traduction, listés dans scripts/i18n-a-traduire.txt
    (fichier de travail, non servi : /scripts/* passe par les Functions).
 Ordre : après wire_nettoyage.py, avant fix_inputs.py. Idempotent.
@@ -236,13 +238,20 @@ SCRIPT = r"""<script id="ascil-i18n">
   var giveUp = setTimeout(function () { var w = document.getElementById('ascil-i18n-wait'); if (w) w.remove(); }, 2500);
   Promise.all([
     fetch('/i18n/' + lang + '.json').then(function (r) { return r.ok ? r.json() : null; }),
-    fetch('/api/settings/languages').then(function (r) { return r.ok ? r.json() : null; }, function () { return null; })
+    fetch('/api/settings/languages').then(function (r) { return r.ok ? r.json() : null; }, function () { return null; }),
+    // Traductions saisies dans le panneau (rubrique Traductions) : prioritaires sur le dictionnaire du site.
+    fetch('/api/settings/traductions').then(function (r) { return r.ok ? r.json() : null; }, function () { return null; })
   ]).then(function (res) {
     clearTimeout(giveUp);
-    var d = res[0], l = res[1];
+    var d = res[0], l = res[1], own = res[2];
     if (l && l.ok && l.settings && l.settings[lang] === false) { lang = 'fr'; store('fr'); }
     if (!d || lang === 'fr') { lang = 'fr'; start(); return; }
     dict = d.strings || {};
+    if (own && own.ok && own.settings && Array.isArray(own.settings.items)) {
+      own.settings.items.forEach(function (x) {
+        if (x && typeof x.fr === 'string' && typeof x[lang] === 'string' && x[lang]) dict[norm(x.fr)] = x[lang];
+      });
+    }
     pats = (d.patterns || []).map(function (p) { try { return [new RegExp(p[0]), p[1]]; } catch (e) { return null; } }).filter(Boolean);
     start();
   }, function () { clearTimeout(giveUp); lang = 'fr'; start(); });
