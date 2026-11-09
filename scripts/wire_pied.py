@@ -4,7 +4,8 @@ les pages publiques, et plus seulement sur l'accueil.
 Un même petit script (#ascil-pied-live) lit /api/settings/home et applique, dans le pied de page et
 le bandeau du haut uniquement (jamais dans le contenu propre d'une page) :
   - courriel (lien et texte), lien Facebook, lien de carte, adresse du pied de page ;
-  - liens TCOM et CCIQ ; la ligne CCIQ est masquée tant qu'elle n'a pas de lien (plus de lien « # ») ;
+  - liens TCOM et CCIQ ; la ligne CCIQ est masquée tant qu'elle n'a pas de lien (dans la page
+    elle-même : <li hidden>, sans lien « # » ; le script l'affiche dès qu'un lien https est enregistré) ;
   - lignes du pied de page affichées ou masquées (Facebook, TCOM, CCIQ, courriel, heures) et bouton Itinéraire.
 Les valeurs sont relues à chaque nouveau rendu de la page (React), sans boucle : rien n'est écrit
 si la valeur est déjà la bonne.
@@ -44,7 +45,11 @@ SCRIPT = r"""<script id="ascil-pied-live">
           });
         });
       }
-      if (https(g.facebook)) each('a[href*="facebook.com"]', function (a) { setHref(a, g.facebook.trim()); });
+      if (https(g.facebook)) {
+        each('a[href*="facebook.com"]', function (a) { setHref(a, g.facebook.trim()); });
+        // Ailleurs dans la page : seuls les liens vers l'accueil de Facebook (jamais partage ou vidéo).
+        document.querySelectorAll('a[href="https://www.facebook.com/"]').forEach(function (a) { setHref(a, g.facebook.trim()); });
+      }
       if (https(g.mapUrl)) each('a[href*="maps.google."]', function (a) { setHref(a, g.mapUrl.trim()); });
       if (g.address || g.city) {
         var adr = document.querySelector('footer .g4 > div:first-child > p');
@@ -63,7 +68,9 @@ SCRIPT = r"""<script id="ascil-pied-live">
           var t = li.textContent;
           if (/CCIQ/.test(t)) {
             if (https(pied.cciq)) setHref(a, pied.cciq.trim());
-            show(li, https(pied.cciq) && on.pCciq !== false);
+            var vis = https(pied.cciq) && on.pCciq !== false;
+            if (li.hidden === vis) li.hidden = !vis;
+            show(li, vis);
           } else if (/TCOM/.test(t)) {
             if (https(pied.tcom)) setHref(a, pied.tcom.trim());
             show(li, on.pTcom !== false);
@@ -109,6 +116,9 @@ def main():
         if '<footer' not in tpl:
             continue
         tpl = re.sub(r'<script id="ascil-pied-live">.*?</script>\s*', '', tpl, flags=re.S)
+        # Ligne CCIQ : masquée tant qu'elle n'a pas de lien (plus de lien « # » dans la page).
+        tpl = re.sub(r'<li><a href="#"( style="[^"]*">(?:(?!</a>).)*CCIQ)', r'<li hidden><a\1', tpl, flags=re.S)
+        assert not re.search(r'<a href="#"[^>]*>(?:(?!</a>).)*CCIQ', tpl), path.name
         k = tpl.rindex('</body>')
         tpl = tpl[:k] + SCRIPT + tpl[k:]
         enc = json.dumps(tpl).replace('</', '<\\u002F')

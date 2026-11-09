@@ -3,8 +3,8 @@
 1. SA-Site.dc.html :
    - #sp-0 « Pages publiées » :
      * 8 pages principales (Accueil avec interrupteur réellement désactivé + badge, et 7 pages avec pastille d'état en direct Publiée / Masquée du site) ;
-     * 6 « Services à confirmer (niveau 2) » (libellé « À confirmer » conservé + pastille et mention explicite de l'état publié réel sur le site) ;
-     * 5 « Petites apps (niveau 3) » (libellé « Prototype » conservé + pastille et mention explicite de l'état publié réel sur le site).
+     * 6 « Services (niveau 2) » (pastille et mention explicite de l'état publié réel sur le site) ;
+     * 5 « Applications (niveau 3) » (pastille et mention explicite de l'état publié réel sur le site).
    - #sp-1 « Saison et langues » :
      * « Mode du site » (Normal, Ramadan, Aïd al-Fitr, Aïd al-Adha, dates, changement auto + état en direct) ;
      * « Langues » (Français avec interrupteur réellement désactivé, العربية, English + pastilles d'état) ;
@@ -117,7 +117,7 @@ def build_sp0():
     for key, label in N2_PAGES:
         rows_n2.append(
             f'<div class="row"><div><div style="font-weight:600;font-size:14px">{label}</div>'
-            f'<p class="hint">À confirmer · <span style="font-weight:600;color:{{{{pub.{key}.fg}}}}">{{{{pub.{key}.sub}}}}</span></p></div>'
+            f'<p class="hint">Service · <span style="font-weight:600;color:{{{{pub.{key}.fg}}}}">{{{{pub.{key}.sub}}}}</span></p></div>'
             f'<div class="sw-wrap"><span class="pub-pill" style="background:{{{{pub.{key}.bg}}}};color:{{{{pub.{key}.fg}}}}">{{{{pub.{key}.t}}}}</span>'
             f'<button type="button" class="sw" role="switch" aria-label="{label}" aria-checked="{{{{s.{key}.c}}}}" sc-camel-on-click="{{{{s.{key}.t}}}}"></button></div></div>'
         )
@@ -126,7 +126,7 @@ def build_sp0():
     for key, label in N3_PAGES:
         rows_n3.append(
             f'<div class="row"><div><div style="font-weight:600;font-size:14px">{label}</div>'
-            f'<p class="hint">Prototype · <span style="font-weight:600;color:{{{{pub.{key}.fg}}}}">{{{{pub.{key}.sub}}}}</span></p></div>'
+            f'<p class="hint">Application · <span style="font-weight:600;color:{{{{pub.{key}.fg}}}}">{{{{pub.{key}.sub}}}}</span></p></div>'
             f'<div class="sw-wrap"><span class="pub-pill" style="background:{{{{pub.{key}.bg}}}};color:{{{{pub.{key}.fg}}}}">{{{{pub.{key}.t}}}}</span>'
             f'<button type="button" class="sw" role="switch" aria-label="{label}" aria-checked="{{{{s.{key}.c}}}}" sc-camel-on-click="{{{{s.{key}.t}}}}"></button></div></div>'
         )
@@ -142,15 +142,15 @@ def build_sp0():
         '<div><h3 class="ttl">Pages principales</h3><p class="dsc">Toujours visibles dans le menu.</p></div></div>'
         '<div class="card-b"><div>' + ''.join(rows_main) + '</div></div></section>'
 
-        '<section class="card" aria-label="Services à confirmer (niveau 2)"><div class="card-h"><span class="num" aria-hidden="true">2</span>'
-        '<div><h3 class="ttl">Services à confirmer (niveau 2)</h3>'
-        '<p class="dsc">Masqués par défaut tant que l’association n’a pas confirmé le service par écrit.</p></div></div>'
+        '<section class="card" aria-label="Services (niveau 2)"><div class="card-h"><span class="num" aria-hidden="true">2</span>'
+        '<div><h3 class="ttl">Services (niveau 2)</h3>'
+        '<p class="dsc">Pages des services de la mosquée. Une page masquée n’apparaît plus sur le site public.</p></div></div>'
         '<div class="card-b"><div>' + ''.join(rows_n2) + '</div>'
         '<p class="info" style="margin:4px 0 0">{{n2Summary}}</p></div></section>'
 
-        '<section class="card" aria-label="Petites apps (niveau 3)"><div class="card-h"><span class="num" aria-hidden="true">3</span>'
-        '<div><h3 class="ttl">Petites apps (niveau 3)</h3>'
-        '<p class="dsc">Outils interactifs. À publier quand leurs données sont prêtes.</p></div></div>'
+        '<section class="card" aria-label="Applications (niveau 3)"><div class="card-h"><span class="num" aria-hidden="true">3</span>'
+        '<div><h3 class="ttl">Applications (niveau 3)</h3>'
+        '<p class="dsc">Outils interactifs du site. Une page masquée n’apparaît plus sur le site public.</p></div></div>'
         '<div class="card-b"><div>' + ''.join(rows_n3) + '</div>'
         '<p class="info" style="margin:4px 0 0">{{n3Summary}}</p></div></section>'
         '</div>'
@@ -713,11 +713,11 @@ class Component extends DCLogic {
     const n2On = this.n2Keys.filter((k) => !!on[k]).length;
     const n3On = this.n3Keys.filter((k) => !!on[k]).length;
     const n2Summary = n2On === 0
-      ? 'État actuel : les 6 services à confirmer sont masqués du site public.'
-      : 'État actuel : ' + n2On + ' sur 6 service(s) « À confirmer » sont actuellement publiés et visibles sur le site public. Basculez un interrupteur puis cliquez sur « Enregistrer » pour masquer ou publier une page.';
+      ? 'État actuel : les 6 services sont masqués du site public.'
+      : 'État actuel : ' + n2On + ' sur 6 service(s) sont actuellement publiés et visibles sur le site public. Basculez un interrupteur puis cliquez sur « Enregistrer » pour masquer ou publier une page.';
     const n3Summary = n3On === 0
-      ? 'État actuel : les 5 petites apps (prototypes) sont masquées du site public.'
-      : 'État actuel : ' + n3On + ' sur 5 petite(s) app(s) « Prototype » sont actuellement publiées et visibles sur le site public. Basculez un interrupteur puis cliquez sur « Enregistrer » pour masquer ou publier une page.';
+      ? 'État actuel : les 5 applications sont masquées du site public.'
+      : 'État actuel : ' + n3On + ' sur 5 application(s) sont actuellement publiées et visibles sur le site public. Basculez un interrupteur puis cliquez sur « Enregistrer » pour masquer ou publier une page.';
 
     return {
       s, off, op, pub, n2Summary, n3Summary,

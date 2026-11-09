@@ -173,7 +173,7 @@ LIST_MAIN = '''
    <div class="card-b"><form id="np-form" novalidate style="display:flex;flex-direction:column;gap:14px;margin-top:10px">
     <div class="g2" style="align-items:start">
      <div class="fld"><label class="lbl" for="np-title">Titre de la page</label>
-      <input class="in" id="np-title" type="text" maxlength="120" placeholder="Ex. Inscriptions Ramadan 2027" aria-describedby="np-title-hint np-msg">
+      <input class="in" id="np-title" type="text" maxlength="120" placeholder="Ex. Programme du Ramadan" aria-describedby="np-title-hint np-msg">
       <p class="hint" id="np-title-hint"><span id="np-title-n"></span> / 120 caractères.</p></div>
      <div class="fld"><label class="lbl" for="np-slug">Adresse (lien de la page)</label>
       <div class="pe-slug"><span aria-hidden="true">/p/</span><input class="in pg-mono" id="np-slug" type="text" maxlength="60" placeholder="ex. inscriptions-ramadan-2027" aria-describedby="np-slug-hint np-msg" autocomplete="off" spellcheck="false"></div>

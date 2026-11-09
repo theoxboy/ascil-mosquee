@@ -1,7 +1,7 @@
 // POST /api/events/register
 // Inscription publique sans compte (< 1 min) avec code de réservation unique.
 //  - limite : 5 inscriptions par IP en 15 minutes (table rate_limits, migration 0006) ;
-//  - code ASC-XXXX-XXXX : 8 caractères tirés par crypto.getRandomValues (31^8 ≈ 850 milliards) ;
+//  - code « ASC- » + deux groupes de 4 caractères : 8 caractères tirés par crypto.getRandomValues (31^8 ≈ 850 milliards) ;
 //  - places vérifiées et réservées en UNE requête SQL (INSERT … SELECT … WHERE), donc atomique :
 //    deux inscriptions simultanées ne peuvent pas dépasser la jauge.
 import { json, error, readJson } from '../../_lib/http.js';

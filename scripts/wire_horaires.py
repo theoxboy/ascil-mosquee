@@ -941,7 +941,7 @@ HORAIRES_SYNC_SCRIPT = r'''<script id="sa-horaires-sync">
         '</div><div class="li-b" style="opacity:' + (v.on ? 1 : 0.5) + '"><div class="g3">' +
         '<div class="fld"><label class="lbl" for="kh-l-' + i + '">Langue principale</label><select class="in" id="kh-l-' + i + '" data-i="' + i + '" data-f="langue">' + opts(KH_LANGUES, v.langue) + '</select></div>' +
         '<div class="fld"><label class="lbl" for="kh-t-' + i + '">Traduction</label><select class="in" id="kh-t-' + i + '" data-i="' + i + '" data-f="traduction">' + opts(KH_TRADS, v.traduction) + '</select></div>' +
-        '<div class="fld"><label class="lbl" for="kh-i-' + i + '">Imam</label><input class="in" id="kh-i-' + i + '" type="text" maxlength="80" data-i="' + i + '" data-f="imam" placeholder="Nom à confirmer" value="' + escH(v.imam) + '"></div>' +
+        '<div class="fld"><label class="lbl" for="kh-i-' + i + '">Imam</label><input class="in" id="kh-i-' + i + '" type="text" maxlength="80" data-i="' + i + '" data-f="imam" placeholder="Nom de l’imam" value="' + escH(v.imam) + '"></div>' +
         '</div></div></li>';
     }).join('') + '</ol>';
   }

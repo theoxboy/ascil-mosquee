@@ -86,7 +86,7 @@ TABS = [
             dict(t='list', p='halal.items', add='+ Ajouter un commerce', title='nom', empty='Nouveau commerce', max=12,
                  none='Aucun commerce : la section n’est pas affichée.',
                  item=[T('nom', 'Nom', max=80, wide=True), T('adresse', 'Adresse', max=160), T('telephone', 'Téléphone', max=30),
-                       SEL('certif', 'Certification', [['confirmer', 'À confirmer auprès du restaurant'], ['certifie', 'Certifié (organisme indiqué)'], ['non', 'Non certifié']]),
+                       SEL('certif', 'Certification', [['confirmer', 'À vérifier auprès du restaurant'], ['certifie', 'Certifié (organisme indiqué)'], ['non', 'Non certifié']]),
                        T('organisme', 'Organisme de certification', max=80, hint='Affiché quand le commerce est certifié.')],
                  d={'nom': '', 'adresse': '', 'telephone': '', 'certif': 'confirmer', 'organisme': '', 'on': True}),
             SW('halal.avert', 'Avertissement « horaires approximatifs, à vérifier »'),
@@ -444,7 +444,7 @@ RES_JS = r"""
     const R = PT.ressources || __RES__;
     const on = (x) => x && x.on;
     const H = R.halal || {}, M = R.mosquees || {}, P = R.publics || {}, Q = R.reperes || {}, I = R.installer || {}, E = R.etudier || {};
-    const CERT = { confirmer: 'Certification halal : à confirmer auprès du restaurant', certifie: 'Certifié halal', non: 'Non certifié halal' };
+    const CERT = { confirmer: 'Certification halal : à vérifier auprès du restaurant', certifie: 'Certifié halal', non: 'Non certifié halal' };
     const halal = (H.items || []).filter((x) => x.on && x.nom).map((x) => ({
       nom: x.nom, adresse: x.adresse || '', hasAdr: !!x.adresse, tel: x.telephone || '', hasTel: !!x.telephone,
       telHref: 'tel:' + String(x.telephone || '').replace(/[^\d+]/g, ''),

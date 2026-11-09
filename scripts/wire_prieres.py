@@ -123,7 +123,7 @@ HOR_VALS = r'''  /*ascil-prayer*/
       monthTitle: mName ? mName.charAt(0).toUpperCase() + mName.slice(1) : 'Mois complet',
       showRam, ramIntro, ramToday, hasRamToday: !!ramToday, ramTar, hasRamTar: !!ramTar,
       showAid, aidDates: aidL.length ? aidL.join(' ') : 'Date selon l\u2019annonce TCOM.',
-      aidLieu: String(g('aid', 'lieu', 'Salle louée — 15 rue Frontenac') || 'Lieu à confirmer'), aidHref, hasAidHref: !!aidHref,
+      aidLieu: String(g('aid', 'lieu', 'Salle louée — 15 rue Frontenac') || 'Lieu communiqué prochainement'), aidHref, hasAidHref: !!aidHref,
       showQibla, qDeg, qRot: Number.isFinite(qNum) ? qNum : 61.6, qRepere, hasQRepere: !!qRepere,
       showSand: showRam || showAid || showQibla,
     };

@@ -1,6 +1,6 @@
 
 class Component extends DCLogic {
-  // Logique du panneau Accueil (SA-Panneau). Remplace celle de la maquette (scripts/wire_homepage.py).
+  // Logique du panneau Accueil (SA-Panneau). Remplace la logique d’origine (scripts/wire_homepage.py).
   // L'état « cur » est la seule source de vérité pour les interrupteurs, l'ordre des sections,
   // les cartes, les annonces et les heures de prière. Le script #sa-panneau-sync y accède par
   // window.__saHome (load, part, commit, revert) et gère les autres champs du formulaire.
