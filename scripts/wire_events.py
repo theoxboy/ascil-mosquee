@@ -6,10 +6,11 @@
    - T-N3-Inscription.dc.html (tablette)
    -> Script #ascil-inscription-sync :
       - Charge les données réelles et places restantes depuis GET /api/events/registration-info
-      - Gère les sélecteurs de places et options
-      - Soumet l'inscription via POST /api/events/register sans compte en < 1 min
-      - Affiche l'écran de confirmation avec le code unique ASC-XXXX
-      - Génère le téléchargement du fichier .ics (Ajouter à mon agenda)
+      - Remplit titre, date, lieu, description ; masque l'option végétarienne si elle est coupée
+      - Fournit le fichier .ics (window.__ascilIcs)
+   -> xvals() de la page (remplacé ici) : places réelles, compteur, envoi POST /api/events/register,
+      écran de confirmation avec le vrai code ASC-XXXX-XXXX. La maquette inventait un code « IFT- »
+      sans rien envoyer : c'est elle qui s'exécutait en premier et l'inscription n'arrivait jamais.
 
 2. Panneau d'administration :
    - SA-Evenements.dc.html
@@ -92,40 +93,10 @@ PUBLIC_INSCRIPTION_SYNC_SCRIPT = r'''<script id="ascil-inscription-sync">
     var descEl = document.querySelector('section[aria-labelledby="ev-t"] p:nth-of-type(3)');
     if (descEl && ev.description) descEl.textContent = ev.description;
 
-    // 2. Places & Jauge
-    var total = ev.total_seats || 120;
-    var reserved = ev.reserved_seats || 0;
-    var remaining = typeof ev.remaining_seats === 'number' ? ev.remaining_seats : Math.max(0, total - reserved);
-    var pct = Math.min(100, Math.round((reserved / total) * 100));
-
-    var placesTxtEl = document.querySelector('section[aria-labelledby="ev-t"] .prog')?.previousElementSibling?.firstElementChild;
-    var pctTxtEl = document.querySelector('section[aria-labelledby="ev-t"] .prog')?.previousElementSibling?.lastElementChild;
-    var progBar = document.querySelector('section[aria-labelledby="ev-t"] .prog i');
-
-    if (placesTxtEl) {
-      placesTxtEl.textContent = remaining > 0 ? (remaining + ' places restantes sur ' + total) : 'Complet';
-    }
-    if (pctTxtEl) {
-      pctTxtEl.textContent = pct + ' % réservé';
-    }
-    if (progBar) {
-      progBar.style.width = pct + '%';
-    }
-
-    // 3. Option végétarienne
+    // Places, compteur, envoi et confirmation : gérés par xvals() de la page (données réelles).
     var vegLabel = document.querySelector('input[type="checkbox"]')?.closest('label');
     if (vegLabel && ev.opt_vege === false) {
       vegLabel.style.display = 'none';
-    }
-
-    // 4. Si complet ou fermé
-    var formCard = document.querySelector('.card[aria-live="polite"]');
-    var submitBtn = document.querySelector('.card[aria-live="polite"] button.btn-gold');
-    if (!ev.is_open || remaining <= 0) {
-      if (submitBtn) {
-        submitBtn.setAttribute('disabled', 'true');
-        submitBtn.textContent = 'Inscriptions closes';
-      }
     }
   }
 
@@ -139,142 +110,9 @@ PUBLIC_INSCRIPTION_SYNC_SCRIPT = r'''<script id="ascil-inscription-sync">
       })
       .catch(function() {});
 
-    // Gestion des compteurs de personnes − / +
-    document.addEventListener('click', function(e) {
-      var t = e.target;
-      var minusBtn = t && (t.matches('button[aria-label="Une personne de moins"]') || t.closest('button[aria-label="Une personne de moins"]'));
-      var plusBtn = t && (t.matches('button[aria-label="Une personne de plus"]') || t.closest('button[aria-label="Une personne de plus"]'));
-
-      var countSpan = document.querySelector('button[aria-label="Une personne de plus"]')?.previousElementSibling;
-      var ctaBtn = document.querySelector('.card[aria-live="polite"] button.btn-gold');
-
-      if (minusBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        if (currentCount > 1) currentCount--;
-        if (countSpan) countSpan.textContent = currentCount;
-        if (ctaBtn) ctaBtn.textContent = 'Réserver ' + currentCount + ' place' + (currentCount > 1 ? 's' : '');
-        return;
-      }
-
-      if (plusBtn) {
-        e.preventDefault();
-        e.stopPropagation();
-        var max = (eventData && eventData.max_per_reg) || 6;
-        if (eventData && typeof eventData.remaining_seats === 'number') {
-          max = Math.min(max, eventData.remaining_seats);
-        }
-        if (currentCount < max) currentCount++;
-        if (countSpan) countSpan.textContent = currentCount;
-        if (ctaBtn) ctaBtn.textContent = 'Réserver ' + currentCount + ' place' + (currentCount > 1 ? 's' : '');
-        return;
-      }
-
-      // Soumission du formulaire
-      var isSubmit = t && (t.matches('.card[aria-live="polite"] button.btn-gold') || t.closest('.card[aria-live="polite"] button.btn-gold'));
-      if (isSubmit) {
-        e.preventDefault();
-        e.stopPropagation();
-        var btn = t.closest('.card[aria-live="polite"] button.btn-gold') || t;
-
-        var nameIn = document.getElementById('i1');
-        var contactIn = document.getElementById('i2');
-        var vegBox = document.querySelector('input[type="checkbox"]');
-
-        var nameVal = (nameIn ? nameIn.value : '').trim();
-        var contactVal = (contactIn ? contactIn.value : '').trim();
-
-        // Validation
-        var hasErr = false;
-        if (!nameVal) {
-          if (nameIn) nameIn.style.borderColor = '#B3261E';
-          hasErr = true;
-        } else if (nameIn) {
-          nameIn.style.borderColor = '#CDBF9C';
-        }
-
-        if (!contactVal) {
-          if (contactIn) contactIn.style.borderColor = '#B3261E';
-          hasErr = true;
-        } else if (contactIn) {
-          contactIn.style.borderColor = '#CDBF9C';
-        }
-
-        if (hasErr) return;
-
-        btn.setAttribute('disabled', 'true');
-        btn.textContent = 'Enregistrement…';
-
-        var payload = {
-          name: nameVal,
-          contact: contactVal,
-          attendees_count: currentCount,
-          is_vegetarian: vegBox ? vegBox.checked : false
-        };
-
-        fetch('/api/events/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(res) {
-          if (res && res.ok) {
-            // Affichage de l'écran de confirmation
-            var formCard = document.querySelector('.card[aria-live="polite"]');
-            if (formCard) {
-              formCard.innerHTML = [
-                '<div style="text-align:center;padding:10px 4px">',
-                '  <span class="pop" style="display:inline-flex;width:64px;height:64px;border-radius:50%;background:#0E4D3C;color:#fff;align-items:center;justify-content:center">',
-                '    <svg class="icon" aria-hidden="true" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>',
-                '  </span>',
-                '  <p class="h3" style="margin-top:14px;font-size:26px;color:#0E4D3C;font-weight:700">C’est réservé !</p>',
-                '  <p style="margin:8px 0 0;color:#202124;font-size:16px">' + esc(res.name) + ', votre réservation pour <strong>' + res.attendees_count + ' place' + (res.attendees_count > 1 ? 's' : '') + '</strong> est confirmée.</p>',
-                '  <p style="margin:4px 0 0;font-size:14px;color:#555">' + esc(res.event_title || '') + (res.is_vegetarian ? ' (repas végétarien inclus)' : '') + '</p>',
-                '  <p class="tnum" style="margin:18px auto 0;display:inline-block;padding:10px 20px;border-radius:12px;background:#F3EAD8;font-weight:800;font-size:20px;color:#0E4D3C;letter-spacing:.08em">Code : ' + esc(res.code) + '</p>',
-                '  <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:20px">',
-                '    <button type="button" id="btn-add-agenda" class="btn btn-ghost" style="min-height:44px;font-weight:600">Ajouter à mon agenda (.ics)</button>',
-                '    <button type="button" id="btn-new-reg" class="btn btn-ghost" style="min-height:44px;font-weight:600">Nouvelle inscription</button>',
-                '  </div>',
-                '  <p class="muted" style="margin:16px 0 0;font-size:14px">Pour modifier ou annuler, écrivez à l’association en indiquant votre code.</p>',
-                '</div>'
-              ].join('');
-
-              var agendaBtn = document.getElementById('btn-add-agenda');
-              if (agendaBtn) {
-                agendaBtn.addEventListener('click', function() {
-                  downloadIcs(res.event_title, res.date_str, res.location, 'Réservation ASCIL code ' + res.code);
-                  agendaBtn.textContent = 'Téléchargé';
-                });
-              }
-
-              var newRegBtn = document.getElementById('btn-new-reg');
-              if (newRegBtn) {
-                newRegBtn.addEventListener('click', function() {
-                  location.reload();
-                });
-              }
-            }
-
-            // Rafraîchir les places affichées
-            fetch('/api/events/registration-info')
-              .then(function(r) { return r.ok ? r.json() : null; })
-              .then(function(d) { if (d && d.event) updateUI(d.event); });
-
-          } else {
-            btn.removeAttribute('disabled');
-            btn.textContent = 'Réserver ' + currentCount + ' place' + (currentCount > 1 ? 's' : '');
-            alert(res.message || 'Une erreur est survenue lors de l’inscription.');
-          }
-        })
-        .catch(function() {
-          btn.removeAttribute('disabled');
-          btn.textContent = 'Réserver ' + currentCount + ' place' + (currentCount > 1 ? 's' : '');
-          alert('Erreur réseau. Veuillez vérifier votre connexion.');
-        });
-      }
-    });
   }
+
+  window.__ascilIcs = downloadIcs;
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
@@ -658,6 +496,78 @@ ADMIN_EVENEMENTS_SYNC_SCRIPT = r'''<script id="sa-evenements-sync">
 </script>
 '''
 
+XVALS = """
+  xvals() {
+    /*ascil-inscription*/
+    const st = this.state, v = this.v;
+    if (!this.evLoad) {
+      this.evLoad = true;
+      this.evFetch = () => { try { fetch('/api/events/registration-info', { cache: 'no-store' }).then((r) => (r.ok ? r.json() : null)).then((d) => { if (d && d.ok && d.event) this.setState({ ev: d.event }); }).catch(() => {}); } catch (e) {} };
+      this.evFetch();
+    }
+    const ev = st.ev || null;
+    const total = ev ? Math.max(0, Number(ev.total_seats) || 0) : 0;
+    const taken = ev ? Math.max(0, Number(ev.reserved_seats) || 0) : 0;
+    const left = ev ? (typeof ev.remaining_seats === 'number' ? ev.remaining_seats : Math.max(0, total - taken)) : 0;
+    const open = !!(ev && ev.is_open && left > 0);
+    const maxN = Math.max(1, Math.min(Number(ev && ev.max_per_reg) || 6, left || 1));
+    const n = Math.max(1, Math.min(st.n, maxN));
+    const r = st.res || null;
+    const closedTxt = !ev ? 'Chargement des places…' : (left <= 0 ? 'Complet' : (ev.is_expired ? 'Inscriptions closes (date limite passée)' : 'Inscriptions fermées'));
+    return {
+      taken, totalSeats: total || 1, maxN, takenPct: total ? Math.min(100, Math.round(taken / total * 100)) : 0,
+      placesTxt: !ev ? 'Chargement des places…' : (left > 0 ? left + ' places restantes sur ' + total : 'Complet'),
+      formShow: !st.iDone, iDone: st.iDone, formEyebrow: open ? 'Réserver mes places' : closedTxt,
+      n, nMinus: () => this.setState({ n: Math.max(1, n - 1) }), nPlus: () => this.setState({ n: Math.min(maxN, n + 1) }),
+      iCta: st.busy ? 'Enregistrement…' : (open ? 'Réserver ' + n + ' place' + (n > 1 ? 's' : '') : closedTxt),
+      iName: (e) => { v.iname = e.target.value; }, iMail: (e) => { v.imail = e.target.value; },
+      iNameErr: !!st.ierr.n, iMailErr: !!st.ierr.m, iNameBd: st.ierr.n ? '#B3261E' : '#CDBF9C', iMailBd: st.ierr.m ? '#B3261E' : '#CDBF9C',
+      iFail: !!st.ifail, iFailTxt: st.ifail || '',
+      iSend: () => {
+        if (st.busy || !open) return;
+        const name = (v.iname || (document.getElementById('i1') || {}).value || '').trim();
+        const contact = (v.imail || (document.getElementById('i2') || {}).value || '').trim();
+        const er = {}; if (name.length < 2) er.n = 1; if (contact.length < 5) er.m = 1;
+        if (Object.keys(er).length) return this.setState({ ierr: er, ifail: '' });
+        const veg = document.querySelector('.card[aria-live="polite"] input[type="checkbox"]');
+        this.setState({ ierr: {}, ifail: '', busy: true });
+        fetch('/api/events/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, contact, attendees_count: n, is_vegetarian: !!(veg && veg.checked) }) })
+          .then((x) => x.json().catch(() => null))
+          .then((d) => {
+            if (d && d.ok) { this.setState({ busy: false, iDone: true, res: d }); this.evFetch(); }
+            else { this.setState({ busy: false, ifail: (d && (d.message || (d.error && d.error.message))) || 'L\\u2019inscription n\\u2019a pas pu être enregistrée. Réessayez dans un instant.' }); this.evFetch(); }
+          })
+          .catch(() => this.setState({ busy: false, ifail: 'La connexion a échoué. Vérifiez votre accès à Internet et réessayez.' }));
+      },
+      doneTitle: 'C\\u2019est réservé !',
+      doneText: r ? r.attendees_count + ' place' + (r.attendees_count > 1 ? 's' : '') + (r.event_title ? ' pour ' + r.event_title : '') + (r.date_str ? ', ' + r.date_str : '') + '.' : '',
+      code: r ? r.code : '', iAgenda: () => { try { window.__ascilIcs && r && window.__ascilIcs(r.event_title, r.date_str, r.location, 'Réservation ASCIL code ' + r.code); } catch (e) {} this.setState({ iag: true }); },
+      iAgendaLab: st.iag ? 'Ajouté à l\\u2019agenda' : 'Ajouter à mon agenda',
+      iReset: () => { this.v.iname = ''; this.v.imail = ''; this.setState({ iDone: false, n: 1, res: null, iag: false, ifail: '' }); },
+    };
+  }
+"""
+
+ERR_OLD = '<p class="muted" style="margin:0;font-size:14px">Environ 30 secondes. Aucun compte à créer.</p>'
+ERR_NEW = ('<sc-if value="{{iFail}}" hint-placeholder-val="{{ false }}"><p class="err" role="alert" style="margin:0">{{iFailTxt}}</p></sc-if>' + ERR_OLD)
+
+
+def patch_logic(tpl, name):
+    """Remplace la fausse inscription de la maquette (code IFT- inventé, rien d'envoyé) par la vraie."""
+    tpl2, k = re.subn(r'\n  xvals\(\) \{\n.*?\n  \}\n(?=\n  /\*ascil-prayer\*/)', lambda _: XVALS, tpl, count=1, flags=re.S)
+    assert k == 1, 'xvals introuvable dans ' + name
+    for a, b in (('aria-valuemax="80" aria-valuenow="{{taken}}"', 'aria-valuemax="{{totalSeats}}" aria-valuenow="{{taken}}"'),
+                 ('<span class="muted" style="font-size:14px">max. 6</span>', '<span class="muted" style="font-size:14px">max. {{maxN}}</span>')):
+        if b not in tpl2:
+            assert tpl2.count(a) == 1, a + ' introuvable dans ' + name
+            tpl2 = tpl2.replace(a, b, 1)
+    if '{{iFail}}' not in tpl2:
+        assert tpl2.count(ERR_OLD) == 1, 'note du formulaire introuvable dans ' + name
+        tpl2 = tpl2.replace(ERR_OLD, ERR_NEW, 1)
+    assert "'IFT-'" not in tpl2 and 'ascil-inscription' in tpl2
+    return tpl2
+
+
 def update_file(path, script_tag, script_id):
     content = path.read_text(encoding='utf-8')
     m = re.search(r'<script type="__bundler/template">(.*?)</script>', content, re.S)
@@ -668,6 +578,7 @@ def update_file(path, script_tag, script_id):
     # Supprime toute version antérieure de ce script
     pat = re.compile(r'<script id="' + re.escape(script_id) + r'">.*?</script>\s*', re.S)
     tpl = pat.sub('', tpl)
+    tpl = patch_logic(tpl, path.name)
 
     # Insère immédiatement avant </body>
     idx_body = tpl.rindex('</body>')

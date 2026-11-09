@@ -71,8 +71,41 @@ PANNEAU_SYNC_SCRIPT = r'''<script id="sa-panneau-sync">
 
   function bridge() { return window.__saHome; }
   function toast(msg) { var b = bridge(); if (b) b.flash(msg); }
-  function setVal(id, v) { var el = document.getElementById(id); if (el && v != null) el.value = v; }
-  function getVal(id) { var el = document.getElementById(id); return el ? el.value.trim() : ''; }
+  // Valeurs réelles des champs : la page peut redessiner une carte, et un champ redessiné reprend la
+  // valeur de la maquette (ex. « 140 000 »). On garde donc la vraie valeur ici, on la remet dès qu'un
+  // champ réapparaît, et on la lit même quand le champ n'est pas affiché.
+  var cur = {};
+  function setVal(id, v) {
+    if (v == null) return;
+    cur[id] = String(v);
+    var el = document.getElementById(id);
+    if (el) { el.value = cur[id]; el.setAttribute('data-sa-v', '1'); }
+  }
+  function getVal(id) {
+    var el = document.getElementById(id);
+    if (el && el.getAttribute('data-sa-v') === '1') return el.value.trim();
+    return Object.prototype.hasOwnProperty.call(cur, id) ? String(cur[id]).trim() : (el ? el.value.trim() : '');
+  }
+  document.addEventListener('input', function(e) {
+    var t = e.target;
+    if (t && t.id && DOM_FIELDS.indexOf(t.id) > -1) { cur[t.id] = t.value; t.setAttribute('data-sa-v', '1'); }
+  }, true);
+  document.addEventListener('change', function(e) {
+    var t = e.target;
+    if (t && t.id && DOM_FIELDS.indexOf(t.id) > -1) { cur[t.id] = t.value; t.setAttribute('data-sa-v', '1'); }
+  }, true);
+  var refillT = null;
+  new MutationObserver(function() {
+    clearTimeout(refillT);
+    refillT = setTimeout(function() {
+      DOM_FIELDS.forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && el.getAttribute('data-sa-v') !== '1' && Object.prototype.hasOwnProperty.call(cur, id)) {
+          el.value = cur[id]; el.setAttribute('data-sa-v', '1');
+        }
+      });
+    }, 0);
+  }).observe(document.documentElement, { childList: true, subtree: true });
   function fmt(n) { return String(n || 0).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
   function api(url, opt) {
     return fetch(url, Object.assign({ credentials: 'same-origin', headers: { 'Content-Type': 'application/json' } }, opt || {}))

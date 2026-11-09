@@ -472,15 +472,16 @@ RES_JS = r"""
       showEt: on(E) && !!(E.titre || E.texte), etTitre: E.titre || '', etTexte: E.texte || '', hasEtTexte: !!E.texte,
     };"""
 
-LINK_CARD_IN = ('<span style="color:#0E4D3C">{icon}</span><span style="min-width:0"><span style="display:block;font-weight:700;overflow-wrap:anywhere">{{{{x.titre}}}}</span>'
+# Pas de str.format() ici : il transformait {{x.texte}} en {x.texte}, affiché tel quel sur la page.
+LINK_CARD_IN = ('<span style="color:#0E4D3C">@ICON@</span><span style="min-width:0"><span style="display:block;font-weight:700;overflow-wrap:anywhere">{{x.titre}}</span>'
                 + sc_if('x.hasTexte', '<span class="muted" style="display:block;margin-top:4px;font-size:15px">{{x.texte}}</span>')
-                + '{pill}</span>')
+                + '@PILL@</span>')
 
 
 def link_cards(var, icon):
     pill = '<span class="pill" style="background:#F3EAD8;color:#7A5A1E;margin-top:10px">Lien externe</span>'
-    inner_a = LINK_CARD_IN.format(icon=icon, pill=pill)
-    inner_d = LINK_CARD_IN.format(icon=icon, pill='')
+    inner_a = LINK_CARD_IN.replace('@ICON@', icon).replace('@PILL@', pill)
+    inner_d = LINK_CARD_IN.replace('@ICON@', icon).replace('@PILL@', '')
     return (f'<sc-for list="{{{{{var}}}}}" as="x" hint-placeholder-count="2">'
             + sc_if('x.hasLien', '<a class="card" href="{{x.lien}}" target="_blank" rel="noopener" style="display:flex;gap:14px;align-items:flex-start">' + inner_a + '</a>')
             + sc_if('x.noLien', '<div class="card" style="display:flex;gap:14px;align-items:flex-start">' + inner_d + '</div>', 'false')
@@ -724,6 +725,10 @@ def wire_public():
         s, i, j, tpl = load(path)
         if '{{resIntro}}' not in tpl:
             tpl = patch_ressources(tpl)
+        # Pages déjà branchées avec l'ancien gabarit : accolades simples affichées telles quelles.
+        tpl = tpl.replace('{x.hasTexte}', '{{x.hasTexte}}').replace('{x.texte}', '{{x.texte}}').replace('{x.titre}', '{{x.titre}}')
+        tpl = tpl.replace('{{{x.', '{{x.').replace('}}}', '}}')
+        assert '{x.' not in tpl.replace('{{x.', ''), path.name
         tpl = set_xvals(tpl, RES_JS.replace('__RES__', json.dumps(d['ressources'], ensure_ascii=False)))
         save(path, s, i, j, tpl)
         path = ROOT / f'{pre}N3-Dua.dc.html'

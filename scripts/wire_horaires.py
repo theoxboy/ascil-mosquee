@@ -381,8 +381,25 @@ HORAIRES_SYNC_SCRIPT = r'''<script id="sa-horaires-sync">
   function comp() { return window.__saHoraires; }
   function flash(msg) { var c = comp(); if (c) c.flash(msg); }
   function getEl(id) { return document.getElementById(id); }
-  function getVal(id) { var e = getEl(id); return e ? e.value.trim() : ''; }
-  function setVal(id, v) { var e = getEl(id); if (e) e.value = v == null ? '' : v; }
+  // Valeurs réelles des champs, gardées ici : un champ redessiné par la page reprend la valeur de la
+  // maquette (ou se vide) ; on la remet dès qu'il réapparaît, et on la lit même s'il n'est pas affiché.
+  var cur = {};
+  function setVal(id, v) { cur[id] = v == null ? '' : String(v); var e = getEl(id); if (e) { e.value = cur[id]; e.setAttribute('data-sa-v', '1'); } }
+  function getVal(id) {
+    var e = getEl(id);
+    if (e && (e.getAttribute('data-sa-v') === '1' || !Object.prototype.hasOwnProperty.call(cur, id))) return String(e.value).trim();
+    return Object.prototype.hasOwnProperty.call(cur, id) ? String(cur[id]).trim() : '';
+  }
+  ['input', 'change'].forEach(function (ev) {
+    document.addEventListener(ev, function (e) { var t = e.target; if (t && t.id && Object.prototype.hasOwnProperty.call(cur, t.id)) { cur[t.id] = t.value; t.setAttribute('data-sa-v', '1'); } }, true);
+  });
+  var refillT = null;
+  new MutationObserver(function () {
+    clearTimeout(refillT);
+    refillT = setTimeout(function () {
+      Object.keys(cur).forEach(function (id) { var e = getEl(id); if (e && e.getAttribute('data-sa-v') !== '1') { e.value = cur[id]; e.setAttribute('data-sa-v', '1'); } });
+    }, 0);
+  }).observe(document.documentElement, { childList: true, subtree: true });
 
   function normalizeTime(raw) {
     if (raw == null) return '';

@@ -2,7 +2,7 @@
 // Renvoie les statistiques agrégées selon le rôle du compte connecté.
 import { requireRole } from '../../_lib/guard.js';
 import { json, error } from '../../_lib/http.js';
-import { DEFAULT_SETTINGS, cleanHomeSettings, readEventRegistrationSettings } from '../../_lib/settings.js';
+import { DEFAULT_SETTINGS, cleanHomeSettings, cleanEvenementsSettings, readEventRegistrationSettings } from '../../_lib/settings.js';
 import { autoTotals } from '../../_lib/campagne.js';
 
 export async function onRequestGet({ request, env }) {
@@ -15,9 +15,14 @@ export async function onRequestGet({ request, env }) {
   // 1. Événements (accessible à tous les rôles admin)
   let eventsCount = 0;
   let registrationsCount = 0;
+  // Les événements sont ceux saisis dans « Événements » du panneau (réglage evenements),
+  // pas l'ancienne table events, restée vide : le tableau de bord affichait 0.
   try {
-    const evRow = await db.prepare('SELECT COUNT(*) as count FROM events').first();
-    if (evRow) eventsCount = Number(evRow.count) || 0;
+    const evSet = await db.prepare('SELECT value FROM site_settings WHERE key = ?').bind('evenements').first();
+    if (evSet && evSet.value) {
+      const items = cleanEvenementsSettings(JSON.parse(evSet.value)).items || [];
+      eventsCount = items.filter((x) => x && x.titre).length;
+    }
   } catch {}
 
   try {

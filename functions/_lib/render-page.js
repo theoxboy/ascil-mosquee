@@ -219,8 +219,8 @@ function alertHtml(alert) {
 const HEADER = `<header class="hdr"><div class="hdr-in">
 <a class="logo" href="/">ASCIL<small>Mosquée de Rivière-du-Loup</small></a>
 <nav aria-label="Navigation principale"><ul class="nav">
-<li><a href="/Horaires.dc.html">Horaires</a></li><li><a href="/Evenements.dc.html">Événements</a></li>
-<li><a href="/Services.dc.html">Services</a></li><li><a href="/Contact.dc.html">Contact</a></li>
+<li><a href="/Horaires.dc.html">Horaires</a></li><li><a href="/APropos.dc.html">À propos</a></li>
+<li><a href="/Services.dc.html">Services</a></li><li><a href="/Evenements.dc.html">Événements</a></li><li><a href="/Contact.dc.html">Contact</a></li>
 <li><a class="don" href="/Dons.dc.html">Faire un don</a></li></ul></nav></div></header>`;
 
 const FOOTER = `<footer class="ftr"><div class="ftr-in">
@@ -228,6 +228,8 @@ const FOOTER = `<footer class="ftr"><div class="ftr-in">
 <p>174 rue Lafontaine, Rivière-du-Loup (Québec) · <a href="mailto:associationrdl.ascil@gmail.com">associationrdl.ascil@gmail.com</a></p>
 <p><a href="/">Retour à l’accueil</a></p></div></footer>`;
 
+// Les balises email_off empêchent Cloudflare de remplacer les adresses par « [email protected] » :
+// son script de décodage est bloqué par la politique de sécurité de ces pages.
 function shell({ title, description, body, noindex, canonical, layout, alert, draft }) {
   const site = layout !== 'blank';
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8">
@@ -243,9 +245,11 @@ ${description ? `<meta property="og:description" content="${esc(description)}">`
 <style>${STYLE}</style></head><body>
 <a class="skip" href="#contenu">Aller au contenu</a>
 ${draft ? '<p class="draft" role="note">Brouillon : cette page n’est visible que par les comptes connectés au superadmin.</p>' : ''}
+<!--email_off-->
 ${site ? alertHtml(alert) + HEADER : ''}
 ${body}
 ${site ? FOOTER : ''}
+<!--/email_off-->
 </body></html>`;
 }
 

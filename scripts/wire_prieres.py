@@ -361,7 +361,8 @@ LIVE_SCRIPT = r'''<script id="ascil-prayer-live">
       P.today = pt.today || pt.day;
       P.date = (P.today && P.today.date) || pt.date;
       P.month = pt.month;
-      P.days = pt.days || [];
+      // Heures retenues de chaque jour (tableau, sinon défauts de l'Accueil, sinon calcul pour Lever, Dohr, Asr, Maghreb).
+      P.days = (Array.isArray(pt.resolved) && pt.resolved.length ? pt.resolved : pt.days) || [];
       P.defaults = pt.defaults || {};
     } else {
       P.failed = true;
