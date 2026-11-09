@@ -100,7 +100,8 @@ SCRIPT = r"""<script id="ascil-i18n">
   var SKIP = { SCRIPT: 1, STYLE: 1, TEXTAREA: 1, CODE: 1, PRE: 1, NOSCRIPT: 1 };
   var ATTRS = ['aria-label', 'placeholder', 'title', 'alt'];
   function norm(s) { return s.replace(/ /g, ' ').replace(/\s+/g, ' ').trim(); }
-  var has = function (k) { return Object.prototype.hasOwnProperty.call(dict, k); };
+  // Garde-fou : sans dictionnaire (français, ou dictionnaire pas encore chargé), rien n'est traduit.
+  var has = function (k) { return !!dict && Object.prototype.hasOwnProperty.call(dict, k); };
   // Dates écrites en français (« samedi 7 novembre 2026 », « 25 avr. 2026 », « Novembre 2026 »).
   var FR_M = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
   var FR_MS = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
@@ -136,6 +137,7 @@ SCRIPT = r"""<script id="ascil-i18n">
   var PREFIX_END = /(?:^|\s)(?:à|sous|par|en|le|sur|code|jusqu’à|Jusqu’à)$|[:«—]$/;
   var prefixes = null;
   function tr(s, depth) {
+    if (!dict || lang === 'fr') return null;
     var k = norm(s);
     if (!k) return null;
     depth = depth || 0;
@@ -192,32 +194,39 @@ SCRIPT = r"""<script id="ascil-i18n">
     if (root.querySelectorAll) root.querySelectorAll('[aria-label],[placeholder],[title],[alt]').forEach(attrs);
   }
   var queue = [], timer = null;
+  // Une erreur ici ne doit jamais se répéter à chaque rendu : elle est arrêtée et la page reste en l'état.
   function flush() {
     timer = null;
     var q = queue; queue = [];
-    for (var i = 0; i < q.length; i++) if (q[i].isConnected !== false) walk(q[i]);
-    var t = tr(document.title); if (t != null && t !== document.title) document.title = t;
-    marks();
+    try {
+      if (dict && lang !== 'fr') {
+        for (var i = 0; i < q.length; i++) if (q[i].isConnected !== false) walk(q[i]);
+        var t = tr(document.title); if (t != null && t !== document.title) document.title = t;
+      }
+      marks();
+    } catch (e) { /* page laissée telle quelle */ }
   }
-  function later(n) { queue.push(n); if (!timer) timer = setTimeout(flush, 0); }
+  function later(n) { if (lang === 'fr' || !dict) return; queue.push(n); if (!timer) timer = setTimeout(flush, 0); }
 
   function start() {
     var root = document.documentElement;
-    if (lang !== 'fr') {
-      root.setAttribute('lang', lang);
-      root.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
-      walk(document.body);
-      var t = tr(document.title); if (t != null) document.title = t;
-    }
-    marks();
+    try {
+      if (lang !== 'fr' && dict) {
+        root.setAttribute('lang', lang);
+        root.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+        walk(document.body);
+        var t = tr(document.title); if (t != null) document.title = t;
+      }
+      marks();
+    } catch (e) { /* page laissée telle quelle */ }
     new MutationObserver(function (recs) {
       for (var i = 0; i < recs.length; i++) {
         var r = recs[i];
         if (r.type === 'characterData') { if (lang !== 'fr') later(r.target); }
         else if (r.type === 'attributes') { if (lang !== 'fr') later(r.target); }
-        else for (var j = 0; j < r.addedNodes.length; j++) later(r.addedNodes[j]);
+        else if (lang !== 'fr') for (var j = 0; j < r.addedNodes.length; j++) later(r.addedNodes[j]);
       }
-      if (lang === 'fr' && !timer) timer = setTimeout(function () { timer = null; queue = []; marks(); }, 0);
+      if (lang === 'fr' && !timer) timer = setTimeout(function () { timer = null; queue = []; try { marks(); } catch (e) {} }, 0);
     }).observe(root, lang === 'fr' ? { childList: true, subtree: true }
       : { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
     var w = document.getElementById('ascil-i18n-wait'); if (w) w.remove();

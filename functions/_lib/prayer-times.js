@@ -1,7 +1,10 @@
 // Tableau mensuel des heures de prière (table prayer_times) : source unique des horaires du site.
 // Une ligne par jour (date AAAA-MM-JJ). Pour les heures du jour, toute case vide ou absente se
 // replie sur les défauts de l'Accueil (home.priere : Fajr 06:30, Jumu'a 12:30, Icha 19:00).
+// Lever, Dohr, Asr et Maghreb encore vides sont alors calculés (ISNA, Rivière-du-Loup) ; la liste
+// `calc` du jour nomme les colonnes calculées. Rien n'est écrit dans la table.
 import { DEFAULT_SETTINGS, cleanHomeSettings } from './settings.js';
+import { CALC_COLUMNS, calcDay } from './prayer-calc.js';
 
 export const ROLES = ['superadmin', 'editor'];
 export const PRAYER_COLUMNS = ['fajr', 'lever', 'dohr', 'asr', 'maghreb', 'isha', 'jumuha'];
@@ -110,10 +113,17 @@ export function resolveDayWithDefaults(row, defaults, date) {
     fajr: '06:30', lever: '', dohr: '', asr: '', maghreb: '', isha: '19:00', jumuha: '12:30',
   };
   const fajr = cleanTime(r.fajr) || d.fajr || '06:30';
-  const lever = cleanTime(r.lever) || d.lever || '';
-  const dohr = cleanTime(r.dohr) || d.dohr || '';
-  const asr = cleanTime(r.asr) || d.asr || '';
-  const maghreb = cleanTime(r.maghreb) || d.maghreb || '';
+  // Lever, Dohr, Asr, Maghreb : ligne du tableau, puis défaut de l'Accueil, et seulement en dernier
+  // recours le calcul local ISNA (prayer-calc.js). Fajr, Icha et Jumu'a ne sont jamais calculés.
+  const manual = {};
+  for (const col of CALC_COLUMNS) manual[col] = cleanTime(r[col]) || d[col] || '';
+  const calc = [];
+  let computed = null;
+  if (date && CALC_COLUMNS.some((col) => !manual[col])) computed = calcDay(date);
+  for (const col of CALC_COLUMNS) {
+    if (!manual[col] && computed && computed[col]) { manual[col] = computed[col]; calc.push(col); }
+  }
+  const { lever, dohr, asr, maghreb } = manual;
   const isha = cleanTime(r.isha ?? r.icha) || d.isha || '19:00';
   const jumuha = cleanTime(r.jumuha ?? r.jumua) || d.jumuha || '12:30';
 
@@ -134,6 +144,7 @@ export function resolveDayWithDefaults(row, defaults, date) {
     jumua: jumuha,
     source: r.source || (hasRow ? 'table' : 'defaults'),
     fromTable: hasRow,
+    calc,
   };
 }
 
