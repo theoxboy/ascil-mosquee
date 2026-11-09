@@ -8,7 +8,7 @@
    - langue choisie : ?lang=fr|ar|en dans l'adresse, sinon le choix gardé dans le navigateur, sinon français ;
    - le sélecteur existant (liste « Français / العربية / English » sur PC, pastilles FR / العربية / EN
      dans le menu mobile) change vraiment de langue, à la souris comme au clavier ;
-   - en arabe : <html lang="ar" dir="rtl">, police Noto Sans Arabic ; en anglais : <html lang="en"> ;
+   - en arabe : <html lang="ar" dir="rtl">, police Cairo (/fonts/cairo) ; en anglais : <html lang="en"> ;
    - chaque texte et chaque attribut (aria-label, placeholder, title, alt) dont le français est dans le
      dictionnaire est remplacé, y compris après chaque nouveau rendu (MutationObserver, seulement sur
      les parties modifiées) ; un texte absent du dictionnaire reste en français ;
@@ -240,8 +240,10 @@ SCRIPT = r"""<script id="ascil-i18n">
   document.head.appendChild(st);
   var css = document.createElement('style');
   css.id = 'ascil-i18n-css';
-  css.textContent = 'html[lang="ar"] body, html[lang="ar"] .serif, html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3, html[lang="ar"] h4, html[lang="ar"] button, html[lang="ar"] input, html[lang="ar"] select, html[lang="ar"] textarea'
-    + "{font-family:'Noto Sans Arabic','Noto Sans',system-ui,sans-serif}"
+  // Police arabe : Cairo (fichier variable, toutes les graisses ; licence SIL OFL dans /fonts/cairo/OFL.txt).
+  css.textContent = (lang === 'ar' ? "@font-face{font-family:'Cairo';src:url('/fonts/cairo/Cairo-Variable.ttf') format('truetype');font-weight:200 1000;font-style:normal;font-display:swap}" : '')
+    + 'html[lang="ar"] body, html[lang="ar"] .serif, html[lang="ar"] h1, html[lang="ar"] h2, html[lang="ar"] h3, html[lang="ar"] h4, html[lang="ar"] button, html[lang="ar"] input, html[lang="ar"] select, html[lang="ar"] textarea'
+    + "{font-family:'Cairo','Noto Sans Arabic',system-ui,sans-serif}"
     + 'html[dir="rtl"] .tnum, html[dir="rtl"] time{unicode-bidi:isolate}';
   document.head.appendChild(css);
   var giveUp = setTimeout(function () { var w = document.getElementById('ascil-i18n-wait'); if (w) w.remove(); }, 2500);

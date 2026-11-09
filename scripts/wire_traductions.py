@@ -52,7 +52,8 @@ STYLE = '''<style id="sa-tr-style">
 .tr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
 @container (max-width: 760px){.tr-grid{grid-template-columns:minmax(0,1fr)}}
 .tr-grid textarea{inline-size:100%;min-inline-size:0;min-height:64px;resize:vertical}
-.tr-grid textarea[lang="ar"]{font-family:'Noto Sans Arabic','Noto Sans',system-ui,sans-serif;font-size:16px}
+@font-face{font-family:'Cairo';src:url('/fonts/cairo/Cairo-Variable.ttf') format('truetype');font-weight:200 1000;font-style:normal;font-display:swap}
+.tr-grid textarea[lang="ar"]{font-family:'Cairo','Noto Sans Arabic',system-ui,sans-serif;font-size:16px}
 .tr-bar{position:sticky;bottom:0;z-index:5;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;
   padding:12px 14px;border:1px solid #E4D9C0;border-radius:14px;background:#FFFEF9;box-shadow:0 -8px 24px -18px rgba(0,0,0,.35)}
 .tr-list{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:10px}
