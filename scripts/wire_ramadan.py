@@ -408,15 +408,17 @@ def page(tpl):
     return tpl
 
 
-# Lien « Ramadan » dans le menu des pages publiques, seulement pendant le Ramadan (mêmes règles que le serveur).
+# Lien de la saison dans le menu des pages publiques (Ramadan, Aïd al-Fitr, Aïd al-Adha), seulement pendant
+# la saison choisie dans « Mode du site » (mêmes règles que le serveur). Le nom du script reste #ascil-ramadan-menu.
 MENU_SCRIPT = r"""<script id="ascil-ramadan-menu">
 (function () {
-  var HREF = '/TH-Ramadan-Page.dc.html';
+  var LINKS = { ramadan: ['/TH-Ramadan-Page.dc.html', 'Ramadan'], aid_fitr: ['/TH-Fitr-Page.dc.html', 'Aïd al-Fitr'], aid_adha: ['/TH-Adha-Page.dc.html', 'Aïd al-Adha'] };
+  var HREF = '', LABEL = '';
   function today() {
     try { var p = {}; new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Toronto', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date()).forEach(function (x) { p[x.type] = x.value; }); return p.year + '-' + p.month + '-' + p.day; } catch (e) { return new Date().toISOString().slice(0, 10); }
   }
   function active(s) {
-    if (!s || s.mode !== 'ramadan') return false;
+    if (!s || !LINKS[s.mode]) return false;
     if (!s.auto) return true;
     var d = today();
     return !!s.from && !!s.to && d >= s.from && d <= s.to;
@@ -432,7 +434,7 @@ MENU_SCRIPT = r"""<script id="ascil-ramadan-menu">
       var h = horaires(desk), after = h && h.closest('.dd') ? h.closest('.dd') : h;
       if (after) {
         var a = document.createElement('a');
-        a.className = 'navlink'; a.href = HREF; a.textContent = 'Ramadan'; a.setAttribute('data-ascil-ramadan', '');
+        a.className = 'navlink'; a.href = HREF; a.textContent = LABEL; a.setAttribute('data-ascil-ramadan', '');
         after.parentNode.insertBefore(a, after.nextSibling);
       }
     }
@@ -442,13 +444,14 @@ MENU_SCRIPT = r"""<script id="ascil-ramadan-menu">
       if (hm && hm.parentNode === mob) {
         var c = hm.cloneNode(true);
         c.href = HREF; c.setAttribute('data-ascil-ramadan', ''); c.removeAttribute('aria-current');
-        for (var k = 0; k < c.childNodes.length; k++) { if (c.childNodes[k].nodeType === 3 && c.childNodes[k].nodeValue.trim()) { c.childNodes[k].nodeValue = 'Ramadan'; break; } }
+        for (var k = 0; k < c.childNodes.length; k++) { if (c.childNodes[k].nodeType === 3 && c.childNodes[k].nodeValue.trim()) { c.childNodes[k].nodeValue = LABEL; break; } }
         mob.insertBefore(c, hm.nextSibling);
       }
     }
   }
   fetch('/api/settings/season').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
     if (!j || !j.ok || !active(j.settings)) return;
+    HREF = LINKS[j.settings.mode][0]; LABEL = LINKS[j.settings.mode][1];
     add();
     new MutationObserver(add).observe(document.documentElement, { childList: true, subtree: true });
   }).catch(function () {});
@@ -475,7 +478,7 @@ def menu_pages():
             enc = json.dumps(new).replace('</', '<\\u002F')
             path.write_text(s[:i] + enc + s[j:], encoding='utf-8')
         n += 1
-    print(f'lien « Ramadan » (pendant la saison) dans le menu de {n} pages publiques')
+    print(f'lien de la saison (Ramadan, Aïd) dans le menu de {n} pages publiques')
 
 
 if __name__ == '__main__':

@@ -9,8 +9,9 @@ import { activeSeasonMode, pageSettingForPath, readPagesSettings, readSeasonSett
 const PRIVATE = [/^\/functions(\/|$)/, /^\/migrations(\/|$)/, /^\/scripts(\/|$)/, /^\/wrangler\.toml$/, /^\/_routes\.json$/, /^\/\.git/];
 // Adresses de l'Accueil : pendant le Ramadan (« Site entier → Mode du site »), elles affichent l'Accueil Ramadan.
 const HOME_PAGES = [/^\/$/, /^\/index(\.html)?$/, /^\/Main\.dc(\.html)?$/, /^\/(?:M|T)-Accueil\.dc(\.html)?$/];
-const SEASON_HOME = { ramadan: '/TH-Ramadan-Accueil.dc' };
-const SEASON_HOME_RE = /^\/TH-Ramadan-Accueil\.dc(\.html)?$/;
+const SEASON_HOME = { ramadan: '/TH-Ramadan-Accueil.dc', aid_fitr: '/TH-Fitr-Accueil.dc', aid_adha: '/TH-Adha-Accueil.dc' };
+const SEASON_HOME_RE = /^\/TH-(Ramadan|Fitr|Adha)-Accueil\.dc(\.html)?$/;
+const SEASON_OF = { Ramadan: 'ramadan', Fitr: 'aid_fitr', Adha: 'aid_adha' };
 const LOGIN_PAGES = [/^\/superadmin(\.html)?$/, /^\/SA-Connexion\.dc(\.html)?$/];
 
 const PAGE_HEADERS = {
@@ -69,7 +70,7 @@ export async function onRequest(context) {
   }
 
   // Accueil de saison : servi à la place de l'Accueil, à la même adresse (pas de redirection, pas de clignotement).
-  // Hors saison, l'adresse directe de l'Accueil Ramadan mène à l'Accueil normal.
+  // Hors de sa saison, l'adresse directe d'un Accueil saisonnier mène à l'Accueil.
   const isHome = HOME_PAGES.some((re) => re.test(path));
   if ((isHome || SEASON_HOME_RE.test(path)) && env.DB && request.method === 'GET') {
     const season = await readSeasonSettings(env.DB).catch(() => null);
@@ -81,7 +82,8 @@ export async function onRequest(context) {
       } catch (e) {
         console.warn('season home error', e && e.message);
       }
-    } else if (!isHome && !SEASON_HOME[mode]) {
+    } else if (!isHome && SEASON_OF[SEASON_HOME_RE.exec(path)[1]] !== mode) {
+      // Accueil d'une autre saison que celle en cours : on mène à l'Accueil du moment.
       return redirect('/');
     }
   }

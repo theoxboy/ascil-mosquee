@@ -75,6 +75,10 @@ export async function onRequestPost({ request, env }) {
     ).bind(v.source, v.sujet || null, v.nom, v.contact, v.message, v.details ? JSON.stringify(v.details) : null).run();
   } catch (err) {
     console.error('form_messages insert error:', err && err.message);
+    // Table absente : la migration 0009 n'a pas été appliquée dans la console D1.
+    if (/no such table/i.test(String(err && err.message))) {
+      return error(503, 'no_table', 'Les demandes en ligne ne sont pas encore activées sur le site. Écrivez à l’association par courriel en attendant (adresse en bas de page).');
+    }
     return error(500, 'db_error', 'Votre message n’a pas pu être enregistré. Réessayez dans un instant.');
   }
   return json({ ok: true, message: 'Votre message est bien arrivé à l’association.' });
