@@ -604,9 +604,11 @@ COURS_JS = r"""
       lvlOpts: opt([['deb', 'Débutant'], ['int', 'Intermédiaire'], ['av', 'Avancé']], 'lvl'),
       results: chosen ? [] : res, noAnswer: !(st.age && st.subj), noMatch: !!(st.age && st.subj) && res.length === 0,
       regOpen: !!chosen, regName: chosen ? chosen.n : '', regDone: st.regDone, regNotDone: !st.regDone,
-      regSend: () => { if (!chosen) return; post({ source: 'cours', nom: gv('r1'), contact: gv('r2'), sujet: chosen.n,
+      regSend: () => { if (!chosen) return; const tel = gv('r2'), mail = gv('r4');
+        if (!tel && !mail) return this.setState({ sendErr: 'Indiquez un numéro de téléphone (de préférence) ou un courriel.' });
+        post({ source: 'cours', nom: gv('r1'), contact: tel || mail, sujet: chosen.n,
         message: (chosen.places ? 'Demande d’inscription au cours « ' : 'Demande de place en liste d’attente pour le cours « ') + chosen.n + ' ».',
-        details: { 'Cours': chosen.n, 'Horaire': when(chosen), 'Prénom de l’enfant': gv('r3'), 'Liste d’attente': chosen.places ? 'Non' : 'Oui' } }, { regDone: true }); },
+        details: { 'Cours': chosen.n, 'Horaire': when(chosen), 'Téléphone': tel, 'Courriel': mail, 'Prénom de l’enfant': gv('r3'), 'Liste d’attente': chosen.places ? 'Non' : 'Oui' } }, { regDone: true }); },
       regBtn: sendVals('Envoyer la demande'),
       regDoneTxt: 'L’enseignant vous répond sous ' + (V.delai || '48 h') + '.' + (V.essai ? ' Le premier cours est un cours d’essai gratuit.' : ''),
       resetFinder: () => this.setState({ age: '', subj: '', lvl: '', course: 0, regDone: false, waitDone: false, sendErr: '' }),
@@ -924,6 +926,20 @@ def defaults():
     return json.loads(out)
 
 
+# Inscription aux cours : téléphone (préféré) ou courriel, l'un des deux suffit.
+R2_OLD = '<div class="field"><label for="r2">Courriel</label><input id="r2" type="email" autocomplete="email"></div>'
+R2_NEW = ('<p style="margin:0;font-weight:700;font-size:15px">Pour vous joindre : un téléphone (de préférence) ou un courriel</p>'
+          '<div class="field"><label for="r2">Téléphone (de préférence)</label><input id="r2" type="tel" inputmode="tel" autocomplete="tel" maxlength="30"></div>'
+          '<div class="field"><label for="r4">Courriel (si pas de téléphone)</label><input id="r4" type="email" autocomplete="email" maxlength="200"></div>')
+
+
+def contact_cours(tpl, name):
+    if R2_NEW in tpl:
+        return tpl
+    assert tpl.count(R2_OLD) == 1, 'champ Courriel du formulaire introuvable dans ' + name
+    return tpl.replace(R2_OLD, R2_NEW, 1)
+
+
 def wire_public():
     D = defaults()
     for name, key, fn in PAGES:
@@ -934,6 +950,8 @@ def wire_public():
                 tpl = set_xvals(tpl, {'cours': COURS_JS, 'mariages': MARIAGES_JS, 'funerailles': FUNERAILLES_JS, 'aide': AIDE_JS, 'femmes': FEMMES_JS}[key], D[key])
             else:
                 tpl = fn(tpl, D[key])
+            if key == 'cours':
+                tpl = contact_cours(tpl, path.name)
             save(path, s, i, j, tpl)
     print('15 pages publiques des services (Cours, Mariages, Funérailles, Aide alimentaire, Espace femmes ; PC, M-, T-) reliées aux réglages')
 
